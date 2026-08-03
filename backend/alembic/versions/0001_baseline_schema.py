@@ -29,10 +29,10 @@ depends_on = None
 # dipendono (tramite FK) quasi tutte le altre tabelle.
 _CATEGORIES = [
     "Sistema",
+    "Documenti",
+    "Mod. Personale",
     "Mod. Anagrafica Aziendale/Dati estrapolati dalla CCIA",
     "Mod. Anagrafica Aziendale/Sezioni ISO 9001",
-    "Mod. Personale",
-    "Documenti",
 ]
 
 

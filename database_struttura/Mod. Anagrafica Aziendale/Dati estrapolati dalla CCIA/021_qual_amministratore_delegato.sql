@@ -67,12 +67,7 @@ CREATE TABLE IF NOT EXISTS qual_amministratore_delegato (
 
     documento_rappresentanza_id UUID,      -- Documento che attribuisce la rappresentanza
 
-    note_rappresentanza TEXT               -- Eventuali annotazioni
-
-
-    
-
-    firma_congiunta_disgiunta VARCHAR(150),     -- A24 - Modalità di firma
+    note_rappresentanza TEXT,              -- Eventuali annotazioni
 
     stato_incarico VARCHAR(100),                -- A25 - Stato dell'incarico
 
