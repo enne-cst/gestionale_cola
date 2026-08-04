@@ -1,12 +1,18 @@
 import { PageHeader } from "@/components/page-header";
 import { apiFetch } from "@/lib/api";
+import { getVociPanoramica } from "@/lib/actions/panoramica";
 import { SEZIONE_ICONE } from "@/lib/anagrafica-icons";
+import { MODULO_ANAGRAFICA } from "@/lib/anagrafica-sezioni";
+import { recordIdsFissati } from "@/lib/panoramica-helpers";
 import type { Contatto } from "@/lib/types/anagrafica";
 
 import { ContattiTable } from "./contatti-table";
 
 export default async function ContattiPage() {
-  const contatti = await apiFetch<Contatto[]>("/api/anagrafica/contatti");
+  const [contatti, voci] = await Promise.all([
+    apiFetch<Contatto[]>("/api/anagrafica/contatti"),
+    getVociPanoramica(MODULO_ANAGRAFICA),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -15,7 +21,7 @@ export default async function ContattiPage() {
         title="Contatti e recapiti"
         subtitle="Telefono, email, PEC e altri recapiti dell'azienda."
       />
-      <ContattiTable contatti={contatti} />
+      <ContattiTable contatti={contatti} recordIdsInPanoramica={recordIdsFissati(voci, "contatti")} />
     </div>
   );
 }

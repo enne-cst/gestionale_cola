@@ -1,52 +1,56 @@
 "use client";
 
+import { LayoutDashboardIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Fragment } from "react";
 
-import { SEZIONE_ICONE } from "@/lib/anagrafica-icons";
-import { SEZIONI_ANAGRAFICA } from "@/lib/anagrafica-sezioni";
+import { CATEGORIA_ICONE } from "@/lib/anagrafica-icons";
+import { CATEGORIE_ANAGRAFICA, ESPANDI_SEZIONE_EVENT, sezioneBySlug } from "@/lib/anagrafica-sezioni";
 import { cn } from "@/lib/utils";
 
 export function AnagraficaNav() {
   const pathname = usePathname();
 
-  const categorie = [...new Set(SEZIONI_ANAGRAFICA.map((s) => s.categoria))];
+  const slugCorrente = pathname.split("/")[2];
+  const categoriaCorrente = slugCorrente ? sezioneBySlug(slugCorrente)?.categoria : undefined;
+  const inPanoramica = pathname === "/anagrafica/panoramica";
 
   return (
-    <nav className="flex w-64 shrink-0 flex-col gap-4 overflow-y-auto border-r border-border bg-card/50 p-4 text-sm">
-      {categorie.map((categoria) => (
-        <Fragment key={categoria}>
-          <div>
-            <p className="mb-1 flex items-center gap-1.5 px-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-              {categoria}
-            </p>
-            <ul className="flex flex-col gap-0.5">
-              {SEZIONI_ANAGRAFICA.filter((s) => s.categoria === categoria).map((sezione) => {
-                const href = `/anagrafica/${sezione.slug}`;
-                const attiva = pathname === href;
-                const Icon = SEZIONE_ICONE[sezione.slug];
+    <nav className="flex items-center gap-1 overflow-x-auto border-b border-border bg-card px-6">
+      <Link
+        href="/anagrafica/panoramica"
+        className={cn(
+          "flex items-center gap-2 border-b-2 border-transparent px-3 py-3 text-sm font-medium whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground",
+          inPanoramica && "border-primary text-primary",
+        )}
+      >
+        <LayoutDashboardIcon className="size-4" />
+        Panoramica
+      </Link>
+      {CATEGORIE_ANAGRAFICA.map((categoria) => {
+        const Icon = CATEGORIA_ICONE[categoria.nome];
+        const attiva = categoria.nome === categoriaCorrente;
 
-                return (
-                  <li key={sezione.slug}>
-                    <Link
-                      href={href}
-                      className={cn(
-                        "flex items-center gap-2 rounded-md px-2 py-1.5 text-foreground/80 transition-colors hover:bg-accent hover:text-accent-foreground",
-                        attiva && "bg-primary/10 font-medium text-primary hover:bg-primary/10 hover:text-primary",
-                      )}
-                    >
-                      {Icon && <Icon className="size-4 shrink-0" />}
-                      {sezione.titolo}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </Fragment>
-      ))}
+        return (
+          <Link
+            key={categoria.slug}
+            href={`/anagrafica#${categoria.slug}`}
+            onClick={() => {
+              // Un cambio di solo hash su Next.js non genera sempre un
+              // 'hashchange' nativo: segnaliamo esplicitamente alla sezione
+              // di riaprirsi se era stata compattata.
+              window.dispatchEvent(new CustomEvent(ESPANDI_SEZIONE_EVENT, { detail: categoria.slug }));
+            }}
+            className={cn(
+              "flex items-center gap-2 border-b-2 border-transparent px-3 py-3 text-sm font-medium whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground",
+              attiva && "border-primary text-primary",
+            )}
+          >
+            {Icon && <Icon className="size-4" />}
+            {categoria.nome}
+          </Link>
+        );
+      })}
     </nav>
   );
 }

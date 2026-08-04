@@ -1,1 +1,1 @@
-from app.models import anagrafica, personale, sistema  # noqa: F401
+from app.models import anagrafica, panoramica, personale, sistema  # noqa: F401

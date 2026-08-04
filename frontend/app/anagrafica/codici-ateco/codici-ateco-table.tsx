@@ -1,0 +1,85 @@
+"use client";
+
+import { PencilIcon, PlusIcon } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DeleteButton } from "@/components/delete-button";
+import { PinRecordButton } from "@/components/pin-record-button";
+import { MODULO_ANAGRAFICA } from "@/lib/anagrafica-sezioni";
+import type { CodiceAteco } from "@/lib/types/anagrafica";
+
+import { deleteCodiceAteco } from "./actions";
+import { CodiceAtecoDialog } from "./codice-ateco-dialog";
+
+const SEZIONE_SLUG = "codici-ateco";
+
+export function CodiciAtecoTable({
+  codici,
+  recordIdsInPanoramica,
+}: {
+  codici: CodiceAteco[];
+  recordIdsInPanoramica: string[];
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <CodiceAtecoDialog
+          trigger={
+            <Button>
+              <PlusIcon className="size-4" />
+              Nuovo codice
+            </Button>
+          }
+        />
+      </div>
+
+      {codici.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nessun codice ATECO registrato.</p>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Codice</TableHead>
+              <TableHead>Descrizione</TableHead>
+              <TableHead>Ruolo</TableHead>
+              <TableHead>Classificazione</TableHead>
+              <TableHead className="w-24" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {codici.map((codice) => (
+              <TableRow key={codice.id}>
+                <TableCell className="font-medium">{codice.codice}</TableCell>
+                <TableCell>{codice.descrizione ?? "—"}</TableCell>
+                <TableCell>{codice.ruolo_codice ?? "—"}</TableCell>
+                <TableCell>{codice.classificazione ?? "—"}</TableCell>
+                <TableCell className="flex justify-end gap-1">
+                  <PinRecordButton
+                    modulo={MODULO_ANAGRAFICA}
+                    sezioneSlug={SEZIONE_SLUG}
+                    recordId={codice.id}
+                    etichetta={`Codice ATECO ${codice.codice}`}
+                    pinnedInitially={recordIdsInPanoramica.includes(codice.id)}
+                  />
+                  <CodiceAtecoDialog
+                    dati={codice}
+                    trigger={
+                      <Button variant="ghost" size="icon" aria-label="Modifica">
+                        <PencilIcon className="size-4" />
+                      </Button>
+                    }
+                  />
+                  <DeleteButton
+                    action={deleteCodiceAteco.bind(null, codice.id)}
+                    confirmMessage={`Eliminare il codice ATECO "${codice.codice}"?`}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </div>
+  );
+}

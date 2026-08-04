@@ -5,13 +5,23 @@ import { PencilIcon, PlusIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DeleteButton } from "@/components/delete-button";
+import { PinRecordButton } from "@/components/pin-record-button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { MODULO_ANAGRAFICA } from "@/lib/anagrafica-sezioni";
 import type { Contatto } from "@/lib/types/anagrafica";
 
 import { deleteContatto } from "./actions";
 import { ContattoDialog } from "./contatto-dialog";
 
-export function ContattiTable({ contatti }: { contatti: Contatto[] }) {
+const SEZIONE_SLUG = "contatti";
+
+export function ContattiTable({
+  contatti,
+  recordIdsInPanoramica,
+}: {
+  contatti: Contatto[];
+  recordIdsInPanoramica: string[];
+}) {
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -46,6 +56,13 @@ export function ContattiTable({ contatti }: { contatti: Contatto[] }) {
                 <TableCell>{contatto.descrizione ?? "—"}</TableCell>
                 <TableCell>{contatto.principale && <Badge variant="secondary">Principale</Badge>}</TableCell>
                 <TableCell className="flex justify-end gap-1">
+                  <PinRecordButton
+                    modulo={MODULO_ANAGRAFICA}
+                    sezioneSlug={SEZIONE_SLUG}
+                    recordId={contatto.id}
+                    etichetta={`${contatto.tipo_contatto} — ${contatto.valore}`}
+                    pinnedInitially={recordIdsInPanoramica.includes(contatto.id)}
+                  />
                   <ContattoDialog
                     dati={contatto}
                     trigger={

@@ -10,7 +10,7 @@ export function FormField({
 }: {
   label: string;
   name: string;
-  defaultValue?: string | null;
+  defaultValue?: string | number | null;
   type?: string;
   required?: boolean;
 }) {
