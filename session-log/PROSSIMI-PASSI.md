@@ -68,6 +68,22 @@ Fuori scopo per ora (vedi "Come riprendere da qui" nel log): dashboard
 super admin più ampia, multi-utente per azienda (`OPERATORE`), recupero
 password, verifica email, revoca dei token già emessi.
 
+## 4bis. Consulente "dentro" i dati del cliente + amministrazione utenti — FATTO
+
+Dettagli completi nel log `2026-08-04_accesso-consulente-e-amministrazione-utenti.md`.
+
+- [x] Il consulente può entrare nel contesto di un'azienda cliente e operare
+      come se fosse l'admin aziendale (header `X-Azienda-Id`, verificato dal
+      backend ad ogni richiesta)
+- [x] Super admin: creare account consulente, vedere le aziende gestite da
+      ciascun consulente (direzione inversa di quella già esistente),
+      rimuovere un'associazione, disattivare/riattivare un consulente,
+      bloccare l'accesso di un'azienda già approvata
+
+Fuori scopo per ora: multi-utente per azienda (`OPERATORE`), recupero
+password, verifica email, revoca dei token già emessi (stesse lacune
+segnalate nel punto 4).
+
 ## 5. Prossimo: repository remota
 
 Da fare su richiesta esplicita dell'utente (non ancora avviato): creare una

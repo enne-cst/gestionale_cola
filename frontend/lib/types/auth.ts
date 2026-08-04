@@ -25,4 +25,5 @@ export interface MeResponse {
   utente: Utente;
   profilo: string;
   azienda: Azienda | null;
+  in_impersonificazione: boolean;
 }

@@ -17,3 +17,9 @@ class NuovaAziendaResponse(BaseModel):
     id: UUID
     ragione_sociale: str
     email: str
+
+
+class AziendaClienteRead(BaseModel):
+    id: UUID
+    ragione_sociale: str
+    stato_approvazione: str

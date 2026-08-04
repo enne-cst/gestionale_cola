@@ -32,3 +32,7 @@ class MeResponse(BaseModel):
     utente: UtenteRead
     profilo: str
     azienda: AziendaRead | None
+    # Vero solo per un consulente che sta operando dentro il contesto di
+    # un'azienda cliente (vedi X-Azienda-Id in app.core.deps): pilota il
+    # banner "stai operando come" in interfaccia.
+    in_impersonificazione: bool = False

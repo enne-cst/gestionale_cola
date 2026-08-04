@@ -18,3 +18,14 @@ export interface AziendaAmministrazione {
   // Di norma uno solo (chi l'ha creata), ma può averne più d'uno.
   consulenti: Consulente[];
 }
+
+export interface AziendaSintesi {
+  id: string;
+  ragione_sociale: string;
+  stato_approvazione: "in_attesa" | "approvata" | "rifiutata";
+}
+
+export interface ConsulenteAmministrazione extends Consulente {
+  attivo: boolean;
+  aziende: AziendaSintesi[];
+}

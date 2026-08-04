@@ -25,3 +25,25 @@ class AziendaAmministrazioneRead(BaseModel):
 
 class AssociaConsulenteRequest(BaseModel):
     consulente_id: UUID
+
+
+class AziendaSintesi(BaseModel):
+    id: UUID
+    ragione_sociale: str
+    stato_approvazione: str
+
+
+class ConsulenteAmministrazioneRead(BaseModel):
+    id: UUID
+    nome: str
+    cognome: str
+    email: str
+    attivo: bool
+    aziende: list[AziendaSintesi] = []
+
+
+class NuovoConsulenteRequest(BaseModel):
+    nome: str
+    cognome: str
+    email: str
+    password: str

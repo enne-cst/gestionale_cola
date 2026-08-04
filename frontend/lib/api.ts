@@ -5,6 +5,7 @@
 
 import { cookies } from "next/headers";
 
+import { AZIENDA_ATTIVA_COOKIE_NAME } from "@/lib/azienda-attiva-cookie";
 import { SESSION_COOKIE_NAME } from "@/lib/session-cookie";
 
 const INTERNAL_API_URL = process.env.API_URL_INTERNAL ?? process.env.NEXT_PUBLIC_API_URL;
@@ -41,13 +42,16 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     throw new ApiError(0, "URL del backend non configurato (API_URL_INTERNAL)");
   }
 
-  const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  const aziendaAttiva = cookieStore.get(AZIENDA_ATTIVA_COOKIE_NAME)?.value;
 
   const res = await fetch(`${INTERNAL_API_URL}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(aziendaAttiva ? { "X-Azienda-Id": aziendaAttiva } : {}),
       ...init?.headers,
     },
     cache: "no-store",

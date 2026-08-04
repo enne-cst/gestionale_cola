@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { AziendaPill } from "@/components/azienda-pill";
+import { ImpersonificazioneBanner } from "@/components/impersonificazione-banner";
 import { LogoutButton } from "@/components/logout-button";
 import { ModuleSidebar } from "@/components/module-sidebar";
 import { TopBar } from "@/components/top-bar";
@@ -35,6 +36,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <AziendaPill ragioneSociale={me.azienda.ragione_sociale} />
         <LogoutButton />
       </TopBar>
+      {me.in_impersonificazione && <ImpersonificazioneBanner ragioneSociale={me.azienda.ragione_sociale} />}
       <div className="flex flex-1 overflow-hidden">
         <ModuleSidebar />
         {/* Niente "flex flex-col" qui: un contenitore flex la cui altezza è

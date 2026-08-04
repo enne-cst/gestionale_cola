@@ -19,9 +19,32 @@ from app.core.deps import UtenteContext, require_consulente
 from app.core.security import hash_password
 from app.database import get_db
 from app.models.sistema import RelUtenteAzienda, SysAzienda, SysProfilo, SysUtente
-from app.schemas.consulente import NuovaAziendaRequest, NuovaAziendaResponse
+from app.schemas.consulente import AziendaClienteRead, NuovaAziendaRequest, NuovaAziendaResponse
 
 router = APIRouter(prefix="/api/consulente", tags=["Consulente"])
+
+
+@router.get("/aziende", response_model=list[AziendaClienteRead])
+def elenco_aziende(db: Session = Depends(get_db), utente: UtenteContext = Depends(require_consulente)):
+    """Aziende clienti associate al consulente, incluse quelle non ancora
+    approvate (l'interfaccia le mostra ma non permette di entrarci: solo
+    get_current_azienda decide chi può operare davvero, qui è solo un
+    elenco)."""
+    aziende = db.scalars(
+        select(SysAzienda)
+        .join(RelUtenteAzienda, RelUtenteAzienda.azienda_id == SysAzienda.id)
+        .join(SysProfilo, RelUtenteAzienda.profilo_id == SysProfilo.id)
+        .where(
+            RelUtenteAzienda.utente_id == utente.utente_id,
+            RelUtenteAzienda.attivo.is_(True),
+            SysProfilo.codice == "CONSULENTE",
+        )
+        .order_by(SysAzienda.ragione_sociale)
+    ).all()
+    return [
+        AziendaClienteRead(id=a.id, ragione_sociale=a.ragione_sociale, stato_approvazione=a.stato_approvazione)
+        for a in aziende
+    ]
 
 
 @router.post("/aziende", response_model=NuovaAziendaResponse, status_code=status.HTTP_201_CREATED)

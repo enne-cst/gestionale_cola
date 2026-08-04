@@ -93,6 +93,24 @@ def run_seed(db: Session) -> None:
                     )
                 )
 
+    # Associa il consulente di prova all'azienda di sviluppo come cliente
+    # (in aggiunta alla sua riga di identità con azienda_id=None), così il
+    # selettore "azienda attiva" del consulente ha subito un caso reale da
+    # mostrare senza doverne creare uno a mano.
+    profilo_consulente = db.query(SysProfilo).filter_by(codice="CONSULENTE").first()
+    if profilo_consulente is not None:
+        relazione_cliente_esistente = (
+            db.query(RelUtenteAzienda).filter_by(utente_id=consulente.id, azienda_id=azienda.id).first()
+        )
+        if relazione_cliente_esistente is None:
+            db.add(
+                RelUtenteAzienda(
+                    utente_id=consulente.id,
+                    azienda_id=azienda.id,
+                    profilo_id=profilo_consulente.id,
+                )
+            )
+
     superadmin = db.get(SysUtente, DEV_SUPERADMIN_ID)
     if superadmin is None:
         profilo_superadmin = db.query(SysProfilo).filter_by(codice="SUPERADMIN").first()
