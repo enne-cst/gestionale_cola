@@ -15,6 +15,9 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:3000"]
 
+    secret_key: str = "changeme_dev_secret_key_please_rotate"
+    access_token_expire_minutes: int = 60 * 12
+
 
 @lru_cache
 def get_settings() -> Settings:

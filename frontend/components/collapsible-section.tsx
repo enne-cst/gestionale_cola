@@ -60,7 +60,7 @@ export function CollapsibleSection({
   }, [id]);
 
   return (
-    <section id={id} className="flex scroll-mt-4 flex-col gap-4">
+    <section id={id} className="flex scroll-mt-24 flex-col gap-4">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}

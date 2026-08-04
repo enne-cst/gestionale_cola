@@ -3,6 +3,10 @@
 // direttamente con l'API. Per questo si usa sempre API_URL_INTERNAL, l'URL
 // interno alla rete Docker, non quello pubblico esposto al browser.
 
+import { cookies } from "next/headers";
+
+import { SESSION_COOKIE_NAME } from "@/lib/session-cookie";
+
 const INTERNAL_API_URL = process.env.API_URL_INTERNAL ?? process.env.NEXT_PUBLIC_API_URL;
 
 export class ApiError extends Error {
@@ -37,9 +41,15 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     throw new ApiError(0, "URL del backend non configurato (API_URL_INTERNAL)");
   }
 
+  const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
+
   const res = await fetch(`${INTERNAL_API_URL}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init?.headers,
+    },
     cache: "no-store",
   });
 

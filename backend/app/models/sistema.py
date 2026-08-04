@@ -30,6 +30,10 @@ class SysAzienda(Base):
     partita_iva: Mapped[str | None] = mapped_column(String(11))
     codice_fiscale: Mapped[str | None] = mapped_column(String(16))
     email_registrazione: Mapped[str] = mapped_column(String(255), unique=True)
+    # 'in_attesa' (default) | 'approvata' | 'rifiutata' — le aziende create
+    # da un consulente restano in attesa finché un super admin non le
+    # approva (vedi migrazione 0006 e app/api/auth.py).
+    stato_approvazione: Mapped[str] = mapped_column(String(20), default="in_attesa")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -58,7 +62,9 @@ class RelUtenteAzienda(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     utente_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("sys_utenti.id"))
-    azienda_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("sys_aziende.id"))
+    # Nullable: un consulente (o un super admin) non è legato a una singola
+    # azienda, a differenza di un admin/operatore aziendale.
+    azienda_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("sys_aziende.id"))
     profilo_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("sys_profili.id"))
     attivo: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

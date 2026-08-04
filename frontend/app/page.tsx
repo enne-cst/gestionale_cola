@@ -28,9 +28,14 @@ export default async function Home() {
       <p className="text-sm text-muted-foreground">
         Backend: <span className="font-mono">{backendStatus}</span>
       </p>
-      <Link href="/anagrafica" className={buttonVariants()}>
-        Vai all&apos;Anagrafica Aziendale
-      </Link>
+      <div className="flex gap-3">
+        <Link href="/login" className={buttonVariants({ variant: "outline" })}>
+          Accedi
+        </Link>
+        <Link href="/anagrafica" className={buttonVariants()}>
+          Vai all&apos;Anagrafica Aziendale
+        </Link>
+      </div>
     </main>
   );
 }

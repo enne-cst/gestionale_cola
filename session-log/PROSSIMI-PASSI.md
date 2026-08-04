@@ -48,23 +48,45 @@ che sono placeholder minimi, non schema definitivo — vanno ridisegnati con
 una nuova revisione Alembic dedicata (mai modificando `0001` direttamente,
 ormai applicata).
 
-## 3. Prossimo: repository remota
+## 3. Modulo Anagrafica Aziendale + navbar dei moduli — FATTO
+
+- [x] Frontend completo per le sezioni `ana_*` (vedi log
+      `2026-08-04_frontend-anagrafica-e-panoramica.md`)
+- [x] Navbar laterale dei moduli, collassabile, fissa allo scroll insieme
+      alla barra di sezione; scroll-spy sulla tab attiva (vedi log
+      `2026-08-04_navbar-e-autenticazione.md`)
+
+## 4. Login reale e ruoli (azienda / consulente / super admin) — FATTO
+
+Dettagli completi nel log `2026-08-04_navbar-e-autenticazione.md`.
+
+- [x] JWT, hash bcrypt, `middleware.ts`, cookie httpOnly
+- [x] Area consulente (creazione azienda + account admin)
+- [x] Area super admin (approvazione aziende, associazione a un consulente)
+
+Fuori scopo per ora (vedi "Come riprendere da qui" nel log): dashboard
+super admin più ampia, multi-utente per azienda (`OPERATORE`), recupero
+password, verifica email, revoca dei token già emessi.
+
+## 5. Prossimo: repository remota
 
 Da fare su richiesta esplicita dell'utente (non ancora avviato): creare una
 repo remota (GitHub o altro provider — da chiedere all'utente quale, nome,
 pubblica/privata) e collegarla con `git remote add`, poi primo push.
+Prima del primo push su un provider condiviso, rigenerare `SECRET_KEY`
+(oggi un valore di sviluppo in `.env`/`.env.example`) per qualunque
+ambiente che non sia locale.
 
-## 4. Dopo il push
+## 6. Dopo il push
 
 - [ ] Generare `frontend/package-lock.json` reale (oggi non esiste perché
       Node non è mai stato eseguito in locale) e committarlo, per build
       riproducibili — si genera da solo al primo `docker compose build
       frontend`, basta copiarlo fuori dal container o rilanciare `npm
       install` in locale una volta installato Node
-- [ ] Iniziare il primo modulo applicativo reale (probabilmente Anagrafica
-      Aziendale, dato che è il più sviluppato in `database_struttura/`):
-      modelli SQLAlchemy, primi endpoint FastAPI, prime pagine Next.js
 - [ ] Progettare seriamente il modulo Documenti (oggi solo placeholder in
       `doc_documenti`) e il catalogo titoli di studio (`per_titoli_studio`)
-- [ ] Aggiungere i primi componenti shadcn/ui reali (`npx shadcn add ...`)
-      quando servirà una UI oltre alla pagina di verifica attuale
+- [ ] Iniziare il modulo Personale (schema `database_struttura/Mod.
+      Personale/` già presente, frontend da fare)
+- [ ] Sezioni `qual_*` di Anagrafica Aziendale (soci, amministratori,
+      sindaci, ecc.) ancora senza frontend, escluse esplicitamente finora
