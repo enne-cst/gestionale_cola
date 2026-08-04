@@ -1,3 +1,7 @@
+import Link from "next/link";
+
+import { buttonVariants } from "@/components/ui/button";
+
 // API_URL_INTERNAL: usato lato server (SSR, dentro il container Docker),
 // punta al nome del servizio backend sulla rete Docker interna.
 // NEXT_PUBLIC_API_URL: usato lato browser, punta alla porta pubblicata
@@ -20,10 +24,13 @@ export default async function Home() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
-      <h1 className="text-2xl font-semibold">Gestionale Cola</h1>
+      <h1 className="text-2xl font-semibold text-primary">Gestionale Cola</h1>
       <p className="text-sm text-muted-foreground">
         Backend: <span className="font-mono">{backendStatus}</span>
       </p>
+      <Link href="/anagrafica" className={buttonVariants()}>
+        Vai all&apos;Anagrafica Aziendale
+      </Link>
     </main>
   );
 }
