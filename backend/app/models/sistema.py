@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, ForeignKeyConstraint, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, ForeignKeyConstraint, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -293,3 +293,69 @@ class SysPresaVisioneModifiche(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class SysRegistroStatoCampi(Base):
+    """Verifica e visibilita' per singolo campo di un modulo "a registro"
+    (nasce per Anagrafica Aziendale / Informazioni societarie, ma
+    sezione_codice/campo_codice sono generici per essere riusati da future
+    sezioni senza duplicare la tabella, vedi migrazione 0012).
+
+    Granularita' per campo, non per record: concettualmente distinta da
+    `SysPresaVisioneModifiche` (intero record, nessuno storico). Riusa lo
+    stesso catalogo `cat_stati_verifica_modifiche` perche' il significato dei
+    tre stati e' identico, anche se le due tabelle restano indipendenti.
+
+    Un campo senza riga qui e' implicitamente visibile e senza stato di
+    verifica (nessuna riga = mai stato toccato dal meccanismo)."""
+
+    __tablename__ = "sys_registro_stato_campi"
+    __table_args__ = (UniqueConstraint("azienda_id", "sezione_codice", "campo_codice"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    azienda_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("sys_aziende.id"))
+
+    sezione_codice: Mapped[str] = mapped_column(String(150))
+    campo_codice: Mapped[str] = mapped_column(String(100))
+
+    visibile_azienda: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    stato_verifica_codice: Mapped[str | None] = mapped_column(
+        String(30), ForeignKey("cat_stati_verifica_modifiche.codice")
+    )
+    nota_revisione: Mapped[str | None] = mapped_column(Text)
+    # Incrementata solo ad ogni cambio di stato_verifica_codice (auto-pending
+    # su modifica valore, o decisione esplicita): e' l'ancora di concorrenza
+    # ottimistica per il pop-up di verifica (§15.6), non tocca il toggle di
+    # visibilita'.
+    versione: Mapped[int] = mapped_column(Integer, default=1)
+
+    verificato_da: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("sys_utenti.id"))
+    verificato_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class SysRegistroAudit(Base):
+    """Log minimo delle azioni sui campi di un modulo a registro (§16.3
+    della specifica Anagrafica Aziendale): valore modificato, transizione
+    automatica a DA_VERIFICARE, verifica, richiesta di revisione, cambio di
+    visibilita'. Alimenta anche la card "Ultime modifiche" della Panoramica."""
+
+    __tablename__ = "sys_registro_audit"
+
+    id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    azienda_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("sys_aziende.id"))
+    utente_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("sys_utenti.id"))
+
+    sezione_codice: Mapped[str] = mapped_column(String(150))
+    campo_codice: Mapped[str] = mapped_column(String(100))
+
+    azione: Mapped[str] = mapped_column(String(30))
+    valore_precedente: Mapped[str | None] = mapped_column(Text)
+    valore_nuovo: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

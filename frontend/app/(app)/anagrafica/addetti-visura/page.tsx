@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/page-header";
+import { SectionStatusBadge } from "@/components/section-status-badge";
 import { apiFetch } from "@/lib/api";
 import { getVociPanoramica } from "@/lib/actions/panoramica";
 import { SEZIONE_ICONE } from "@/lib/anagrafica-icons";
@@ -20,6 +21,7 @@ export default async function AddettiVisuraPage() {
         icon={SEZIONE_ICONE["addetti-visura"]}
         title="Addetti da visura"
         subtitle="Rilevazioni periodiche del numero di addetti risultanti dalla visura camerale."
+        badge={<SectionStatusBadge compilata={rilevazioni.length > 0} />}
       />
       <AddettiVisuraTable
         rilevazioni={rilevazioni}

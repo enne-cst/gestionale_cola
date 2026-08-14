@@ -33,7 +33,7 @@ export function PinnableFormTextareaField({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-2">
-        <Label htmlFor={name}>{label}</Label>
+        <Label htmlFor={name} className="text-muted-foreground">{label}</Label>
         <PinToggleButton pinned={pinned} disabled={isPending} onToggle={toggle} />
       </div>
       <Textarea id={name} name={name} defaultValue={defaultValue ?? ""} rows={4} />

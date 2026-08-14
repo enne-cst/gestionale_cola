@@ -1,4 +1,5 @@
-import { Building2, CheckCircle2, Clock, ListTodo } from "lucide-react";
+import { ArrowRightIcon, Building2, CheckCircle2 } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { CollapsibleSection } from "@/components/collapsible-section";
@@ -7,11 +8,17 @@ import { DataRow } from "@/components/data-row";
 import { ExpandAllButton } from "@/components/expand-all-button";
 import { IconAvatar } from "@/components/icon-avatar";
 import { PageHeader } from "@/components/page-header";
+import { InformazioniSocietarieCard } from "@/components/registro/informazioni-societarie-card";
+import { QualityCard } from "@/components/registro/quality-card";
+import { RecentChangesCard } from "@/components/registro/recent-changes-card";
+import { WorkspaceProvider } from "@/components/registro/workspace-provider";
+import { WorkspaceShell } from "@/components/registro/workspace-shell";
 import { SectionListPreviewCard } from "@/components/section-list-preview-card";
 import { SectionPreviewCard } from "@/components/section-preview-card";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { SectionLinkCard } from "@/components/section-link-card";
 import { apiFetch } from "@/lib/api";
+import { getRegistroOverview } from "@/lib/actions/registro";
 import { CATEGORIA_ICONE, SEZIONE_ICONE } from "@/lib/anagrafica-icons";
 import {
   categoriaSlug,
@@ -20,6 +27,7 @@ import {
   sezioniPerCategoriaVisibili,
 } from "@/lib/anagrafica-sezioni";
 import { formatCurrency, formatDate } from "@/lib/format";
+import type { MeResponse } from "@/lib/types/auth";
 import type {
   AddettiComune,
   AddettiVisura,
@@ -37,21 +45,10 @@ import type {
   Soa,
 } from "@/lib/types/anagrafica";
 
-type ConMetadatiParziale = { updated_at?: string };
-
-function ultimoAggiornamento(...gruppi: (ConMetadatiParziale | null | ConMetadatiParziale[])[]): string | null {
-  const timestamp = gruppi
-    .flatMap((g) => (g === null ? [] : Array.isArray(g) ? g : [g]))
-    .map((r) => r.updated_at)
-    .filter((v): v is string => Boolean(v))
-    .map((v) => new Date(v).getTime())
-    .filter((v) => !Number.isNaN(v));
-
-  if (timestamp.length === 0) return null;
-  return new Date(Math.max(...timestamp)).toISOString();
-}
-
 export default async function AnagraficaOverviewPage() {
+  const [me, overview] = await Promise.all([apiFetch<MeResponse>("/api/auth/me"), getRegistroOverview()]);
+  const ruolo = me.profilo === "CONSULENTE" ? "CONSULENTE" : "AZIENDA";
+
   const [
     sezioniAbilitate,
     identificazione,
@@ -115,43 +112,9 @@ export default async function AnagraficaOverviewPage() {
   const percentuale = Math.round((sezioniCompilate / sezioniBase.length) * 100);
   const sezioniDaCompletare = sezioniBase.filter((s) => !stato[s.slug]);
   const sezioniAbilitateSet = new Set(sezioniAbilitate);
-  const dataUltimoAggiornamento = ultimoAggiornamento(
-    identificazione,
-    durata,
-    attivita,
-    capitale,
-    amministrazioneControllo,
-    sedi,
-    contatti,
-    iscrizioni,
-    codiciAteco,
-    albi,
-    soa,
-    certificazioni,
-    addettiVisura,
-    addettiComune,
-  );
 
   const cardBySlug: Record<string, ReactNode> = {
-    "identificazione-camerale": (
-      <SectionPreviewCard
-        icon={SEZIONE_ICONE["identificazione-camerale"]}
-        title="Identificazione camerale"
-        compilata={stato["identificazione-camerale"]}
-        href="/anagrafica/identificazione-camerale"
-      >
-        {identificazione ? (
-          <div className="grid grid-cols-2 gap-4">
-            <DataRow label="Ragione sociale" value={identificazione.ragione_sociale} />
-            <DataRow label="Forma giuridica" value={identificazione.forma_giuridica} />
-            <DataRow label="Codice fiscale" value={identificazione.codice_fiscale} />
-            <DataRow label="Partita IVA" value={identificazione.partita_iva} />
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">Nessun dato inserito ancora.</p>
-        )}
-      </SectionPreviewCard>
-    ),
+    "identificazione-camerale": <InformazioniSocietarieCard identificazione={identificazione} />,
     "capitale-sociale": (
       <SectionPreviewCard
         icon={SEZIONE_ICONE["capitale-sociale"]}
@@ -363,7 +326,7 @@ export default async function AnagraficaOverviewPage() {
     ),
   };
 
-  return (
+  const contenuto = (
     <div className="flex flex-col gap-8">
       <PageHeader
         icon={Building2}
@@ -372,59 +335,40 @@ export default async function AnagraficaOverviewPage() {
         size="lg"
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <CheckCircle2 className="size-4" />
-              Completezza scheda
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center gap-4">
-            <CompletenessRing percentuale={percentuale} />
-            <p className="text-sm text-muted-foreground">
-              {sezioniCompilate} di {sezioniBase.length} sezioni compilate
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <ListTodo className="size-4" />
-              Sezioni da completare
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {sezioniDaCompletare.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Tutte le sezioni sono compilate.</p>
-            ) : (
-              <ul className="flex flex-col gap-1.5 text-sm text-foreground">
-                {sezioniDaCompletare.slice(0, 5).map((s) => (
-                  <li key={s.slug} className="flex items-center gap-2">
-                    <span className="size-1.5 shrink-0 rounded-full bg-muted-foreground" />
-                    {s.titolo}
-                  </li>
-                ))}
-                {sezioniDaCompletare.length > 5 && (
-                  <li className="text-xs text-muted-foreground">e altre {sezioniDaCompletare.length - 5}…</li>
-                )}
-              </ul>
+      <div className="@container">
+        <div className="grid grid-cols-1 gap-4 @lg:grid-cols-2 @4xl:grid-cols-3">
+          <Card className="gap-4 overflow-hidden py-0 pt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <CheckCircle2 className="size-4" />
+                Completamento scheda
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-center gap-4">
+              <CompletenessRing percentuale={percentuale} />
+              <p className="text-sm text-muted-foreground">
+                {sezioniCompilate} di {sezioniBase.length} sezioni compilate
+              </p>
+            </CardContent>
+            {sezioniDaCompletare[0] && (
+              <CardFooter className="mt-2 border-t border-primary/15 bg-primary/5 py-3">
+                <Link
+                  href={`/anagrafica/${sezioniDaCompletare[0].slug}`}
+                  className="flex w-full items-center justify-between text-sm font-medium text-primary hover:underline"
+                >
+                  Completa la prossima sezione
+                  <ArrowRightIcon className="size-4 shrink-0" />
+                </Link>
+              </CardFooter>
             )}
-          </CardContent>
-        </Card>
+          </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <Clock className="size-4" />
-              Ultimo aggiornamento
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-lg font-semibold text-foreground">{formatDate(dataUltimoAggiornamento)}</p>
-          </CardContent>
-        </Card>
+          {ruolo === "CONSULENTE" && <QualityCard />}
+
+          <div className="@lg:col-span-2 @4xl:col-span-1">
+            <RecentChangesCard />
+          </div>
+        </div>
       </div>
 
       <div className="flex justify-end">
@@ -466,5 +410,11 @@ export default async function AnagraficaOverviewPage() {
         );
       })}
     </div>
+  );
+
+  return (
+    <WorkspaceProvider ruolo={ruolo} overviewIniziale={overview}>
+      <WorkspaceShell>{contenuto}</WorkspaceShell>
+    </WorkspaceProvider>
   );
 }

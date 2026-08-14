@@ -1,9 +1,10 @@
 import { ChevronRightIcon, PlusIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
-import type { LucideIcon, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { IconAvatar } from "@/components/icon-avatar";
-import { Badge } from "@/components/ui/badge";
+import { SectionStatusBadge } from "@/components/section-status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -34,7 +35,7 @@ export function SectionListPreviewCard<T extends { id: string }>({
           {title}
         </CardTitle>
         <CardAction className="flex items-center gap-1">
-          <Badge variant={compilata ? "default" : "secondary"}>{compilata ? "Completo" : "Da compilare"}</Badge>
+          <SectionStatusBadge compilata={compilata} completeLabel="Completo" />
           <Button asChild variant="ghost" size="icon-sm">
             <Link href={href} aria-label={`Aggiungi a ${title}`}>
               <PlusIcon className="size-4" />

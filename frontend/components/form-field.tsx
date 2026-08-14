@@ -16,7 +16,7 @@ export function FormField({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label htmlFor={name}>
+      <Label htmlFor={name} className="text-muted-foreground">
         {label}
         {required && <span className="text-destructive"> *</span>}
       </Label>

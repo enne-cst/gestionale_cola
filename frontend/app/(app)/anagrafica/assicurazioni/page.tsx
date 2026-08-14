@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/page-header";
+import { SectionStatusBadge } from "@/components/section-status-badge";
 import { apiFetch } from "@/lib/api";
 import { SEZIONE_ICONE } from "@/lib/anagrafica-icons";
 import type { Assicurazione, CatalogoVoce } from "@/lib/types/anagrafica-iso9001";
@@ -18,6 +19,7 @@ export default async function AssicurazioniPage() {
         icon={SEZIONE_ICONE.assicurazioni}
         title="Polizze assicurative"
         subtitle="Tutte le polizze assicurative dell'azienda."
+        badge={<SectionStatusBadge compilata={dati.length > 0} />}
       />
       <AssicurazioniTable dati={dati} stati={stati} frequenze={frequenze} />
     </div>

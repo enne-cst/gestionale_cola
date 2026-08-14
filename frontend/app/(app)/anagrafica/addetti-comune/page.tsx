@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/page-header";
+import { SectionStatusBadge } from "@/components/section-status-badge";
 import { apiFetch } from "@/lib/api";
 import { getVociPanoramica } from "@/lib/actions/panoramica";
 import { SEZIONE_ICONE } from "@/lib/anagrafica-icons";
@@ -20,6 +21,7 @@ export default async function AddettiComunePage() {
         icon={SEZIONE_ICONE["addetti-comune"]}
         title="Addetti per comune"
         subtitle="Distribuzione degli addetti per comune, sede o unità locale."
+        badge={<SectionStatusBadge compilata={distribuzioni.length > 0} />}
       />
       <AddettiComuneTable
         distribuzioni={distribuzioni}

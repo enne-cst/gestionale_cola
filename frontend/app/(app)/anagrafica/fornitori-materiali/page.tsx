@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/page-header";
+import { SectionStatusBadge } from "@/components/section-status-badge";
 import { apiFetch } from "@/lib/api";
 import { SEZIONE_ICONE } from "@/lib/anagrafica-icons";
 import type { CatalogoVoce, FornitoreMateriali } from "@/lib/types/anagrafica-iso9001";
@@ -17,6 +18,7 @@ export default async function FornitoriMaterialiPage() {
         icon={SEZIONE_ICONE["fornitori-materiali"]}
         title="Fornitori di materiali"
         subtitle="Fornitori di materiali utilizzati dall'azienda."
+        badge={<SectionStatusBadge compilata={dati.length > 0} />}
       />
       <FornitoriTable dati={dati} stati={stati} />
     </div>

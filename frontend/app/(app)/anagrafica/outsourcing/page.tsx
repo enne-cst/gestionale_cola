@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/page-header";
+import { SectionStatusBadge } from "@/components/section-status-badge";
 import { apiFetch } from "@/lib/api";
 import { SEZIONE_ICONE } from "@/lib/anagrafica-icons";
 import type { CatalogoVoce, Outsourcing } from "@/lib/types/anagrafica-iso9001";
@@ -17,6 +18,7 @@ export default async function OutsourcingPage() {
         icon={SEZIONE_ICONE.outsourcing}
         title="Outsourcing"
         subtitle="Processi e attività che l'azienda affida a soggetti esterni."
+        badge={<SectionStatusBadge compilata={dati.length > 0} />}
       />
       <OutsourcingTable dati={dati} stati={stati} />
     </div>

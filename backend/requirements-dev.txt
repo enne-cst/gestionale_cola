@@ -1,0 +1,7 @@
+# Dipendenze di sviluppo (test), separate da requirements.txt per non
+# appesantire l'immagine Docker di produzione (backend/Dockerfile installa
+# solo requirements.txt). Primo file di test del repository: introdotto per
+# la copertura unitaria del modulo "registro campo-per-campo" di Anagrafica
+# Aziendale (vedi backend/tests/).
+-r requirements.txt
+pytest>=8.3,<9.0

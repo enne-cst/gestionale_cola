@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/page-header";
+import { SectionStatusBadge } from "@/components/section-status-badge";
 import { apiFetch } from "@/lib/api";
 import { SEZIONE_ICONE } from "@/lib/anagrafica-icons";
 import type { CatalogoVoce, FondoInterprofessionale } from "@/lib/types/anagrafica-iso9001";
@@ -17,6 +18,7 @@ export default async function FondiInterprofessionaliPage() {
         icon={SEZIONE_ICONE["fondi-interprofessionali"]}
         title="Fondi interprofessionali"
         subtitle="Storico delle iscrizioni ai fondi interprofessionali."
+        badge={<SectionStatusBadge compilata={fondi.length > 0} />}
       />
       <FondiTable fondi={fondi} statiIscrizione={statiIscrizione} />
     </div>

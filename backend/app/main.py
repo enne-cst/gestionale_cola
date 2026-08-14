@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.anagrafica import router as anagrafica_router
+from app.api.anagrafica_registry import router as anagrafica_registry_router
 from app.api.auth import router as auth_router
 from app.api.consulente import router as consulente_router
 from app.api.health import router as health_router
@@ -50,6 +51,7 @@ app.include_router(auth_router)
 app.include_router(consulente_router)
 app.include_router(superadmin_router)
 app.include_router(anagrafica_router)
+app.include_router(anagrafica_registry_router)
 app.include_router(personale_router)
 app.include_router(moduli_router)
 app.include_router(sezioni_router)

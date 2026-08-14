@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/page-header";
+import { SectionStatusBadge } from "@/components/section-status-badge";
 import { apiFetch } from "@/lib/api";
 import { getVociPanoramica } from "@/lib/actions/panoramica";
 import { SEZIONE_ICONE } from "@/lib/anagrafica-icons";
@@ -20,6 +21,7 @@ export default async function ContattiPage() {
         icon={SEZIONE_ICONE.contatti}
         title="Contatti e recapiti"
         subtitle="Telefono, email, PEC e altri recapiti dell'azienda."
+        badge={<SectionStatusBadge compilata={contatti.length > 0} />}
       />
       <ContattiTable contatti={contatti} recordIdsInPanoramica={recordIdsFissati(voci, "contatti")} />
     </div>

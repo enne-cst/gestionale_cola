@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/page-header";
+import { SectionStatusBadge } from "@/components/section-status-badge";
 import { apiFetch } from "@/lib/api";
 import { getVociPanoramica } from "@/lib/actions/panoramica";
 import { SEZIONE_ICONE } from "@/lib/anagrafica-icons";
@@ -14,12 +15,15 @@ export default async function AttivitaEsercitataPage() {
     getVociPanoramica(MODULO_ANAGRAFICA),
   ]);
 
+  const compilata = Boolean(dati?.descrizione_attivita_esercitata);
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         icon={SEZIONE_ICONE["attivita-esercitata"]}
         title="Attività esercitata"
         subtitle="Descrizione dell'attività svolta dall'azienda."
+        badge={<SectionStatusBadge compilata={compilata} />}
       />
       <AttivitaEsercitataForm dati={dati} campiInPanoramica={campiFissati(voci, "attivita-esercitata")} />
     </div>

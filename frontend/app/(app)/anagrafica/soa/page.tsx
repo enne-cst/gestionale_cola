@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/page-header";
+import { SectionStatusBadge } from "@/components/section-status-badge";
 import { apiFetch } from "@/lib/api";
 import { getVociPanoramica } from "@/lib/actions/panoramica";
 import { SEZIONE_ICONE } from "@/lib/anagrafica-icons";
@@ -20,6 +21,7 @@ export default async function SoaPage() {
         icon={SEZIONE_ICONE.soa}
         title="Attestazioni SOA"
         subtitle="Attestazioni SOA possedute, con le relative categorie e classifiche."
+        badge={<SectionStatusBadge compilata={attestazioni.length > 0} />}
       />
       <SoaTable attestazioni={attestazioni} recordIdsInPanoramica={recordIdsFissati(voci, "soa")} />
     </div>

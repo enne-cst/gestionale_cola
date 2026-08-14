@@ -68,11 +68,16 @@ export function CollapsibleSection({
         className="flex w-full items-center gap-3 border-b border-border pb-3 text-left"
       >
         {icon}
-        <div className="flex-1">
+        <div className="flex flex-1 items-center gap-2.5">
           <h2 className="text-lg font-semibold text-foreground">{title}</h2>
-          <p className="text-xs text-muted-foreground">{subtitle}</p>
+          <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
+            {subtitle}
+          </span>
         </div>
-        <ChevronDownIcon className={cn("size-5 shrink-0 text-muted-foreground transition-transform", !open && "-rotate-90")} />
+        <span className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground">
+          {open ? "Comprimi" : "Espandi"}
+          <ChevronDownIcon className={cn("size-3.5 shrink-0 transition-transform", !open && "-rotate-90")} />
+        </span>
       </button>
       {open && <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">{children}</div>}
     </section>

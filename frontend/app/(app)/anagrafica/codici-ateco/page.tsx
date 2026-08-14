@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/page-header";
+import { SectionStatusBadge } from "@/components/section-status-badge";
 import { apiFetch } from "@/lib/api";
 import { getVociPanoramica } from "@/lib/actions/panoramica";
 import { SEZIONE_ICONE } from "@/lib/anagrafica-icons";
@@ -20,6 +21,7 @@ export default async function CodiciAtecoPage() {
         icon={SEZIONE_ICONE["codici-ateco"]}
         title="Codici ATECO"
         subtitle="Codice attività prevalente ed eventuali codici secondari."
+        badge={<SectionStatusBadge compilata={codici.length > 0} />}
       />
       <CodiciAtecoTable codici={codici} recordIdsInPanoramica={recordIdsFissati(voci, "codici-ateco")} />
     </div>

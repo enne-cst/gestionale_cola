@@ -12,7 +12,7 @@ export function FormTextareaField({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label htmlFor={name}>{label}</Label>
+      <Label htmlFor={name} className="text-muted-foreground">{label}</Label>
       <Textarea id={name} name={name} defaultValue={defaultValue ?? ""} rows={4} />
     </div>
   );

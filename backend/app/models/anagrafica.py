@@ -46,12 +46,19 @@ class AnaIdentificazioneCamerale(Base):
 
     numero_rea: Mapped[str | None] = mapped_column(String(30))
     provincia_rea: Mapped[str | None] = mapped_column(String(5))
+    numero_iscrizione: Mapped[str | None] = mapped_column(String(50))
+    data_iscrizione: Mapped[date | None]
 
     stato_attivita: Mapped[str | None] = mapped_column(String(100))
 
     data_atto_costitutivo: Mapped[date | None]
     data_inizio_attivita: Mapped[date | None]
     data_ultimo_protocollo: Mapped[date | None]
+    # Formato GG/MM (vincolo CHECK lato DB, migrazione 0014): non e' una data
+    # completa, si ripete ogni anno.
+    termine_esercizio: Mapped[str | None] = mapped_column(String(5))
+    inizio_esercizio: Mapped[str | None] = mapped_column(String(5))
+    data_ultimo_bilancio_approvato: Mapped[date | None]
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

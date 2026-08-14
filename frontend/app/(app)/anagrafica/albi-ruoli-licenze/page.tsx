@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/page-header";
+import { SectionStatusBadge } from "@/components/section-status-badge";
 import { apiFetch } from "@/lib/api";
 import { getVociPanoramica } from "@/lib/actions/panoramica";
 import { SEZIONE_ICONE } from "@/lib/anagrafica-icons";
@@ -20,6 +21,7 @@ export default async function AlbiRuoliLicenzePage() {
         icon={SEZIONE_ICONE["albi-ruoli-licenze"]}
         title="Albi, ruoli e licenze"
         subtitle="Iscrizioni ad albi, registri, ruoli, licenze e autorizzazioni dell'azienda."
+        badge={<SectionStatusBadge compilata={albi.length > 0} />}
       />
       <AlbiTable albi={albi} recordIdsInPanoramica={recordIdsFissati(voci, "albi-ruoli-licenze")} />
     </div>

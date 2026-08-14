@@ -1,27 +1,10 @@
-import { PageHeader } from "@/components/page-header";
-import { apiFetch } from "@/lib/api";
-import { getVociPanoramica } from "@/lib/actions/panoramica";
-import { SEZIONE_ICONE } from "@/lib/anagrafica-icons";
-import { MODULO_ANAGRAFICA } from "@/lib/anagrafica-sezioni";
-import { campiFissati } from "@/lib/panoramica-helpers";
-import type { IdentificazioneCamerale } from "@/lib/types/anagrafica";
+import { redirect } from "next/navigation";
 
-import { IdentificazioneCameraleForm } from "./form";
-
-export default async function IdentificazioneCameralePage() {
-  const [dati, voci] = await Promise.all([
-    apiFetch<IdentificazioneCamerale | null>("/api/anagrafica/identificazione-camerale"),
-    getVociPanoramica(MODULO_ANAGRAFICA),
-  ]);
-
-  return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        icon={SEZIONE_ICONE["identificazione-camerale"]}
-        title="Identificazione camerale"
-        subtitle="Dati identificativi estratti dalla visura camerale."
-      />
-      <IdentificazioneCameraleForm dati={dati} campiInPanoramica={campiFissati(voci, "identificazione-camerale")} />
-    </div>
-  );
+// Modifica e consultazione di "Identificazione camerale" sono ora nel
+// workspace della Panoramica (§8, sezione "Informazioni societarie"): unico
+// percorso di scrittura che tiene coerenti stato di verifica e visibilità
+// per campo. Questa route resta solo per non rompere i link esistenti che
+// puntano allo slug (es. la card "Completa la prossima sezione").
+export default function IdentificazioneCameralePage() {
+  redirect("/anagrafica");
 }

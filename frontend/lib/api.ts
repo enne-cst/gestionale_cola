@@ -67,6 +67,47 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   return (await res.json()) as T;
 }
 
+export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number; detail: unknown };
+
+/** Variante di `apiFetch` che non lancia sugli errori: restituisce invece
+ * `detail` cosi' come arriva dal backend (stringa, o array di
+ * `{loc, msg}` per gli errori di validazione per campo). Da usare solo dove
+ * il chiamante deve distinguere lo scenario d'errore (422 per-campo, 409 di
+ * concorrenza) invece del messaggio piatto di `apiFetch`/`ApiError`. */
+export async function apiFetchResult<T>(path: string, init?: RequestInit): Promise<ApiResult<T>> {
+  if (!INTERNAL_API_URL) {
+    throw new ApiError(0, "URL del backend non configurato (API_URL_INTERNAL)");
+  }
+
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  const aziendaAttiva = cookieStore.get(AZIENDA_ATTIVA_COOKIE_NAME)?.value;
+
+  const res = await fetch(`${INTERNAL_API_URL}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(aziendaAttiva ? { "X-Azienda-Id": aziendaAttiva } : {}),
+      ...init?.headers,
+    },
+    cache: "no-store",
+  });
+
+  if (res.ok) {
+    if (res.status === 204) return { ok: true, data: undefined as T };
+    return { ok: true, data: (await res.json()) as T };
+  }
+
+  let detail: unknown;
+  try {
+    detail = (await res.json())?.detail;
+  } catch {
+    detail = undefined;
+  }
+  return { ok: false, status: res.status, detail };
+}
+
 /** Converte un valore di FormData in stringa non vuota, o null (per campi
  * opzionali che il backend deve ricevere come `null`, non come ""). */
 export function textOrNull(value: FormDataEntryValue | null): string | null {

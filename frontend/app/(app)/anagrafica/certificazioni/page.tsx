@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/page-header";
+import { SectionStatusBadge } from "@/components/section-status-badge";
 import { apiFetch } from "@/lib/api";
 import { getVociPanoramica } from "@/lib/actions/panoramica";
 import { SEZIONE_ICONE } from "@/lib/anagrafica-icons";
@@ -20,6 +21,7 @@ export default async function CertificazioniPage() {
         icon={SEZIONE_ICONE.certificazioni}
         title="Certificazioni possedute"
         subtitle="Certificazioni dell'azienda, con i relativi settori IAF di accreditamento."
+        badge={<SectionStatusBadge compilata={certificazioni.length > 0} />}
       />
       <CertificazioniTable
         certificazioni={certificazioni}
