@@ -1,0 +1,2515 @@
+MASTER - Web App Multi-Azienda
+
+                                     Edoardo Costa
+
+             Non vogliamo creare un software che obblighi le aziende ad
+           adattarsi. Vogliamo creare un sistema che si adatti alle azien-
+          de, riducendo il lavoro del consulente e mettendo entrambe nel-
+            le condizioni di operare con metodo, semplicit`a e continuit`a.
+
+                                                7 agosto 2026
+                                                                                                                                                                    1
+
+Indice
+
+1 Visione del progetto   3
+
+1.1 Introduzione . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+
+1.1.1 Premessa . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+
+1.1.2 Scopo del documento . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+
+1.1.3 Contesto e origine del progetto . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+
+1.1.4 Ambito del documento . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+
+1.2 Visione e filosofia della piattaforma . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 4
+
+1.2.1 Filosofia del progetto . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 4
+
+1.2.2 Visione e missione . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 4
+
+1.2.3 Ruolo del consulente e dell'azienda . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 4
+
+1.2.4 Valore della piattaforma . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 4
+
+1.3 Target della piattaforma . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 4
+
+1.3.1 Premessa . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 4
+
+1.3.2 Aziende destinatarie e campo di applicazione . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+
+1.3.3 Profili settoriali . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+
+1.3.4 Settori supportati ed evoluzione . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+
+1.4 Obiettivi e principi della piattaforma . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 6
+
+1.4.1 Obiettivi del progetto . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 6
+
+1.4.2 Prospettiva di evoluzione . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 6
+
+1.4.3 Principi fondamentali . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 6
+
+1.5 Modello operativo della piattaforma . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 7
+
+1.5.1 Premessa . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 7
+
+1.5.2 Modello collaborativo . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 7
+
+1.5.3 Ruoli e responsabilit`a . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 7
+
+1.5.4 Ciclo operativo . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 7
+
+1.5.5 Obiettivi del modello operativo . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 7
+
+2 Architettura generale  8
+
+2.1 Architettura della piattaforma . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 8
+
+2.1.1 Premessa . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 8
+
+2.1.2 Componenti dell'architettura . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 8
+
+2.1.3 Relazione tra i livelli . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 8
+
+2.2 Tecnologie utilizzate . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 9
+
+2.2.1 Struttura tecnologica generale . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 9
+
+2.2.2 Frontend . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 10
+
+2.2.3 Backend . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 10
+
+2.2.4 API . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 11
+
+2.2.5 Database . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 11
+
+2.2.6 Archiviazione dei documenti . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 12
+
+2.2.7 Autenticazione e autorizzazione . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 12
+
+2.2.8 Infrastruttura e distribuzione . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 12
+
+2.2.9 Versionamento del codice . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 12
+
+2.2.10 Gestione delle configurazioni . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 12
+
+2.2.11 Monitoraggio e registrazione degli errori . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 13
+
+2.2.12 Backup e continuit`a operativa . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 13
+
+2.2.13 Evoluzione dello stack tecnologico . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 13
+
+2.2.14 Quadro riepilogativo . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 13
+
+2.2.15 Principio conclusivo . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 14
+
+2.3 Principi progettuali dell'architettura . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 14
+
+2.3.1 Separazione delle responsabilit`a . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 14
+
+2.3.2 Centralizzazione della logica di business . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 14
+
+2.3.3 Modularit`a . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 14
+
+2.3.4 Basso accoppiamento tra i moduli . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 14
+
+2.3.5 Elevata coesione interna . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 15
+
+2.3.6 Riutilizzabilit`a dei componenti . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 15
+
+2.3.7 Configurazione al posto della duplicazione . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 15
+
+2.3.8 API come punto di accesso controllato . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 15
+
+2.3.9 Contratti dati espliciti . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 15
+
+2.3.10 Validazione multilivello . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 15
+
+2.3.11 Sicurezza per progettazione . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16
+                                        2
+
+2.3.12 Isolamento dei dati tra aziende . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16
+2.3.13 Tracciabilit`a delle operazioni . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16
+2.3.14 Gestione esplicita delle revisioni . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16
+2.3.15 Operazioni atomiche e coerenza transazionale . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16
+2.3.16 Operazioni idempotenti . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16
+2.3.17 Gestione uniforme degli errori . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 17
+2.3.18 Osservabilit`a . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 17
+2.3.19 Prestazioni proporzionate al contesto . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 17
+2.3.20 Scalabilit`a progressiva . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 17
+2.3.21 Compatibilit`a con le integrazioni future . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 17
+2.3.22 Testabilit`a . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18
+2.3.23 Versionamento e compatibilit`a . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18
+2.3.24 Documentazione del software . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18
+2.3.25 Semplicit`a tecnica . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18
+2.3.26 Evoluzione controllata dell'architettura . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18
+2.3.27 Criteri di valutazione delle nuove funzionalit`a . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18
+2.3.28 Principio conclusivo . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 19
+
+3 Design Logico dell'Architettura Dati  20
+
+3.1 Metodo di costruzione del modello dati . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 20
+
+3.1.1 Modello commerciale e accesso alle funzionalit`a . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 20
+
+3.1.2 Separazione tra struttura della piattaforma e contenuti abilitati . . . . . . . . . . . . . . . . . . . . . . . 20
+
+3.1.3 Analisi degli strumenti esistenti . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 21
+
+3.1.4 Individuazione dei moduli . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 21
+
+3.1.5 Suddivisione dei moduli in sottocategorie . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 21
+
+3.1.6 Definizione completa delle voci . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 21
+
+3.1.7 Classificazione delle informazioni per certificazione . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 21
+
+3.1.8 Visualizzazione determinata dai pacchetti attivi . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 22
+
+3.1.9 Informazioni comuni e informazioni specifiche . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 22
+
+3.1.10 Dal censimento dei dati alla progettazione del database . . . . . . . . . . . . . . . . . . . . . . . . . . . 22
+
+3.1.11 Risultato atteso . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 23
+
+3.2 Modulo -- Scheda Anagrafica Aziendale . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 23
+
+3.2.1 Categoria -- Informazioni societarie . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 23
+
+3.2.2 Categoria -- Organizzazione . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 27
+
+3.2.3 Categoria -- Altre informazioni . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 30
+
+3.3 Modulo -- Personale . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 31
+
+3.3.1 Categoria -- Anagrafica Persone . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 31
+
+3.3.2 Categoria -- Ruoli e Incarichi . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 31
+
+3.3.3 Categoria -- Titoli di Studio . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 34
+
+3.3.4 Categoria -- DPI (condiviso con piano di manutezione) . . . . . . . . . . . . . . . . . . . . . . . . . . . 35
+
+4 Database                              37
+
+4.1 Sistema . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 37
+
+4.2 Anagrafica Aziendale . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 38
+
+4.2.1 Dati estratti dalla CCIA . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 38
+
+4.2.2 Categoria - Organizzazione, Trend e Assicurazioni . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 40
+
+4.2.3 Categoria - Altre informazioni . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 41
+                                                                                                                                                                    3
+
+Capitolo 1 - Visione del progetto
+
+1.1 Introduzione
+
+1.1.1 Premessa
+
+La piattaforma descritta in questo documento non nasce dall'esigenza di sviluppare un nuovo software, ma dalla volont`a
+di tradurre in uno strumento digitale un metodo di lavoro consolidato nell'ambito della consulenza aziendale e dei sistemi
+di gestione. Ogni funzionalit`a, processo e struttura dati `e stata progettata per rispondere a esigenze operative realmente
+riscontrate durante l'attivit`a quotidiana presso le imprese, con l'obiettivo di semplificare il lavoro sia del consulente sia
+dell'azienda. L'obiettivo del progetto non `e limitarsi a digitalizzare procedure esistenti, ma realizzare un ecosistema capace di
+organizzare le informazioni, guidare gli utenti nello svolgimento delle attivit`a operative e supportare il miglioramento continuo
+dell'organizzazione. Il presente documento costituisce quindi il riferimento progettuale dell'intera piattaforma, definendone
+principi, architettura, modello organizzativo e logiche funzionali che accompagneranno l'evoluzione del software durante tutto
+il suo ciclo di vita.
+
+1.1.2 Scopo del documento
+
+Il presente documento costituisce la specifica progettuale e funzionale della piattaforma e rappresenta il riferimento principale
+per tutte le attivit`a di analisi, sviluppo, manutenzione ed evoluzione del software. Il suo scopo `e descrivere l'architettura
+del sistema, i principi progettuali, la struttura dei dati, i moduli applicativi, i processi operativi e le principali regole di
+funzionamento, definendo una base condivisa per lo sviluppo della piattaforma. Ogni evoluzione significativa del software
+dovra` essere coerente con i principi e le specifiche qui descritte, garantendo continuit`a nello sviluppo e uniformit`a delle scelte
+progettuali.
+
+1.1.3 Contesto e origine del progetto
+
+Negli ultimi anni la gestione delle informazioni aziendali `e diventata sempre piu` complessa. Le imprese sono chiamate ad
+amministrare un numero crescente di dati, documenti, autorizzazioni, registrazioni, attivit`a formative, manutenzioni, verifi-
+che periodiche e adempimenti normativi. Nella realt`a delle PMI queste informazioni risultano spesso distribuite tra fogli di
+calcolo, archivi cartacei, cartelle condivise e software differenti, generando frammentazione, duplicazione dei dati, difficolt`a di
+aggiornamento e un maggiore rischio di errori o omissioni.
+
+La stessa situazione coinvolge quotidianamente il consulente, che si trova a ricostruire per ogni cliente un patrimonio informa-
+tivo gia` affrontato in precedenti incarichi. Attivit`a come la raccolta documentale, la verifica della conformit`a, il monitoraggio
+delle scadenze, l'aggiornamento dei registri e la predisposizione della documentazione per audit e verifiche vengono ripetute
+con modalit`a molto simili, senza la possibilit`a di valorizzare e riutilizzare l'esperienza maturata.
+
+L'analisi di queste criticit`a, unita all'esperienza maturata nel settore della consulenza aziendale, dei sistemi di gestione e
+delle certificazioni, ha portato allo sviluppo della presente piattaforma. L'obiettivo non `e semplicemente digitalizzare docu-
+menti o creare uno scadenziario, ma trasferire all'interno di un sistema informatico un metodo di lavoro consolidato, capace di
+organizzare le informazioni, guidare le attivit`a operative e supportare il miglioramento continuo delle organizzazioni. La piat-
+taforma rappresenta quindi la formalizzazione di un modello operativo sviluppato sul campo, progettato per essere applicato
+in modo coerente, scalabile e adattabile a realt`a aziendali di differenti dimensioni.
+
+1.1.4 Ambito del documento
+
+Il documento descrive l'intera progettazione della piattaforma, sia dal punto di vista funzionale sia da quello tecnico. In
+particolare definisce:
+
+    · Visione del progetto - Obiettivi e principi che guidano lo sviluppo della piattaforma.
+    · Architettura del sistema - Struttura generale, componenti software e organizzazione delle informazioni.
+    · Modello dei dati - Organizzazione del database, catalogo dati e relazioni tra le entit`a.
+    · Moduli applicativi - Descrizione delle principali funzionalit`a della piattaforma.
+    · Processi operativi - Flussi di lavoro e modalit`a di gestione delle informazioni.
+    · Regole di business - Logiche funzionali, configurazioni e criteri di funzionamento del sistema.
+    · Evoluzione della piattaforma - Principi da seguire per garantire una crescita coerente e modulare del software.
+                                                                                                                                                                    4
+
+1.2 Visione e filosofia della piattaforma
+
+1.2.1 Filosofia del progetto
+
+La piattaforma nasce da un principio fondamentale:
+
+        "Le aziende non dovrebbero adattarsi al software. E` il software che deve adattarsi alle aziende."
+
+A differenza di molti gestionali tradizionali, che impongono procedure e modelli organizzativi predefiniti, la piattaforma
+`e progettata per adattarsi alle modalit`a operative dell'impresa, supportandone i processi senza modificarne l'organizzazio-
+ne. L'obiettivo non `e sostituire il metodo di lavoro dell'azienda, ma comprenderlo, strutturarlo e semplificarlo attraverso
+uno strumento che rifletta il reale funzionamento dell'organizzazione. Ogni scelta progettuale `e orientata a tre obiettivi
+fondamentali:
+
+    · Semplificare le attivit`a operative;
+    · Ridurre il tempo dedicato agli adempimenti amministrativi;
+    · Migliorare l'affidabilit`a e la qualit`a delle informazioni.
+
+1.2.2 Visione e missione
+
+La piattaforma nasce con l'obiettivo di trasformare il patrimonio di conoscenze sviluppato durante l'attivit`a di consulenza in
+un sistema digitale capace di guidare le imprese nella gestione organizzativa, documentale e normativa. Non si propone come
+un semplice archivio digitale o uno scadenziario evoluto, ma come un ecosistema informativo nel quale ogni dato viene inserito
+una sola volta e successivamente riutilizzato da tutti i moduli della piattaforma. Documenti, personale, impianti, attrezzature,
+formazione, manutenzioni, cantieri, miglioramenti e scadenze diventano cos`i elementi di un unico sistema informativo integrato,
+capace di mettere automaticamente in relazione dati e documenti senza richiedere all'utente di conoscerne la struttura interna.
+L'obiettivo `e offrire una rappresentazione completa e sempre aggiornata dell'organizzazione aziendale, riducendo gli errori,
+automatizzando i controlli e rendendo immediatamente disponibili le informazioni necessarie alle attivit`a operative.
+
+1.2.3 Ruolo del consulente e dell'azienda
+
+La piattaforma `e progettata per valorizzare il ruolo del consulente, non per sostituirlo. Il consulente mantiene il compito
+di configurare il sistema, definire le informazioni necessarie, personalizzare il catalogo dei dati, interpretare i risultati e
+supportare l'azienda nelle decisioni. L'azienda, invece, rappresenta il principale produttore delle informazioni presenti nella
+piattaforma. Attraverso procedure guidate, cataloghi preconfigurati e modelli di inserimento, il sistema accompagna gli
+utenti nella raccolta e nell'aggiornamento dei dati, riducendo al minimo la complessit`a amministrativa. Questa collaborazione
+consente di automatizzare le attivit`a ripetitive, lasciando al consulente il tempo necessario per concentrarsi sulle attivit`a a
+maggior valore aggiunto e permettendo all'azienda di dedicare maggiori risorse al proprio core business.
+
+1.2.4 Valore della piattaforma
+
+L'elemento distintivo della piattaforma non risiede nelle singole funzionalit`a, ma nel modo in cui queste interagiscono tra loro.
+Ogni informazione viene contestualizzata, correlata e riutilizzata automaticamente, eliminando duplicazioni e incoerenze e
+consentendo ai diversi moduli di condividere un patrimonio informativo comune. La configurazione basata su profili settoriali
+permette inoltre di adattare automaticamente dati, documenti, indicatori e processi alle caratteristiche dell'impresa, offrendo
+un livello di specializzazione difficilmente raggiungibile dai gestionali generalisti. In definitiva, il valore del progetto non consiste
+nella semplice digitalizzazione di documenti o procedure, ma nella capacit`a di trasformare un metodo di lavoro consolidato in
+un sistema organizzato, configurabile e scalabile, capace di supportare contemporaneamente imprese e consulenti.
+
+1.3 Target della piattaforma
+
+1.3.1 Premessa
+
+La piattaforma non nasce con l'obiettivo di soddisfare indistintamente qualsiasi tipologia di impresa, ma di offrire uno strumen-
+to altamente specializzato per le aziende operanti nei settori di competenza dello studio di consulenza. Questa rappresenta una
+precisa scelta progettuale: limitare il campo di applicazione consente di sviluppare funzionalit`a piu` approfondite, procedure
+maggiormente automatizzate e configurazioni realmente aderenti alle esigenze operative delle imprese destinatarie. L'obiet-
+tivo non `e realizzare un software generalista, ma una piattaforma capace di fornire un livello di supporto significativamente
+superiore grazie alla propria specializzazione.
+                                                                                                                                                                    5
+
+1.3.2 Aziende destinatarie e campo di applicazione
+
+La piattaforma `e rivolta principalmente alle piccole e medie imprese che operano nei settori produttivi e dei servizi supportati
+dallo studio di consulenza. Le organizzazioni destinatarie presentano generalmente alcune caratteristiche comuni:
+
+    · Conformit`a normativa - Gestione di obblighi documentali, autorizzazioni e adempimenti legislativi.
+    · Gestione organizzativa - Amministrazione del personale, formazione, manutenzioni, documentazione tecnica e am-
+
+       ministrativa.
+    · Sistemi di gestione - Implementazione o mantenimento di sistemi certificabili e percorsi di miglioramento continuo.
+    · Supporto consulenziale - Collaborazione continuativa con consulenti esterni per la gestione organizzativa e normativa.
+
+La piattaforma `e progettata per supportare la gestione organizzativa, documentale e normativa dell'impresa. Non sostituisce
+sistemi ERP dedicati alla produzione, alla contabilita` o alla logistica operativa, pur potendo integrarsi con essi.
+
+1.3.3 Profili settoriali
+
+Uno degli elementi distintivi della piattaforma `e rappresentato dai profili settoriali. Ogni settore economico presenta ca-
+ratteristiche organizzative, documentali e operative differenti; per questo motivo il sistema genera automaticamente una
+configurazione iniziale coerente con il settore di appartenenza dell'azienda. Il profilo settoriale definisce, tra gli altri elementi:
+
+    · struttura del dossier aziendale;
+    · categorie informative;
+    · dati e documenti richiesti;
+    · impianti, attrezzature e ruoli tipici;
+    · dashboard, indicatori e statistiche;
+    · processi operativi;
+    · piani formativi, manutentivi e di miglioramento;
+    · controlli periodici e scadenze ricorrenti.
+
+Il consulente mantiene comunque la possibilit`a di personalizzare la configurazione iniziale, adattando cataloghi, moduli,
+dashboard, KPI, notifiche e processi alle specifiche esigenze della singola organizzazione.
+
+1.3.4 Settori supportati ed evoluzione
+
+La prima versione della piattaforma sar`a configurata per i principali settori IAF di interesse dello studio, con particolare
+riferimento ai seguenti codici:
+
+Codice  Settore
+IAF 01  Agricoltura, silvicoltura e pesca
+IAF 06  Legno e prodotti in legno
+IAF 16  Minerali non metallici e materiali da costruzione
+IAF 17  Metalli e prodotti metallici
+IAF 19  Apparecchiature elettriche ed elettroniche
+IAF 24  Trasporto e logistica
+IAF 28  Costruzioni
+IAF 29  Commercio e riparazione di autoveicoli e motocicli
+IAF 31  Trasporti, logistica e comunicazioni
+IAF 32  Attivit`a finanziarie, immobiliari e servizi alle imprese
+IAF 33  Tecnologia dell'informazione
+IAF 34  Servizi di ingegneria e professionali
+IAF 39  Altri servizi
+
+L'elenco dei profili sara` progressivamente ampliato. Grazie all'architettura modulare della piattaforma, ogni nuovo settore
+potr`a essere introdotto mediante l'estensione del catalogo dati, delle configurazioni e dei workflow, senza modificare la struttura
+generale del sistema.
+                                                                                                                                                                    6
+
+1.4 Obiettivi e principi della piattaforma
+
+1.4.1 Obiettivi del progetto
+
+Lo sviluppo della piattaforma persegue i seguenti obiettivi:
+
+    · Centralizzazione delle informazioni - Riunire dati, documenti e registrazioni aziendali in un unico ambiente digitale,
+       eliminando la frammentazione delle informazioni.
+
+    · Inserimento unico del dato - Garantire che ogni informazione venga registrata una sola volta e successivamente
+       riutilizzata da tutti i moduli della piattaforma.
+
+    · Supporto operativo - Guidare gli utenti nella raccolta e nell'aggiornamento delle informazioni attraverso procedure
+       strutturate, cataloghi preconfigurati e modelli di inserimento.
+
+    · Automazione dei processi - Automatizzare la gestione delle scadenze, dei controlli periodici, delle notifiche e delle
+       attivit`a ricorrenti, riducendo il carico amministrativo.
+
+    · Integrazione dei moduli - Mettere in relazione dati appartenenti a moduli differenti, creando un unico patrimonio
+       informativo condiviso.
+
+    · Supporto al consulente - Consentire la configurazione della piattaforma in funzione delle caratteristiche della singola
+       azienda, mantenendo elevata flessibilit`a operativa.
+
+    · Tracciabilit`a - Registrare lo storico delle modifiche e garantire la completa rintracciabilit`a delle operazioni effettuate
+       dagli utenti.
+
+    · Scalabilit`a - Consentire l'introduzione di nuovi moduli, profili settoriali e funzionalit`a senza modificare l'architettura
+       generale della piattaforma.
+
+    · Miglioramento continuo - Favorire una gestione aziendale orientata all'organizzazione, alla conformit`a normativa e
+       al miglioramento continuo dei processi.
+
+1.4.2 Prospettiva di evoluzione
+
+La piattaforma `e concepita come un sistema in continua evoluzione. Ogni nuova funzionalit`a dovr`a incrementare il valore
+delle informazioni gi`a presenti, evitando duplicazioni, preservando la coerenza dell'architettura e rafforzando l'integrazione tra
+i diversi moduli. L'evoluzione della piattaforma non sar`a misurata dal numero di funzionalit`a introdotte, ma dalla capacit`a
+di migliorare concretamente l'efficienza operativa delle imprese e di supportare il consulente nello svolgimento della propria
+attivit`a.
+
+1.4.3 Principi fondamentali
+
+    · Unicit`a dell'informazione - Ogni dato deve essere registrato una sola volta e avere un'unica fonte di origine. Tut-
+       ti i moduli della piattaforma dovranno utilizzare la medesima informazione attraverso relazioni tra i dati, evitando
+       duplicazioni, incoerenze e disallineamenti.
+
+    · Configurazione prima della programmazione - Le differenze tra aziende dovranno essere gestite mediante confi-
+       gurazioni, cataloghi e profili settoriali, evitando lo sviluppo di codice dedicato per casi specifici e mantenendo un'unica
+       base applicativa.
+
+    · Modularit`a - La piattaforma dovr`a essere composta da moduli indipendenti ma integrati, in grado di evolvere senza
+       compromettere il funzionamento degli altri componenti del sistema.
+
+    · Centralit`a del Catalogo Universale - Tutti i dati, i documenti, i processi e le configurazioni della piattaforma do-
+       vranno derivare dal Catalogo Universale, che rappresenta la base conoscitiva dell'intero sistema e il principale strumento
+       di configurazione.
+
+    · Configurabilit`a - Ogni azienda dovr`a poter personalizzare il proprio ambiente di lavoro attraverso configurazioni
+       progressive (piattaforma, profilo settoriale e consulente), mantenendo invariata l'architettura generale.
+
+    · Automazione controllata - Le attivit`a ripetitive dovranno essere automatizzate ogniqualvolta possibile, mantenendo
+       sempre il controllo finale e la responsabilit`a delle decisioni in capo all'utente.
+
+    · Tracciabilit`a - Ogni operazione significativa dovr`a essere registrata, conservando autore, data, modifiche effettuate e,
+       ove previsto, la motivazione dell'intervento, cos`i da garantire la completa ricostruzione dello storico.
+
+    · Scalabilit`a ed evoluzione - L'architettura dovr`a consentire l'introduzione di nuovi moduli, profili settoriali e funzio-
+       nalit`a senza richiedere modifiche strutturali, favorendo una crescita continua e ordinata della piattaforma.
+
+    · Semplicit`a - La complessit`a del sistema dovr`a essere gestita internamente dall'applicazione, offrendo all'utente un'in-
+       terfaccia intuitiva e riducendo al minimo le operazioni necessarie per svolgere ogni attivit`a.
+                                                                                                                                                                    7
+
+1.5 Modello operativo della piattaforma
+
+1.5.1 Premessa
+
+La piattaforma non `e concepita come un semplice software gestionale, ma come un sistema collaborativo finalizzato alla
+costruzione, all'organizzazione e alla valorizzazione del patrimonio informativo aziendale. La sua efficacia non dipende esclu-
+sivamente dalle funzionalit`a disponibili, bens`i dal modello operativo attraverso il quale aziende e consulenti collaborano nella
+produzione, verifica e aggiornamento delle informazioni. Questo modello costituisce uno dei principi fondamentali del pro-
+getto e rappresenta il riferimento per la progettazione dei flussi operativi, delle autorizzazioni, delle interfacce utente e dei
+meccanismi di automazione.
+
+1.5.2 Modello collaborativo
+
+La piattaforma si basa su un modello collaborativo nel quale ogni soggetto contribuisce alla costruzione e al mantenimento
+di un patrimonio informativo unico e condiviso. L'azienda alimenta il sistema attraverso l'aggiornamento delle informazioni
+relative alla propria organizzazione, mentre il consulente utilizza tali dati per configurare l'ambiente di lavoro, verificarne la
+completezza, individuare eventuali criticit`a e supportare il miglioramento continuo. La piattaforma rappresenta il punto di
+incontro tra questi due soggetti, sostituendo il tradizionale scambio di documenti tramite e-mail o archivi separati con un
+sistema centralizzato, costantemente aggiornato e immediatamente consultabile.
+
+1.5.3 Ruoli e responsabilit`a
+
+Il modello operativo individua tre figure principali.
+
+    · Azienda - E` il principale produttore delle informazioni presenti nel sistema. Aggiorna dati, documenti e registrazioni
+       attraverso procedure guidate, mantenendo il controllo operativo delle informazioni di propria competenza.
+
+    · Consulente - Configura la piattaforma, personalizza l'ambiente di lavoro, verifica la completezza delle informazioni e
+       utilizza i dati raccolti per supportare l'azienda nelle attivit`a di analisi, conformit`a e miglioramento continuo.
+
+    · Amministratore della piattaforma - Garantisce il corretto funzionamento dell'infrastruttura tecnica, occupandosi
+       della gestione degli utenti, della sicurezza, dei backup, della manutenzione e degli aggiornamenti del sistema.
+
+1.5.4 Ciclo operativo
+
+L'intero modello pu`o essere rappresentato come un processo ciclico di miglioramento continuo:
+
+                                                                   Configurazione iniziale
+                                                                                  
+
+                                                   Inserimento e aggiornamento delle informazioni
+                                                                                  
+
+                                                           Organizzazione automatica dei dati
+                                                                                  
+
+                                                             Analisi e verifica del consulente
+                                                                                  
+
+                                                       Definizione delle azioni di miglioramento
+                                                                                  
+
+                                                            Aggiornamento delle informazioni
+                                                                 ritorno all'inizio del ciclo
+
+Ogni iterazione incrementa la qualit`a del patrimonio informativo aziendale, rendendo progressivamente piu` efficaci sia le
+attivit`a operative dell'impresa sia quelle di consulenza.
+
+1.5.5 Obiettivi del modello operativo
+
+L'introduzione della piattaforma modifica il rapporto tra azienda e consulente, trasformando un modello basato sul continuo
+scambio di documenti in una collaborazione fondata su informazioni sempre disponibili, aggiornate e condivise. L'azienda
+acquisisce maggiore autonomia nella gestione delle attivit`a ordinarie, mentre il consulente pu`o dedicare una quota crescente
+del proprio tempo ad attivit`a di analisi, pianificazione e miglioramento continuo. L'obiettivo finale `e costruire un patrimonio
+informativo unico, affidabile e costantemente aggiornato, capace di supportare le decisioni aziendali e aumentare il valore della
+consulenza.
+                                                                                                                                                                    8
+
+Capitolo 2 - Architettura generale
+
+2.1 Architettura della piattaforma
+
+2.1.1 Premessa
+
+L'architettura della piattaforma `e progettata secondo un modello modulare e stratificato, nel quale ogni componente svolge
+una funzione ben definita e collabora con gli altri attraverso relazioni chiaramente individuate. Questo approccio consente di
+ridurre le dipendenze tra i diversi livelli del sistema, favorendo la manutenibilit`a del software, la scalabilit`a dell'architettura e
+la possibilit`a di introdurre nuove funzionalit`a senza compromettere quelle esistenti.
+
+A differenza dei tradizionali software gestionali, nei quali i moduli rappresentano il centro dell'applicazione, la presente
+piattaforma adotta un approccio data-centric. Il patrimonio informativo costituisce infatti il vero nucleo del sistema, mentre
+i moduli applicativi rappresentano esclusivamente differenti modalit`a di consultazione, gestione ed elaborazione delle stesse
+informazioni.
+
+L'intera architettura `e stata progettata perseguendo alcuni principi fondamentali: centralizzare le informazioni, separare
+la logica applicativa dalla configurazione, favorire il riutilizzo dei dati e garantire la capacit`a della piattaforma di adattarsi a
+contesti aziendali differenti senza richiedere modifiche strutturali.
+
+2.1.2 Componenti dell'architettura
+
+L'architettura logica della piattaforma `e articolata in quattro livelli principali, ciascuno caratterizzato da responsabilit`a spe-
+cifiche e da un preciso ruolo all'interno del sistema.
+
+Alla base dell'architettura si colloca il Patrimonio Informativo, che rappresenta l'insieme di tutte le informazioni ge-
+stite dalla piattaforma. Ne fanno parte dati anagrafici, documenti, personale, impianti, attrezzature, mezzi, processi, attivit`a
+formative, manutenzioni, piani di miglioramento, cantieri, squadre e storico delle modifiche. Tutti i moduli operano sul me-
+desimo patrimonio informativo e nessuno di essi mantiene archivi indipendenti, garantendo cos`i coerenza e unicit`a del dato.
+
+Al livello superiore si trova il Core della piattaforma, che raccoglie tutti i servizi condivisi necessari al funzionamento
+dell'applicazione. Il Core gestisce aspetti trasversali quali autenticazione, autorizzazioni, notifiche, workflow comuni, ricerca,
+allegati, storico delle modifiche, audit e configurazioni globali. Concentrando queste funzionalit`a in un unico livello si evita la
+duplicazione del codice e si garantisce un comportamento uniforme dell'intera piattaforma.
+
+Sopra il Core opera il Motore di Configurazione, responsabile dell'adattamento della piattaforma alle caratteristiche
+della singola azienda. Attraverso il Catalogo Universale, i profili settoriali e le configurazioni definite dal consulente, questo
+componente determina quali dati, documenti, dashboard, processi e strumenti debbano essere resi disponibili agli utenti. In
+questo modo il comportamento della piattaforma pu`o essere personalizzato senza modificare la logica applicativa.
+
+L'ultimo livello `e costituito dai Moduli Applicativi, ossia dalle funzionalit`a attraverso le quali utenti e consulenti inte-
+ragiscono con il sistema. Ogni modulo `e dedicato a uno specifico ambito operativo, ma utilizza esclusivamente il patrimonio
+informativo condiviso e i servizi messi a disposizione dal Core, garantendo un'esperienza uniforme e perfettamente integrata.
+
+2.1.3 Relazione tra i livelli
+
+I quattro livelli dell'architettura non rappresentano componenti isolati, ma costituiscono un sistema gerarchico nel quale ogni
+elemento si basa sui servizi forniti dal livello sottostante.
+
+Il patrimonio informativo rappresenta la base sulla quale opera l'intera piattaforma. Il Core mette a disposizione i ser-
+vizi comuni necessari alla gestione delle informazioni, mentre il Motore di Configurazione utilizza tali servizi per adattare
+l'ambiente operativo alle caratteristiche della singola azienda. Infine, i Moduli Applicativi consentono agli utenti di utilizzare
+e aggiornare il patrimonio informativo attraverso strumenti dedicati ai diversi ambiti operativi.
+
+Questa separazione consente a ciascun livello di evolvere indipendentemente dagli altri, riducendo l'impatto delle modifiche,
+preservando la stabilit`a del sistema e garantendo la coerenza dell'intera architettura.
+                                                                                                                                                                    9
+
+2.2 Tecnologie utilizzate
+
+La scelta delle tecnologie adottate per lo sviluppo della piattaforma `e il risultato delle esigenze funzionali, architetturali e
+progettuali definite nei capitoli precedenti. Lo stack tecnologico non rappresenta il punto di partenza del progetto, ma co-
+stituisce l'insieme degli strumenti attraverso i quali vengono implementati il modello operativo, l'architettura software e i
+principi progettuali che caratterizzano la piattaforma.
+
+Ogni tecnologia `e stata selezionata con l'obiettivo di garantire affidabilit`a, sicurezza, modularit`a, manutenibilit`a e scalabilit`a,
+assicurando al tempo stesso elevate possibilit`a di integrazione con sistemi esterni, un'ampia disponibilit`a di documentazione
+tecnica e la sostenibilit`a dello sviluppo nel lungo periodo.
+
+L'architettura software `e organizzata secondo una chiara separazione delle responsabilit`a, distinguendo i livelli dedicati all'in-
+terfaccia utente, ai servizi applicativi, alla logica di business, alla persistenza dei dati e alla gestione degli allegati. A ciascun
+livello sono associate tecnologie specifiche, selezionate in funzione del ruolo che dovranno svolgere all'interno della piattaforma.
+
+Il presente capitolo descrive lo stack tecnologico adottato, illustrando le motivazioni che hanno guidato ciascuna scelta e
+il contributo che ogni componente fornisce all'architettura complessiva del sistema.
+
+2.2.1 Struttura tecnologica generale
+
+Dal punto di vista implementativo, la piattaforma `e costituita da un insieme di componenti software distinti ma strettamente
+integrati. Ciascun componente `e responsabile di una specifica area funzionale e comunica con gli altri esclusivamente attraverso
+interfacce controllate, riducendo il livello di accoppiamento e facilitando l'evoluzione dell'intero sistema. L'infrastruttura
+tecnologica `e composta dai seguenti elementi principali:
+
+    · applicazione frontend;
+    · applicazione backend;
+    · API di comunicazione;
+    · database relazionale;
+    · sistema di archiviazione degli allegati;
+    · servizi di autenticazione e autorizzazione;
+    · infrastruttura di distribuzione e hosting;
+    · strumenti di versionamento e gestione dello sviluppo;
+    · sistemi di monitoraggio, registrazione e backup.
+
+La separazione di tali componenti consente di intervenire su ciascun livello senza compromettere il funzionamento degli altri,
+favorendo una crescita progressiva della piattaforma e una maggiore facilit`a di manutenzione. Lo schema seguente rappresenta,
+in forma semplificata, il flusso tecnologico attraverso il quale le richieste degli utenti vengono elaborate dal sistema.
+                                                                                                                                                                  10
+
+2.2.2 Frontend
+
+Il frontend rappresenta il livello della piattaforma con il quale aziende, consulenti e amministratori interagiscono quotidia-
+namente. Il suo compito non `e solamente quello di visualizzare le informazioni, ma soprattutto quello di trasformare la
+complessit`a del sistema in un'interfaccia semplice, intuitiva e coerente, capace di guidare l'utente nello svolgimento delle pro-
+prie attivit`a.
+
+In conformit`a con i principi architetturali descritti nei capitoli precedenti, il frontend non dovr`a contenere logiche di bu-
+siness n´e implementare regole decisionali. Tutte le elaborazioni dovranno essere demandate ai servizi esposti dal backend,
+mentre il frontend sar`a responsabile esclusivamente della presentazione delle informazioni, della gestione dell'interazione con
+l'utente e della comunicazione con le API.
+
+Per raggiungere questi obiettivi viene adottato uno stack tecnologico moderno, composto da Next.js, React, TypeScript,
+Tailwind CSS e Shadcn/UI. Ciascuna di queste tecnologie ricopre un ruolo ben preciso all'interno dell'architettura della
+piattaforma e dovr`a essere utilizzata seguendo criteri omogenei durante tutto lo sviluppo.
+
+Next.js Next.js costituisce il framework principale dell'applicazione frontend e rappresenta la base sulla quale verr`a orga-
+nizzato l'intero progetto. La sua adozione consente di strutturare il codice secondo una logica modulare, nella quale pagine,
+layout e componenti rimangono chiaramente separati e facilmente manutenibili. Questa organizzazione permetter`a di svi-
+luppare nuove funzionalit`a senza alterare l'architettura generale dell'applicazione e render`a piu` semplice l'evoluzione della
+piattaforma nel tempo. All'interno del progetto Next.js sar`a utilizzato per gestire la navigazione tra i moduli, organizzare le
+aree riservate, costruire le dashboard, condividere i layout comuni e coordinare tutte le comunicazioni con il backend. Inoltre,
+qualora in futuro si rendessero necessarie funzionalit`a lato server, il framework consentir`a di introdurle senza modificare la
+struttura complessiva dell'applicazione.
+
+React React rappresenta il modello di sviluppo adottato per l'interfaccia utente. L'intera piattaforma dovr`a essere costruita
+seguendo un approccio basato su componenti riutilizzabili. Card, tabelle, pulsanti, moduli di inserimento, finestre di dettaglio,
+dashboard, grafici e qualsiasi altro elemento dell'interfaccia dovranno essere sviluppati come componenti indipendenti, evitando
+duplicazioni di codice e garantendo uniformit`a grafica e comportamentale. Questa scelta consentir`a non solo di semplificare
+la manutenzione del progetto, ma anche di accelerare lo sviluppo dei nuovi moduli, riutilizzando componenti gi`a realizzati e
+testati.
+
+TypeScript Per lo sviluppo del frontend viene adottato TypeScript come linguaggio principale. L'utilizzo della tipizzazione
+statica consente di descrivere in modo esplicito la struttura delle informazioni gestite dall'applicazione, riducendo il rischio di
+errori durante lo sviluppo e facilitando la collaborazione tra frontend e backend. Tutti i modelli dati utilizzati nell'interfaccia
+dovranno essere coerenti con quelli esposti dalle API, evitando conversioni inutili e mantenendo una corrispondenza chiara tra
+le strutture definite nei due livelli dell'applicazione.
+
+Tailwind CSS La gestione dell'aspetto grafico della piattaforma `e affidata a Tailwind CSS. L'approccio basato su utility
+class permette di costruire interfacce moderne, responsive e facilmente modificabili, mantenendo uno stile uniforme in tutti i
+moduli della piattaforma. L'obiettivo non `e soltanto ridurre la quantit`a di codice CSS, ma soprattutto definire un linguaggio
+grafico condiviso che renda immediatamente riconoscibili tutti gli elementi dell'interfaccia e semplifichi eventuali evoluzioni
+dell'identit`a visiva della piattaforma.
+
+Shadcn/UI Shadcn/UI viene adottato come libreria di riferimento per la realizzazione dei componenti grafici condivisi.
+La piattaforma utilizzer`a tale libreria come base per lo sviluppo di pulsanti, menu, finestre modali, tabelle, pannelli laterali,
+calendari, notifiche, selettori e di tutti gli elementi ricorrenti dell'interfaccia. L'utilizzo di una libreria comune consentir`a di
+mantenere un'esperienza utente coerente in ogni modulo della piattaforma. I componenti non dovranno essere utilizzati nella
+loro configurazione standard, ma personalizzati in funzione dell'identit`a grafica del progetto e riutilizzati sistematicamente
+durante tutto lo sviluppo, evitando la creazione di soluzioni differenti per funzionalit`a analoghe.
+
+2.2.3 Backend
+
+Il backend rappresenta il cuore operativo della piattaforma. E` il livello responsabile dell'applicazione delle regole di business,
+della gestione dei processi, della validazione delle informazioni e dell'accesso al patrimonio informativo. Mentre il frontend
+si occupa esclusivamente dell'interazione con l'utente, tutte le decisioni che determinano il comportamento del sistema ven-
+gono elaborate dal backend, garantendo che ogni operazione venga eseguita secondo regole condivise e indipendentemente
+dall'interfaccia utilizzata. Per raggiungere questi obiettivi `e stato adottato uno stack tecnologico basato su Python, FastA-
+PI, SQLAlchemy e Alembic. Ogni componente svolge un ruolo specifico e contribuisce a mantenere il codice organizzato,
+facilmente manutenibile e coerente con l'architettura definita nei capitoli precedenti.
+                                                                                                                                                                  11
+
+Python Python costituisce il linguaggio principale utilizzato per lo sviluppo del backend. La sua scelta `e motivata dalla
+necessit`a di realizzare una piattaforma modulare, facilmente estendibile e caratterizzata da una logica applicativa chiara e
+leggibile. Grazie alla sua sintassi e all'ampio ecosistema di librerie disponibili, Python consente di sviluppare servizi complessi
+mantenendo un elevato livello di manutenibilit`a. L'intero codice dovr`a essere organizzato per domini funzionali e responsabilit`a
+ben definite, evitando la concentrazione di logiche eterogenee all'interno degli stessi moduli. Ogni componente dovr`a svolgere un
+compito specifico e poter evolvere indipendentemente dagli altri, nel rispetto dei principi di modularit`a descritti in precedenza.
+
+FastAPI FastAPI rappresenta il framework attraverso il quale vengono realizzati tutti i servizi applicativi della piattafor-
+ma. Ogni comunicazione tra frontend e backend dovr`a avvenire esclusivamente tramite API REST sviluppate con FastAPI,
+che costituiranno l'unico punto di accesso alle funzionalit`a del sistema. Questa scelta garantisce una netta separazione tra
+interfaccia utente e logica applicativa, semplificando lo sviluppo, i test e l'eventuale integrazione con applicazioni esterne.
+Attraverso FastAPI verranno gestite l'autenticazione delle richieste, il controllo delle autorizzazioni, la validazione dei dati
+ricevuti, l'esecuzione delle operazioni richieste e la restituzione delle relative risposte. Il framework sar`a inoltre utilizzato
+per la gestione centralizzata degli errori e per la generazione automatica della documentazione delle API, che costituir`a un
+importante riferimento durante lo sviluppo della piattaforma.
+
+SQLAlchemy Per l'accesso al database viene adottato SQLAlchemy come Object Relational Mapper (ORM). L'utilizzo di
+un ORM consente di rappresentare le entit`a del database attraverso modelli Python, mantenendo una stretta corrispondenza
+tra la struttura del codice e quella del modello dati. Questo approccio semplifica la gestione delle operazioni di lettura,
+inserimento, aggiornamento ed eliminazione delle informazioni, oltre a facilitare la definizione delle relazioni tra le diverse
+entita` della piattaforma. E` importante sottolineare che SQLAlchemy non sostituisce una corretta progettazione del database.
+Al contrario, il modello relazionale dovr`a essere definito con la stessa attenzione prevista per una gestione tradizionale,
+utilizzando l'ORM come strumento di collegamento tra la logica applicativa e il livello di persistenza, senza rinunciare ai
+principi di normalizzazione, integrit`a referenziale e ottimizzazione delle prestazioni.
+
+Alembic La gestione dell'evoluzione del database viene affidata ad Alembic, che rappresenta lo strumento di versionamento
+della struttura dati della piattaforma. Durante lo sviluppo il database sar`a inevitabilmente soggetto a modifiche: nuove tabelle,
+variazioni dei campi, aggiornamento delle relazioni o introduzione di nuovi vincoli. Ogni intervento dovr`a essere documentato
+attraverso una migrazione, evitando modifiche manuali direttamente sul database. L'utilizzo sistematico delle migrazioni
+consentir`a di mantenere allineati gli ambienti di sviluppo, test e produzione, ricostruire in qualsiasi momento l'evoluzione
+della struttura dati e applicare gli aggiornamenti in modo controllato e ripetibile. Questo approccio rappresenta una garanzia
+fondamentale per la stabilit`a della piattaforma durante tutto il suo ciclo di vita.
+
+2.2.4 API
+
+Le API rappresentano il punto di collegamento tra frontend e backend e costituiscono l'unico canale attraverso il quale i client
+possono accedere alle funzionalit`a della piattaforma. Questa scelta garantisce una netta separazione tra interfaccia utente e
+logica applicativa, impedendo che il frontend possa interagire direttamente con il database o implementare autonomamente
+regole di business. L'intera piattaforma dovr`a essere progettata secondo un'architettura API-first, nella quale ogni funzionalit`a
+viene resa disponibile attraverso servizi chiaramente definiti e indipendenti dall'interfaccia che li utilizza. In questo modo
+sara` possibile sviluppare nuovi client, integrare applicazioni esterne o realizzare servizi aggiuntivi senza modificare la logica
+centrale del sistema. Le API saranno organizzate per domini funzionali e risorse, evitando la realizzazione di endpoint
+costruiti esclusivamente in funzione delle singole schermate dell'interfaccia. Ogni endpoint dovr`a svolgere una responsabilit`a
+ben definita, mantenendo una struttura coerente e facilmente documentabile. Nel normale ciclo di elaborazione di una richiesta
+le API avranno il compito di identificare l'utente, verificarne i permessi, validare le informazioni ricevute, applicare le regole
+di business, interagire con il database, registrare le operazioni significative e restituire una risposta strutturata al frontend.
+Questa impostazione permetter`a inoltre di predisporre la piattaforma per future integrazioni con sistemi esterni, strumenti di
+Business Intelligence, applicazioni mobile, servizi documentali e software gestionali di terze parti.
+
+2.2.5 Database
+
+Per la gestione delle informazioni strutturate viene adottato PostgreSQL, scelto per la sua affidabilit`a, conformit`a agli stan-
+dard SQL e capacit`a di gestire basi dati relazionali di elevata complessit`a. Il database rappresenta il cuore del patrimonio
+informativo della piattaforma e ha il compito di conservare in modo coerente tutte le informazioni prodotte dai diversi moduli
+applicativi. Al suo interno saranno memorizzati aziende, utenti, persone, configurazioni, processi, documenti, piani operativi,
+cantieri, squadre, relazioni tra le entit`a e storico delle modifiche.
+
+La progettazione del modello dati dovr`a rispettare i principi di normalizzazione, garantire l'integrit`a referenziale e favori-
+re il riutilizzo delle informazioni tra i diversi moduli della piattaforma. Particolare attenzione dovr`a essere dedicata alla
+definizione delle relazioni tra le entit`a, al controllo delle transazioni e alla gestione della storicizzazione, cos`i da preservare la
+consistenza del patrimonio informativo anche durante l'evoluzione del sistema.
+                                                                                                                                                                  12
+
+La progettazione dettagliata del database verr`a affrontata nella parte del documento dedicata al modello dati, nella qua-
+le ogni modulo sar`a analizzato singolarmente per definire la struttura delle tabelle, le relazioni, le cardinalit`a, i vincoli di
+integrit`a e le modalit`a di gestione delle informazioni condivise.
+
+2.2.6 Archiviazione dei documenti
+
+La piattaforma distingue in modo netto la gestione delle informazioni strutturate dalla gestione dei documenti. I file caricati
+dagli utenti non verranno memorizzati direttamente all'interno del database relazionale, ma saranno conservati in un sistema
+di Object Storage dedicato. Nel database saranno registrati esclusivamente i metadati necessari alla loro identificazione e
+gestione. Per ogni documento dovranno essere mantenute informazioni quali l'identificativo del file, il nome originale, la
+tipologia, la dimensione, il percorso nello storage, la data di caricamento, l'utente che ha effettuato l'operazione, l'azienda di
+appartenenza, l'elemento della piattaforma al quale il documento `e collegato, l'eventuale versione e lo stato del documento.
+Questa separazione consente di mantenere il database leggero ed efficiente, semplificando allo stesso tempo la gestione di file
+di grandi dimensioni, delle revisioni documentali e delle future politiche di backup. L'accesso ai documenti dovr`a avvenire
+esclusivamente attraverso servizi autorizzati del backend. I percorsi fisici dei file non dovranno mai essere esposti direttamente
+agli utenti o alle applicazioni client.
+
+2.2.7 Autenticazione e autorizzazione
+
+La sicurezza della piattaforma `e affidata a un sistema centralizzato di autenticazione e autorizzazione, responsabile sia della
+verifica dell'identit`a degli utenti sia del controllo delle operazioni che ciascuno di essi `e autorizzato a eseguire. L'autenticazione
+consentir`a di identificare in modo certo l'utente che accede alla piattaforma, mentre il sistema di autorizzazione stabilir`a quali
+organizzazioni, moduli, dati e funzionalit`a possano essere utilizzati in funzione del ruolo assegnato. Il modello di sicurezza
+dovra` supportare la gestione degli account, l'appartenenza a piu` organizzazioni, i ruoli applicativi, i permessi granulari, la
+gestione delle sessioni, il recupero delle credenziali, la revoca degli accessi e la registrazione delle operazioni rilevanti ai fini della
+sicurezza e della tracciabilit`a. E` fondamentale che tutte le verifiche sui permessi vengano effettuate dal backend. L'interfaccia
+grafica potr`a limitarsi a nascondere le funzionalit`a non disponibili all'utente, ma tale comportamento dovr`a essere considerato
+esclusivamente un miglioramento dell'esperienza d'uso e non una misura di sicurezza.
+
+2.2.8 Infrastruttura e distribuzione
+
+La piattaforma `e progettata per essere distribuita su un'infrastruttura cloud, cos`i da garantire continuit`a operativa, elevata
+disponibilit`a del servizio e possibilit`a di crescita in funzione dell'aumento del numero di aziende e utenti gestiti. L'ambiente di
+esecuzione dovr`a essere suddiviso almeno nei tre livelli di sviluppo, test e produzione, ciascuno caratterizzato da configurazioni
+e risorse indipendenti. Questa separazione permetter`a di svolgere attivit`a di sviluppo e collaudo senza interferire con i dati
+reali delle aziende o compromettere la stabilit`a dell'ambiente produttivo. L'intero processo di distribuzione dovr`a essere
+automatizzato, documentato e ripetibile, cos`i da ridurre gli interventi manuali e garantire che ogni nuova versione della
+piattaforma venga rilasciata secondo procedure controllate e facilmente verificabili.
+
+2.2.9 Versionamento del codice
+
+L'intero codice sorgente della piattaforma dovr`a essere gestito mediante un sistema di controllo di versione basato su Git. Il
+versionamento rappresenta uno strumento fondamentale per garantire la tracciabilit`a dello sviluppo, favorire la collaborazione
+tra gli sviluppatori e preservare la storia evolutiva del progetto. Ogni modifica apportata al codice dovr`a poter essere ricon-
+dotta al relativo autore e documentata nel tempo, consentendo di ricostruire con precisione l'evoluzione della piattaforma,
+analizzare le modifiche introdotte e, se necessario, ripristinare versioni precedenti del software.
+
+L'utilizzo di Git dovr`a inoltre permettere di sviluppare nuove funzionalit`a in maniera indipendente, gestire revisioni del
+codice, correggere eventuali anomalie e coordinare il lavoro del team senza compromettere la stabilit`a del ramo principale
+di sviluppo. L'organizzazione dei repository potr`a essere definita in funzione delle esigenze progettuali. Frontend e backend
+potranno essere mantenuti in repository distinti oppure all'interno di un unico repository strutturato (monorepo); in entrambi
+i casi dovranno essere preservate la separazione delle responsabilit`a, la chiarezza dell'organizzazione del codice e l'indipendenza
+dei diversi componenti della piattaforma.
+
+2.2.10 Gestione delle configurazioni
+
+Le configurazioni dipendenti dall'ambiente di esecuzione o contenenti informazioni sensibili non dovranno essere memorizzate
+all'interno del codice sorgente. Credenziali di accesso al database, chiavi applicative, configurazioni dello storage, indirizzi
+dei servizi, parametri di autenticazione e qualsiasi altra informazione riservata dovranno essere gestiti mediante variabili
+d'ambiente oppure attraverso sistemi dedicati alla gestione dei segreti. Questa separazione consente di utilizzare la medesima
+base di codice nei diversi ambienti di sviluppo, test e produzione, modificando esclusivamente la configurazione esterna e
+riducendo significativamente il rischio di esposizione accidentale di informazioni riservate. In nessun caso credenziali reali o
+informazioni sensibili dovranno essere registrate all'interno dei repository del progetto.
+                                                                                                                                                                  13
+
+2.2.11 Monitoraggio e registrazione degli errori
+
+Una piattaforma destinata a gestire informazioni aziendali non pu`o limitarsi a svolgere correttamente le proprie funzioni,
+ma deve anche fornire gli strumenti necessari per monitorarne costantemente lo stato di funzionamento. Per questo motivo
+dovranno essere previsti sistemi dedicati alla raccolta dei log tecnici e al monitoraggio dell'applicazione, cos`i da consentire
+l'individuazione tempestiva di errori applicativi, richieste non completate, rallentamenti, problemi di connessione, operazioni
+fallite, accessi anomali o eventuali indisponibilit`a dei servizi. E` importante distinguere chiaramente i log tecnici dallo storico
+operativo della piattaforma. Lo storico documenta le attivit`a svolte dagli utenti sul patrimonio informativo aziendale, mentre i
+log applicativi descrivono il comportamento del software e rappresentano uno strumento di diagnosi destinato agli sviluppatori
+e agli amministratori di sistema. Entrambe le informazioni dovranno essere gestite nel rispetto dei requisiti di sicurezza,
+riservatezza e protezione dei dati.
+
+2.2.12 Backup e continuit`a operativa
+
+Il patrimonio informativo gestito dalla piattaforma rappresenta uno degli elementi di maggior valore dell'intero progetto. Per
+tale motivo dovranno essere previste procedure automatiche di backup che coinvolgano il database, gli allegati documentali e
+tutte le configurazioni necessarie al corretto funzionamento del sistema. La strategia di backup dovr`a definire con precisione la
+frequenza delle copie di sicurezza, i tempi di conservazione, le modalit`a di archiviazione, le procedure di ripristino e le relative
+responsabilit`a operative. L'esecuzione periodica del backup, tuttavia, non pu`o essere considerata sufficiente. Dovranno infatti
+essere pianificate verifiche periodiche delle procedure di ripristino, cos`i da garantire che le copie prodotte risultino realmente
+utilizzabili in caso di necessit`a. La strategia di continuit`a operativa dovr`a evolvere progressivamente insieme alla piattaforma,
+adeguandosi alla crescente criticit`a dei dati gestiti e al numero di aziende utilizzatrici.
+
+2.2.13 Evoluzione dello stack tecnologico
+
+Le tecnologie descritte nel presente capitolo costituiscono lo stack di riferimento per la prima implementazione della piat-
+taforma. Esse rappresentano una scelta progettuale consapevole, ma non devono essere considerate vincoli permanenti.
+L'architettura dovr`a essere progettata affinch´e l'eventuale sostituzione di una tecnologia interessi prevalentemente il livello di
+competenza corrispondente, senza richiedere una riprogettazione dell'intero sistema. Questo risultato potr`a essere ottenuto
+mantenendo chiaramente separate le responsabilit`a tra interfaccia utente, servizi applicativi, logica di business, persistenza dei
+dati, gestione degli allegati e infrastruttura. Ogni futura evoluzione dello stack tecnologico dovr`a essere valutata considerando
+non soltanto gli aspetti tecnici, ma anche l'impatto sull'architettura esistente, i costi di migrazione, la compatibilit`a con il
+software sviluppato, la disponibilit`a delle competenze necessarie e la sostenibilit`a della soluzione nel lungo periodo.
+
+2.2.14 Quadro riepilogativo
+                                                                                                                                                                  14
+
+2.2.15 Principio conclusivo
+
+Le tecnologie rappresentano gli strumenti attraverso i quali la piattaforma viene realizzata, ma non costituiscono il valore del
+progetto. Il vero patrimonio della piattaforma `e rappresentato dal modello organizzativo, dall'architettura, dal Catalogo Uni-
+versale e dalle regole operative sviluppate nel corso del progetto. Lo stack tecnologico dovr`a quindi essere sempre considerato
+al servizio di tali elementi e mai il contrario. L'intera architettura dovr`a essere progettata affinch´e l'evoluzione delle tecnologie
+non comporti la perdita delle conoscenze acquisite, delle informazioni gestite o dei principi progettuali che costituiscono il
+fondamento della piattaforma.
+
+2.3 Principi progettuali dell'architettura
+
+L'architettura software della piattaforma `e sviluppata secondo un insieme di principi progettuali coerenti con gli obiettivi
+funzionali e organizzativi definiti nella Parte I del presente documento. Tali principi costituiscono il riferimento per tutte le
+attivit`a di progettazione, sviluppo ed evoluzione della piattaforma e hanno lo scopo di garantire che il sistema possa crescere
+nel tempo mantenendo stabilit`a, chiarezza e manutenibilit`a. Ogni componente dovr`a essere progettato privilegiando soluzioni
+generiche e riutilizzabili, evitando implementazioni strettamente legate a una singola schermata, a una specifica azienda, a
+una certificazione o a un determinato settore. Le differenze operative dovranno essere gestite, per quanto possibile, attraverso
+configurazioni e regole applicative condivise, cos`i da preservare l'uniformit`a dell'architettura e limitare la duplicazione del
+codice.
+
+2.3.1 Separazione delle responsabilit`a
+
+Uno dei principi fondamentali dell'architettura consiste nella chiara separazione delle responsabilit`a tra i diversi livelli della
+piattaforma. Ogni componente software deve svolgere un compito ben definito, evitando di incorporare logiche che appartengo-
+no ad altri livelli dell'applicazione. L'interfaccia utente dovr`a occuparsi esclusivamente della presentazione delle informazioni e
+della raccolta degli input dell'utente. Le API avranno il compito di gestire la comunicazione tra frontend e backend, mentre la
+logica di business sar`a responsabile dell'applicazione delle regole operative, delle validazioni, delle autorizzazioni e dei processi
+applicativi. Il livello di persistenza dovr`a infine occuparsi della lettura e della scrittura dei dati. Questa separazione evita che le
+stesse regole vengano replicate in punti differenti della piattaforma, riducendo il rischio di comportamenti incoerenti. A titolo
+esemplificativo, il calcolo dello stato di una scadenza non dovr`a essere implementato separatamente nella dashboard, nello
+scadenziario e nel piano formativo, ma dovr`a essere definito una sola volta all'interno della logica applicativa e successivamente
+riutilizzato da tutte le interfacce che ne avranno necessit`a.
+
+2.3.2 Centralizzazione della logica di business
+
+Le regole che determinano il comportamento della piattaforma dovranno essere centralizzate nel backend e non distribuite tra
+le diverse interfacce. Il frontend potr`a eseguire controlli preliminari con l'obiettivo di migliorare l'esperienza dell'utente, ma
+ogni validazione significativa dovr`a essere ripetuta dal backend prima che un'operazione venga accettata. Tra le principali
+regole che dovranno essere centralizzate rientrano l'obbligatoriet`a dei campi, la validit`a delle informazioni, la gestione delle
+autorizzazioni, il calcolo dello stato delle scadenze, la possibilit`a di modificare o revisionare un elemento, l'associazione tra
+persone, ruoli e requisiti, la compatibilit`a tra moduli, l'applicazione delle configurazioni aziendali, la generazione delle notifiche
+e la storicizzazione delle modifiche. In questo modo le regole rimarranno valide indipendentemente dal canale attraverso il
+quale la piattaforma verr`a utilizzata.
+
+2.3.3 Modularit`a
+
+La piattaforma dovr`a essere composta da moduli funzionali distinti, ciascuno dedicato a uno specifico ambito operativo. Ogni
+modulo dovr`a disporre delle proprie interfacce, dei propri servizi applicativi, delle proprie regole specifiche, delle proprie
+autorizzazioni e dei propri flussi operativi, mantenendo una chiara area di responsabilit`a. La modularit`a non dovr`a tuttavia
+generare sistemi isolati. Tutti i moduli dovranno utilizzare servizi comuni e condividere il medesimo patrimonio informativo,
+cos`i da mantenere una separazione funzionale senza compromettere l'integrazione dell'intera piattaforma. L'introduzione di
+nuovi moduli o la modifica di quelli esistenti non dovr`a richiedere la riscrittura delle componenti non direttamente coinvolte.
+
+2.3.4 Basso accoppiamento tra i moduli
+
+I moduli della piattaforma non dovranno dipendere direttamente dall'implementazione interna degli altri moduli. Nessun
+componente dovr`a accedere alle tabelle, ai servizi privati o alle strutture interne di un'altra area funzionale. La condivisione
+delle informazioni dovr`a avvenire attraverso servizi applicativi comuni, API interne, modelli condivisi, eventi applicativi
+o relazioni definite all'interno del patrimonio informativo. Ad esempio, il modulo dedicato ai cantieri potr`a utilizzare le
+informazioni relative al personale e alle relative abilitazioni, ma non dovr`a incorporare o duplicare la logica applicativa del
+modulo Personale. Questo principio consentir`a di modificare un modulo mantenendo stabile il comportamento degli altri
+componenti della piattaforma.
+                                                                                                                                                                  15
+
+2.3.5 Elevata coesione interna
+
+Ogni modulo dovr`a contenere esclusivamente elementi strettamente correlati alla propria funzione. Le operazioni appartenenti
+allo stesso ambito dovranno essere raccolte all'interno di componenti coerenti, evitando la dispersione della logica applicativa in
+aree differenti del software. Ad esempio, tutte le regole relative alla composizione delle squadre, alla verifica delle abilitazioni
+e alla sostituzione del personale dovranno essere sviluppate all'interno del modulo dedicato alle squadre, pur utilizzando
+informazioni provenienti da servizi condivisi. Un'elevata coesione rende il codice piu` leggibile, facilita le attivit`a di test e
+consente di individuare con maggiore rapidit`a i punti nei quali intervenire in caso di modifiche o manutenzioni.
+
+2.3.6 Riutilizzabilit`a dei componenti
+
+Le funzionalit`a ricorrenti dovranno essere sviluppate una sola volta e successivamente riutilizzate in tutta la piattaforma.
+Questo principio riguarda sia i componenti grafici del frontend sia i servizi applicativi del backend. Moduli di inserimento,
+selettori, tabelle, finestre di dettaglio, gestione degli allegati, note, date, sistemi di ricerca, controlli di autorizzazione, registra-
+zione dello storico, notifiche e validazioni comuni dovranno essere progettati come componenti condivisi, evitando duplicazioni
+e garantendo uniformita` di comportamento tra tutti i moduli della piattaforma.
+
+2.3.7 Configurazione al posto della duplicazione
+
+Le differenze tra settori, aziende, certificazioni o modalit`a operative non dovranno generare copie differenti della medesima
+funzionalit`a. Quando due comportamenti condividono la stessa struttura generale ma differiscono esclusivamente per campi,
+regole o contenuti, tali differenze dovranno essere gestite mediante configurazioni. La piattaforma distinguer`a quindi la logica
+comune dalle configurazioni settoriali, dalle configurazioni aziendali, dalle personalizzazioni del consulente e dai dati operativi
+inseriti dagli utenti. Questo approccio consentir`a di riutilizzare lo stesso sistema di inserimento guidato per contenuti differenti,
+modificandone dinamicamente campi e regole senza sviluppare applicazioni dedicate. Qualora invece due processi presentino
+logiche realmente differenti, essi dovranno essere progettati come componenti distinti.
+
+2.3.8 API come punto di accesso controllato
+
+Le API rappresentano il punto di accesso ufficiale alle funzionalit`a del backend e costituiscono l'unico canale attraverso il
+quale il frontend potr`a richiedere o modificare le informazioni presenti nel sistema. Ogni richiesta dovr`a essere sottoposta
+alla verifica dell'identita` dell'utente, dell'organizzazione di appartenenza, del ruolo, dei permessi assegnati, della validit`a dei
+dati ricevuti, della coerenza dell'operazione richiesta, degli eventuali vincoli di stato e della necessit`a di registrare la modifica
+nello storico. Le API dovranno essere progettate sulla base delle risorse e delle operazioni del dominio applicativo, evitando di
+riflettere esclusivamente la struttura delle schermate dell'interfaccia. Questa impostazione consentir`a di riutilizzare gli stessi
+servizi in future integrazioni, applicazioni esterne o nuove interfacce della piattaforma.
+
+2.3.9 Contratti dati espliciti
+
+La comunicazione tra frontend e backend dovr`a basarsi su contratti dati espliciti, stabili e versionati, cos`i da garantire coerenza
+tra i diversi livelli della piattaforma ed evitare dipendenze implicite tra le componenti del sistema. Per ogni richiesta e per
+ogni risposta dovranno essere definiti in modo chiaro la struttura dei dati, i campi disponibili, il relativo tipo, l'obbligatoriet`a,
+gli eventuali valori ammessi, la struttura dei messaggi di errore, le relazioni incluse e le regole di compatibilit`a applicabili.
+Il frontend non dovr`a mai basarsi su risposte generiche o su comportamenti non documentati. Allo stesso modo, i contratti
+dati dovranno riflettere i modelli applicativi esposti dal backend senza coincidere necessariamente con la struttura fisica del
+database. Questa separazione consentir`a di modificare il modello di persistenza senza compromettere automaticamente le
+interfacce che utilizzano le API.
+
+2.3.10 Validazione multilivello
+
+La validazione delle informazioni dovr`a essere distribuita su piu` livelli dell'architettura, assegnando a ciascuno una responsa-
+bilita` ben definita. Nessun livello dovr`a essere considerato sufficiente, da solo, a garantire la correttezza delle informazioni.
+L'interfaccia utente avra` il compito di fornire un riscontro immediato all'utilizzatore, evidenziando campi mancanti, formati
+non corretti o valori incompatibili, cos`i da migliorare l'esperienza di utilizzo della piattaforma. Le API dovranno verificare che
+ogni richiesta rispetti la struttura prevista e contenga informazioni formalmente corrette prima di essere inoltrata alla logica
+applicativa. Successivamente la logica di business dovr`a controllare che l'operazione richiesta sia coerente con le regole della
+piattaforma, con lo stato corrente delle informazioni e con il contesto operativo nel quale viene eseguita. Infine il database
+dovra` garantire l'integrit`a strutturale dei dati attraverso vincoli e controlli che impediscano il salvataggio di informazioni
+incoerenti anche nel caso in cui un errore applicativo superi i livelli precedenti di validazione. L'integrazione di questi livel-
+li consente di ridurre la probabilit`a di errore e di preservare nel tempo la qualit`a del patrimonio informativo gestito dalla
+piattaforma.
+                                                                                                                                                                  16
+
+2.3.11 Sicurezza per progettazione
+
+La sicurezza dovr`a essere considerata un requisito progettuale e non una funzionalit`a da introdurre successivamente durante lo
+sviluppo. Ogni nuova funzione dovr`a essere progettata valutando fin dall'inizio chi sia autorizzato a visualizzare le informazioni,
+chi possa crearle, modificarle o eliminarle e quali operazioni richiedano una registrazione nello storico. Dovranno inoltre
+essere individuati i dati sensibili, le informazioni che devono rimanere isolate tra aziende differenti, gli allegati che richiedono
+particolari misure di protezione e tutti i controlli che dovranno essere eseguiti dal backend. L'appartenenza dell'utente a
+una specifica organizzazione dovr`a essere verificata in ogni operazione significativa. Nessuna informazione dovr`a essere resa
+disponibile esclusivamente sulla base di un identificativo ricevuto dal frontend, poich´e ogni accesso dovr`a essere sempre validato
+dal backend secondo le regole di autorizzazione definite dalla piattaforma.
+
+2.3.12 Isolamento dei dati tra aziende
+
+La piattaforma `e progettata per gestire contemporaneamente piu` aziende all'interno della medesima infrastruttura e dovr`a
+pertanto garantire il completo isolamento logico dei dati appartenenti alle diverse organizzazioni. Ogni informazione memoriz-
+zata nel sistema dovr`a essere associata in modo esplicito all'azienda proprietaria o al contesto nel quale viene utilizzata, cos`i
+da consentire al backend di applicare automaticamente tutte le verifiche necessarie durante le operazioni di lettura e modifica.
+Le interrogazioni al database dovranno includere sistematicamente i filtri relativi all'organizzazione di appartenenza, evitando
+che la sicurezza dipenda esclusivamente dai parametri trasmessi dal frontend. Particolare attenzione dovr`a essere riservata ai
+consulenti che operano contemporaneamente su piu` aziende. Anche in questo caso ogni accesso dovr`a essere autorizzato in
+modo esplicito, tracciato e verificabile, garantendo che ciascun utente possa consultare esclusivamente le informazioni per le
+quali dispone delle necessarie autorizzazioni.
+
+2.3.13 Tracciabilit`a delle operazioni
+
+Uno dei principi fondamentali della piattaforma consiste nella completa tracciabilit`a delle operazioni effettuate dagli utenti.
+Ogni modifica significativa apportata al patrimonio informativo dovr`a poter essere ricostruita in qualsiasi momento, consen-
+tendo di comprendere non solo quale sia lo stato attuale delle informazioni, ma anche come esse si siano evolute nel tempo.
+Per ogni operazione rilevante il sistema dovr`a registrare almeno l'utente che ha effettuato l'azione, l'azienda di riferimento,
+la data e l'ora dell'operazione, il tipo di attivit`a eseguita, l'elemento interessato e, quando necessario, i valori precedenti e
+quelli successivi alla modifica. Dovranno inoltre essere memorizzate l'origine dell'operazione ed eventuali motivazioni, qualora
+previste dal processo applicativo. E` importante distinguere chiaramente lo storico operativo dai log tecnici. Mentre i log
+descrivono il comportamento del software e supportano le attivit`a di diagnosi e manutenzione, lo storico operativo documenta
+l'evoluzione del patrimonio informativo aziendale e rappresenta uno strumento fondamentale per audit, verifiche e controlli di
+conformit`a.
+
+2.3.14 Gestione esplicita delle revisioni
+
+Non tutte le modifiche apportate alle informazioni devono essere trattate come semplici sostituzioni del valore precedente. In
+numerosi casi la piattaforma dovr`a distinguere la natura dell'operazione effettuata, preservando la storia evolutiva dell'elemen-
+to interessato. Il sistema dovr`a essere in grado di differenziare, ad esempio, una correzione di un errore da un aggiornamento
+ordinario, un rinnovo, una nuova emissione, una revisione, un annullamento o un'archiviazione. Quando la tipologia dell'infor-
+mazione lo richiede, la versione precedente non dovr`a essere eliminata, ma mantenuta e collegata alla nuova, cos`i da consentire
+la ricostruzione completa dell'evoluzione dell'elemento. Questo principio assume particolare rilevanza per documenti, certi-
+ficati, attestati, valutazioni, autorizzazioni, piani, registri, scadenze e configurazioni di particolare importanza. Le modalit`a
+operative attraverso cui tali revisioni verranno gestite saranno definite durante la progettazione delle singole strutture dati.
+
+2.3.15 Operazioni atomiche e coerenza transazionale
+
+Le operazioni che coinvolgono piu` informazioni correlate dovranno essere eseguite come un'unica unit`a logica, evitando che il
+sistema possa trovarsi in uno stato parziale o incoerente nel caso in cui una delle attivit`a previste non venga completata corret-
+tamente. Quando un processo richiede l'esecuzione di piu` operazioni strettamente collegate, esse dovranno essere coordinate
+attraverso transazioni o meccanismi equivalenti, garantendo che tutte vengano completate con successo oppure che nessuna
+modifica venga definitivamente applicata. Un esempio tipico `e rappresentato dal rinnovo di un documento. Tale operazione
+potrebbe richiedere la creazione della nuova versione, l'aggiornamento dello stato della versione precedente, la generazione
+della nuova scadenza, la registrazione dello storico e l'aggiornamento dei collegamenti con gli altri elementi della piattaforma.
+Tutte queste attivit`a dovranno essere considerate parte della medesima operazione transazionale.
+
+2.3.16 Operazioni idempotenti
+
+Quando la natura dell'operazione lo consente, il sistema dovr`a essere progettato secondo il principio dell'idempotenza, evitando
+che l'esecuzione ripetuta della stessa richiesta produca duplicazioni o effetti indesiderati. Questo principio assume particolare
+importanza nelle operazioni automatiche, come importazioni di dati, sincronizzazioni con sistemi esterni, invio di notifiche,
+                                                                                                                                                                  17
+
+generazione delle scadenze, elaborazioni pianificate o meccanismi di ritrasmissione automatica delle richieste. La piattafor-
+ma dovr`a essere in grado di riconoscere quando una determinata operazione `e gi`a stata eseguita, impedendo la creazione
+involontaria di record duplicati o l'esecuzione ripetuta delle medesime attivit`a.
+
+2.3.17 Gestione uniforme degli errori
+
+La gestione degli errori dovr`a seguire un modello uniforme in tutta la piattaforma, cos`i da garantire un comportamento
+prevedibile sia per gli utenti sia per gli sviluppatori. Il backend dovr`a distinguere in modo esplicito le diverse tipologie di errore,
+individuando almeno i casi relativi a richieste non valide, accessi non autorizzati, permessi insufficienti, risorse non trovate,
+conflitti con lo stato corrente delle informazioni, violazioni dei vincoli applicativi, errori interni e indisponibilit`a temporanee
+dei servizi. Le risposte restituite al frontend non dovranno mai esporre dettagli tecnici sensibili che possano compromettere
+la sicurezza della piattaforma. Sar`a invece compito dell'interfaccia tradurre tali errori in messaggi comprensibili, fornendo
+all'utente indicazioni utili per correggere l'operazione quando ci`o risulti possibile. Parallelamente, tutti gli errori tecnici
+dovranno essere registrati mediante sistemi di logging che consentano agli sviluppatori di analizzarne le cause e di intervenire
+tempestivamente in caso di anomalie.
+
+2.3.18 Osservabilit`a
+
+Una piattaforma destinata a supportare la gestione di processi aziendali complessi non deve limitarsi a funzionare corretta-
+mente, ma deve anche consentire di comprendere in ogni momento il proprio stato operativo. Per questo motivo l'architettura
+dovra` essere progettata secondo i principi dell'osservabilit`a, mettendo a disposizione tutti gli strumenti necessari per analizzare
+il comportamento del sistema e individuare tempestivamente eventuali anomalie. A tal fine dovranno essere previsti sistemi
+dedicati alla raccolta di log strutturati, al monitoraggio degli errori, al controllo delle prestazioni, alla registrazione dei tempi
+di risposta, alla verifica dello stato dei servizi, al monitoraggio delle elaborazioni pianificate e alla segnalazione automatica di
+situazioni anomale. Particolare attenzione dovr`a inoltre essere dedicata al tracciamento delle richieste tra i diversi componenti
+della piattaforma, cos`i da poter ricostruire con precisione il percorso seguito da ogni operazione. L'osservabilit`a rappresen-
+ta uno strumento essenziale sia per il monitoraggio dell'infrastruttura sia per la manutenzione evolutiva della piattaforma,
+permettendo di distinguere rapidamente i problemi applicativi da quelli infrastrutturali.
+
+2.3.19 Prestazioni proporzionate al contesto
+
+La piattaforma dovr`a garantire prestazioni adeguate alle attivit`a quotidiane svolte dagli utenti, privilegiando un'architettura
+efficiente ma proporzionata alle reali esigenze operative del progetto. Durante la progettazione dovranno essere evitate so-
+luzioni che comportino caricamenti eccessivi di informazioni, interrogazioni ripetitive del database, trasferimenti di dati non
+necessari o elaborazioni particolarmente onerose eseguite durante la normale navigazione dell'utente. Allo stesso modo dovr`a
+essere evitato il caricamento completo di archivi molto estesi o il recupero indiscriminato di relazioni che non risultino real-
+mente necessarie. Quando opportuno, la piattaforma dovr`a adottare tecniche quali paginazione dei risultati, filtri di ricerca,
+caricamento progressivo delle informazioni, indicizzazione del database, sistemi di cache, elaborazioni asincrone e query otti-
+mizzate. L'ottimizzazione delle prestazioni non dovra` tuttavia essere perseguita in modo prematuro. Ogni intervento dovr`a
+essere giustificato da misurazioni reali e concentrarsi esclusivamente sui punti che rappresentano un'effettiva criticit`a per il
+funzionamento della piattaforma.
+
+2.3.20 Scalabilit`a progressiva
+
+L'architettura dovr`a essere progettata per accompagnare la crescita della piattaforma senza richiedere una riprogettazione delle
+componenti fondamentali. La prima versione dell'applicazione non necessita della complessit`a tipica dei sistemi distribuiti
+di grandi dimensioni; tuttavia ogni scelta progettuale dovr`a evitare la creazione di vincoli che possano limitare una futura
+espansione del sistema. La scalabilit`a dovr`a essere perseguita attraverso una corretta separazione dei componenti, servizi privi
+di stato locale non necessario, una progettazione accurata del database, l'utilizzo di uno storage esterno per i documenti, la
+possibilit`a di eseguire elaborazioni pianificate e la predisposizione dell'infrastruttura per un eventuale incremento delle risorse
+disponibili. L'architettura dovr`a inoltre consentire, quando le esigenze del progetto lo renderanno opportuno, la distribuzione
+della piattaforma su piu` istanze applicative senza richiedere modifiche sostanziali alla logica del software. La complessit`a
+infrastrutturale dovr`a quindi crescere progressivamente insieme alla piattaforma, evitando di introdurre soluzioni avanzate
+prima che esse risultino realmente necessarie.
+
+2.3.21 Compatibilit`a con le integrazioni future
+
+Fin dalla fase di progettazione l'architettura dovr`a prevedere la possibilit`a di integrare la piattaforma con sistemi esterni, senza
+rendere necessaria la riscrittura dei moduli principali. Nel corso dell'evoluzione del progetto potranno infatti rendersi neces-
+sarie integrazioni con software contabili, gestionali paghe, servizi di firma elettronica, sistemi di posta elettronica, calendari,
+piattaforme di archiviazione documentale, banche dati esterne, strumenti di analisi, applicazioni mobili o sistemi utilizzati
+dagli organismi di certificazione. Per garantire questa flessibilit`a le integrazioni dovranno essere realizzate attraverso compo-
+nenti dedicati, mantenendo isolate le logiche specifiche dei sistemi esterni. Formati dei dati, credenziali di accesso e regole di
+comunicazione non dovranno essere distribuiti all'interno della logica applicativa della piattaforma, ma concentrati nei livelli
+                                                                                                                                                                  18
+
+dedicati all'integrazione. Questa impostazione consentir`a di sostituire o aggiornare un'integrazione senza compromettere il
+funzionamento delle altre componenti del sistema.
+
+2.3.22 Testabilit`a
+
+Ogni componente della piattaforma dovr`a essere progettato in modo da poter essere verificato in maniera indipendente, ri-
+ducendo al minimo le dipendenze che potrebbero rendere difficoltosa l'attivit`a di collaudo. La logica di business non dovr`a
+dipendere direttamente dall'interfaccia grafica n´e da servizi esterni difficili da simulare, cos`i da consentire l'esecuzione di test
+mirati e ripetibili durante tutto il ciclo di sviluppo. La strategia di verifica della piattaforma dovr`a evolvere progressivamente
+comprendendo test delle singole funzioni, dei servizi applicativi, delle API, delle autorizzazioni, delle interazioni con il da-
+tabase, dei principali flussi operativi, dell'interfaccia utente, delle migrazioni del database e delle procedure di ripristino dei
+backup. Particolare attenzione dovr`a essere riservata alle funzionalit`a piu` critiche dell'intero sistema, quali la gestione delle
+autorizzazioni, il controllo delle scadenze, i rinnovi, la storicizzazione delle modifiche e l'isolamento dei dati tra aziende, poich´e
+da esse dipendono l'affidabilit`a e la sicurezza dell'intera piattaforma.
+
+2.3.23 Versionamento e compatibilit`a
+
+L'evoluzione dell'architettura, delle API e della struttura del database dovr`a avvenire secondo un processo controllato, in
+grado di preservare la continuit`a operativa della piattaforma e la compatibilit`a con le informazioni gi`a presenti nel sistema.
+Ogni modifica dovr`a essere valutata considerando l'impatto sui dati esistenti, le eventuali migrazioni necessarie, gli effetti sul
+frontend, la compatibilit`a con le integrazioni gi`a sviluppate, la possibilit`a di annullare le modifiche introdotte e l'aggiornamento
+della documentazione tecnica. Quando una modifica alle API non risulti compatibile con le versioni precedenti, dovr`a essere
+previsto un adeguato sistema di versionamento che consenta ai diversi componenti della piattaforma di continuare a operare
+durante il periodo di transizione. Questo approccio permetter`a di far evolvere progressivamente il sistema senza compromettere
+la stabilit`a delle funzionalit`a gi`a operative e senza interrompere il servizio fornito agli utenti.
+
+2.3.24 Documentazione del software
+
+La qualit`a della piattaforma non dipender`a esclusivamente dal codice sviluppato, ma anche dalla documentazione che accom-
+pagner`a ogni componente durante il suo ciclo di vita. Una documentazione aggiornata e coerente rappresenta infatti uno
+strumento indispensabile per agevolare lo sviluppo, la manutenzione e l'evoluzione del sistema. Ogni modulo dovr`a essere
+descritto evidenziandone lo scopo, le responsabilit`a, le dipendenze e le modalit`a di integrazione con le altre componenti della
+piattaforma. Analogamente, API, servizi applicativi, modelli dati e configurazioni dovranno essere documentati in modo
+da consentire agli sviluppatori di comprenderne rapidamente il funzionamento e le modalit`a di utilizzo. La documentazione
+dovra` evolvere insieme al software. Ogni modifica significativa apportata all'architettura, ai flussi operativi o alle strutture
+dati dovr`a essere accompagnata dal corrispondente aggiornamento della documentazione tecnica, evitando che questa perda
+progressivamente coerenza con il sistema reale.
+
+2.3.25 Semplicit`a tecnica
+
+Uno degli obiettivi principali dell'architettura consiste nel mantenere il sistema il piu` semplice possibile, compatibilmente
+con le funzionalit`a richieste dalla piattaforma. La semplicit`a non deve essere interpretata come una riduzione delle capacit`a
+del software, ma come la ricerca continua di soluzioni chiare, leggibili e facilmente comprensibili. Ogni componente dovr`a
+essere sviluppato privilegiando strutture lineari, responsabilit`a ben definite e dipendenze limitate, evitando complessit`a non
+strettamente necessarie. Prima di introdurre nuove astrazioni, pattern architetturali o livelli aggiuntivi dell'applicazione, dovr`a
+essere valutato se tali soluzioni apportino un reale beneficio alla piattaforma. L'obiettivo `e evitare che la complessit`a del codice
+cresca piu` rapidamente delle esigenze operative del progetto. Una piattaforma semplice da comprendere `e anche piu` semplice
+da mantenere, testare ed evolvere nel tempo.
+
+2.3.26 Evoluzione controllata dell'architettura
+
+La piattaforma `e progettata per crescere progressivamente attraverso l'introduzione di nuovi moduli, nuove configurazioni e
+nuove funzionalit`a. Tale evoluzione dovr`a tuttavia avvenire in modo controllato, preservando la coerenza dell'architettura
+generale. Ogni estensione del sistema dovr`a integrarsi con i servizi comuni gi`a esistenti, riutilizzare il patrimonio informativo
+condiviso e rispettare i principi progettuali definiti nel presente capitolo. L'introduzione di una nuova funzionalit`a non
+dovra` mai comportare la duplicazione di logiche gi`a presenti o la creazione di componenti isolati che possano compromettere
+l'integrazione complessiva della piattaforma. L'evoluzione dell'architettura dovr`a quindi essere orientata al consolidamento del
+sistema, aumentando progressivamente il valore delle informazioni gi`a disponibili e mantenendo stabile il nucleo fondamentale
+della piattaforma.
+
+2.3.27 Criteri di valutazione delle nuove funzionalit`a
+
+Ogni nuova funzionalit`a dovr`a essere valutata non soltanto in funzione delle esigenze immediate, ma anche considerando
+il suo impatto sull'architettura complessiva della piattaforma. Prima di procedere con lo sviluppo dovr`a essere verificato
+se la nuova funzionalit`a rispetta i principi di modularit`a, riutilizzabilit`a e separazione delle responsabilit`a, se pu`o essere
+                                                                                                                                                                  19
+
+realizzata attraverso componenti gi`a esistenti, se introduce duplicazioni evitabili e se risulta coerente con il modello dati e con
+il patrimonio informativo condiviso. Dovr`a inoltre essere valutato il beneficio concreto apportato agli utenti, la sostenibilit`a
+della manutenzione nel lungo periodo, la possibilit`a di estendere la funzionalit`a ad altri moduli e l'impatto sulle prestazioni,
+sulla sicurezza e sulla qualit`a complessiva del sistema. Questo approccio consentir`a di mantenere l'architettura ordinata anche
+durante le future evoluzioni della piattaforma, evitando un incremento incontrollato della complessit`a.
+
+2.3.28 Principio conclusivo
+
+I principi descritti nel presente capitolo costituiscono il riferimento tecnico per lo sviluppo dell'intera piattaforma e dovranno
+orientare ogni futura decisione progettuale. L'obiettivo non consiste esclusivamente nel realizzare un software funzionante, ma
+costruire un'architettura solida, coerente e capace di evolvere nel tempo senza perdere qualit`a, manutenibilit`a e affidabilit`a.
+Ogni componente sviluppato dovr`a contribuire a rafforzare l'equilibrio complessivo della piattaforma, favorendo il riutilizzo
+delle informazioni, la condivisione dei servizi e la progressiva crescita del sistema secondo una visione architetturale unitaria.
+Eventuali soluzioni che si discostino da questi principi dovranno essere attentamente valutate e motivate, verificando che
+apportino un reale beneficio senza compromettere la coerenza dell'intero progetto.
+                                                                                                                                                                  20
+
+Capitolo 3 - Design Logico dell'Architettura Dati
+
+3.1 Metodo di costruzione del modello dati
+
+La progettazione del database della piattaforma non prende avvio dalla definizione delle tabelle, dei campi o delle relazioni
+SQL, ma dall'analisi delle attivit`a che vengono realmente svolte durante l'attivit`a di consulenza. L'obiettivo non `e costruire
+un insieme di strutture tecniche, bens`i rappresentare in modo ordinato il patrimonio informativo che caratterizza il metodo di
+lavoro sviluppato nel tempo. Per questo motivo la fase iniziale della progettazione si concentra sull'analisi degli strumenti oggi
+utilizzati per gestire tali attivit`a, quali fogli di calcolo, moduli, registri, archivi documentali, scadenziari e procedure operative.
+Ciascuno di questi strumenti contiene infatti informazioni preziose sul modo in cui le aziende vengono organizzate, controllate
+e supportate durante i percorsi di consulenza. L'analisi di tale documentazione permette di individuare le informazioni che
+devono essere raccolte, i documenti richiesti, le modalit`a con cui vengono organizzate le attivit`a, i controlli che devono essere
+eseguiti, i dati soggetti ad aggiornamento periodico, gli elementi riutilizzati in processi differenti e le informazioni specifiche
+collegate alle diverse certificazioni. La progettazione del database consiste quindi nella trasformazione di questo patrimonio
+operativo in un modello informativo unico, strutturato e condiviso, che rappresenter`a la base sulla quale verr`a costruita
+l'intera piattaforma. Lo scopo della presente parte del documento `e definire in modo completo il patrimonio informativo che il
+sistema dovr`a essere in grado di gestire. I processi applicativi, le automazioni e le relazioni operative tra i dati saranno invece
+sviluppati nei capitoli successivi, una volta completata la definizione del modello dati.
+
+3.1.1 Modello commerciale e accesso alle funzionalit`a
+
+La piattaforma `e progettata per offrire una struttura modulare anche dal punto di vista commerciale. L'accesso alle funzionalit`a
+avviene infatti attraverso un servizio di base, al quale possono essere associati uno o piu` pacchetti dedicati alle certificazioni
+o ai servizi acquistati dalla singola azienda. La configurazione iniziale comprende esclusivamente le funzionalit`a trasversali
+della piattaforma, tra le quali assume particolare importanza lo scadenziario, insieme agli strumenti comuni utilizzabili da
+tutte le organizzazioni. A questa configurazione possono essere aggiunti pacchetti dedicati, ad esempio, ai sistemi di gestione
+per la qualit`a, ai sistemi di gestione ambientale, ai sistemi di gestione per la salute e sicurezza sul lavoro e ad ulteriori
+certificazioni o servizi che verranno introdotti nel corso dell'evoluzione della piattaforma. L'attivazione di un pacchetto non
+comporta necessariamente la comparsa di una nuova applicazione indipendente. Un pacchetto pu`o infatti rendere disponibile
+un intero modulo, ampliare funzionalit`a gi`a esistenti, abilitare nuove sottocategorie, rendere visibili specifiche informazioni
+oppure introdurre nuovi processi e controlli all'interno di moduli gi`a presenti. Ne consegue che uno stesso modulo potr`a
+contenere informazioni appartenenti a certificazioni differenti, mentre ciascuna azienda visualizzer`a esclusivamente i contenuti
+previsti dai pacchetti effettivamente attivati.
+
+3.1.2 Separazione tra struttura della piattaforma e contenuti abilitati
+
+Uno dei principi fondamentali dell'architettura consiste nel mantenere completamente separata la struttura della piattaforma
+dai contenuti che vengono resi disponibili alle singole aziende. I moduli rappresentano infatti le aree operative del sistema e
+costituiscono una parte stabile dell'architettura, mentre i pacchetti commerciali determinano quali informazioni, funzionalit`a
+e processi possano essere utilizzati all'interno di tali moduli. Si consideri, ad esempio, il modulo dedicato all'Anagrafica
+Aziendale. Al suo interno possono essere presenti informazioni comuni a tutte le aziende, dati specifici relativi alla ISO 9001,
+contenuti propri della ISO 14001, elementi riferiti alla ISO 45001 oppure informazioni condivise contemporaneamente da piu`
+certificazioni. La piattaforma non dovr`a creare una versione differente del modulo per ciascuna certificazione. Al contrario,
+dovra` utilizzare un'unica struttura applicativa nella quale ogni singola voce risulti classificata e possa essere abilitata o nascosta
+automaticamente in funzione dei pacchetti attivi per la specifica azienda. La logica di funzionamento pu`o essere rappresentata
+nel seguente schema:
+
+    Questa impostazione consente di mantenere un'unica architettura applicativa, evitando la duplicazione dei moduli e per-
+mettendo di combinare liberamente piu` certificazioni all'interno dello stesso ambiente aziendale. La piattaforma rimane cos`i
+coerente, facilmente manutenibile ed estendibile nel tempo, mentre le differenze tra le aziende vengono gestite esclusivamente
+attraverso la configurazione dei contenuti disponibili.
+                                                                                                                                                                  21
+
+3.1.3 Analisi degli strumenti esistenti
+
+La costruzione del modello dati della piattaforma prende avvio dall'analisi sistematica degli strumenti attualmente utilizzati
+durante l'attivit`a di consulenza. L'obiettivo non consiste nel trasferire direttamente tali strumenti all'interno del software, ma
+nel comprenderne il contenuto informativo, individuando le informazioni realmente necessarie alla gestione dell'azienda. Tra
+le principali fonti di analisi rientrano fogli di calcolo, moduli di raccolta dati, questionari, registri, scadenziari, piani formativi,
+piani di manutenzione, piani di miglioramento, dossier aziendali, schede del personale, documenti di valutazione, checklist,
+verbali e archivi documentali. Ciascuno di questi strumenti rappresenta infatti il risultato di anni di esperienza operativa
+e costituisce una preziosa fonte di informazioni per la progettazione del database. L'analisi non si limiter`a alla semplice
+digitalizzazione della modulistica esistente. Ogni documento verr`a scomposto nelle sue singole informazioni per individuare i
+dati realmente utili, gli elementi duplicati, le informazioni comuni a piu` strumenti, quelle specifiche di un determinato processo,
+i dati singoli e quelli ripetibili, i documenti collegati, le eventuali scadenze, le responsabilit`a associate e le certificazioni alle
+quali ciascun elemento fa riferimento. Le informazioni cos`i individuate saranno successivamente riorganizzate all'interno dei
+moduli della piattaforma, costituendo il patrimonio informativo sul quale verr`a costruito l'intero sistema.
+
+3.1.4 Individuazione dei moduli
+
+La definizione dei moduli non deriva da una suddivisione puramente tecnica del software, ma dall'analisi delle aree operative
+che caratterizzano la gestione quotidiana delle aziende e l'attivit`a di consulenza. Ogni modulo rappresenta quindi un insieme
+omogeneo di informazioni e funzionalit`a che condividono lo stesso contesto operativo. In una prima fase di progettazione
+la piattaforma comprender`a moduli quali l'Anagrafica Aziendale, il Personale, la Documentazione, lo Scadenziario, il Piano
+Formativo, il Piano di Manutenzione, il Piano di Miglioramento, ecc. Tale elenco dovr`a comunque essere considerato evolutivo
+e potr`a essere ampliato durante le successive fasi di analisi. Qualora l'esame degli strumenti esistenti evidenzi un insieme di
+informazioni caratterizzato da una propria autonomia funzionale e operativa, sar`a possibile introdurre nuovi moduli o nuove
+aree della piattaforma senza alterarne la struttura generale.
+
+3.1.5 Suddivisione dei moduli in sottocategorie
+
+Una volta individuati i moduli, ciascuno di essi dovr`a essere organizzato in sottocategorie omogenee, costruite sulla base della
+natura delle informazioni gestite e del contesto nel quale esse vengono utilizzate. La suddivisione in sottocategorie ha un ruolo
+fondamentale sia dal punto di vista funzionale sia dal punto di vista progettuale. Essa consente infatti di rendere piu` semplice
+la consultazione delle informazioni, guidare l'utente durante l'inserimento dei dati, ridurre il numero di elementi visualizzati
+contemporaneamente, raggruppare informazioni appartenenti allo stesso ambito operativo e facilitare la configurazione della
+piattaforma in funzione delle diverse certificazioni. Dal punto di vista della progettazione del database, questa fase assume
+un'importanza ancora maggiore, poich´e permette di comprendere quali informazioni appartengano realmente allo stesso do-
+minio e quali, invece, debbano essere gestite attraverso strutture separate. Ad esempio, il modulo dedicato al Personale potr`a
+essere articolato in sottocategorie dedicate all'anagrafica, al rapporto di lavoro, all'inquadramento, ai ruoli e alle mansioni,
+alla formazione, alle abilitazioni, alle visite mediche, ai dispositivi di protezione individuale, alle assegnazioni operative e
+allo storico delle attivit`a. La definizione delle sottocategorie dovr`a quindi precedere la progettazione tecnica del database,
+rappresentando il collegamento tra l'analisi funzionale e la successiva modellazione delle tabelle.
+
+3.1.6 Definizione completa delle voci
+
+Per ciascuna sottocategoria dovr`a essere individuato il piu` ampio insieme possibile di dati, documenti e informazioni che
+possano risultare utili alle aziende rientranti nel campo di applicazione della piattaforma. Questa impostazione deriva da uno
+dei principi fondamentali del progetto: l'azienda non deve essere costretta a conoscere preventivamente quali informazioni
+sia necessario inserire, ma deve essere la piattaforma a guidarla attraverso un catalogo completo e strutturato. Per questo
+motivo il sistema non dovr`a basarsi prevalentemente su campi generici o su inserimenti completamente liberi. Al contrario,
+dovra` mettere a disposizione un catalogo predefinito di informazioni organizzato in modo da accompagnare progressivamente
+l'utente durante la compilazione. L'obiettivo non consiste nel mostrare contemporaneamente tutte le informazioni disponibili,
+ma nel definire preventivamente l'intero patrimonio informativo della piattaforma e rendere visibili, per ciascuna azienda,
+esclusivamente le voci realmente pertinenti in funzione delle configurazioni attive. Per ogni voce individuata dovranno essere
+definite tutte le caratteristiche necessarie alla successiva progettazione del database e dei processi applicativi. Tra queste
+rientrano la denominazione, la descrizione, il modulo e la sottocategoria di appartenenza, la natura dell'informazione, la
+modalita` di inserimento, la possibilit`a di gestire uno o piu` valori, i campi richiesti, le certificazioni collegate, l'eventuale
+obbligatoriet`a, la presenza di una scadenza, la possibilit`a di allegare documenti, la necessit`a di mantenere uno storico, le
+condizioni di visualizzazione e le possibili relazioni con gli altri elementi della piattaforma.
+
+3.1.7 Classificazione delle informazioni per certificazione
+
+Una volta completata l'individuazione delle singole voci, ciascuna di esse dovr`a essere associata a una o piu` certificazioni o
+pacchetti previsti dalla piattaforma. Tale classificazione dovr`a avvenire a livello della singola voce informativa e non esclusi-
+vamente del modulo, poich´e uno stesso modulo pu`o contenere informazioni destinate a contesti differenti. All'interno di un
+modulo potranno infatti convivere informazioni comuni a tutte le aziende, contenuti specifici di una singola certificazione, ele-
+menti condivisi tra piu` certificazioni, funzionalit`a disponibili nel servizio base e ulteriori informazioni attivabili esclusivamente
+                                                                                                                                                                  22
+attraverso pacchetti aggiuntivi. Un esempio significativo `e rappresentato dal modulo Personale, nel quale potranno essere
+presenti dati anagrafici comuni a tutti i pacchetti, informazioni organizzative riconducibili ai sistemi di gestione per la qualit`a,
+dati relativi alla formazione collegati alla salute e sicurezza sul lavoro e competenze rilevanti contemporaneamente per piu`
+certificazioni. Il modello dati dovr`a quindi supportare relazioni multiple tra le singole voci e le certificazioni di appartenenza,
+consentendo a una stessa informazione di essere associata a piu` pacchetti senza alcuna duplicazione.
+
+3.1.8 Visualizzazione determinata dai pacchetti attivi
+
+L'ambiente operativo visualizzato dalla singola azienda non sar`a costituito dall'intero patrimonio informativo della piattaforma,
+ma esclusivamente dall'insieme delle informazioni abilitate in funzione della configurazione adottata. La piattaforma dovr`a
+costruire dinamicamente tale ambiente applicando progressivamente diversi livelli di selezione, secondo il seguente schema:
+
+    L'attivazione di piu` pacchetti dovr`a produrre l'unione delle rispettive informazioni senza generare duplicazioni. Qualora una
+stessa voce appartenga contemporaneamente a piu` certificazioni, essa dovr`a essere visualizzata una sola volta, pur mantenendo
+nel database tutte le relazioni che ne giustificano la presenza. In questo modo l'esperienza dell'utente rimarr`a semplice e
+coerente, mentre il modello informativo conserver`a tutta la ricchezza delle informazioni disponibili.
+
+3.1.9 Informazioni comuni e informazioni specifiche
+
+Durante la costruzione del modello dati sar`a fondamentale distinguere le informazioni trasversali da quelle specifiche di un
+determinato ambito operativo. Le informazioni trasversali rappresentano elementi condivisi da piu` moduli, certificazioni o
+processi e costituiscono il patrimonio comune della piattaforma. Tra queste rientrano, ad esempio, l'anagrafica aziendale,
+le sedi, le persone, i ruoli, i documenti, i responsabili, le date, gli allegati, le note, gli stati e lo storico delle modifiche.
+Le informazioni specifiche, invece, appartengono esclusivamente a uno specifico contesto operativo e non dovranno essere
+generalizzate oltre il loro reale ambito di utilizzo. Questa distinzione costituir`a uno degli aspetti piu` importanti della successiva
+progettazione del database, poich´e consentir`a di evitare duplicazioni delle informazioni, tabelle eccessivamente generiche,
+strutture troppo rigide, campi privi di significato in determinati contesti e dipendenze non necessarie tra moduli differenti.
+
+3.1.10 Dal censimento dei dati alla progettazione del database
+
+La progettazione del database seguir`a un percorso progressivo e ordinato, nel quale ogni fase costituir`a il presupposto per
+quella successiva. Il processo inizier`a con l'analisi degli strumenti attualmente utilizzati, proseguir`a con l'individuazione dei
+moduli della piattaforma, la definizione delle relative sottocategorie e il censimento completo di tutte le informazioni e dei
+documenti che potranno essere gestiti. Successivamente ogni voce verr`a classificata in funzione della propria natura, della
+ripetibilit`a, delle certificazioni di appartenenza, dell'obbligatoriet`a, dell'eventuale presenza di scadenze, della possibilit`a di
+allegare documenti e della necessit`a di mantenerne lo storico. Una volta completata questa fase sar`a possibile eliminare le
+duplicazioni presenti negli strumenti attualmente utilizzati, ricondurre ogni informazione a un'unica definizione condivisa e
+procedere finalmente alla progettazione tecnica del database, definendo tabelle, colonne, chiavi, relazioni, cardinalit`a, vincoli,
+indici e regole di storicizzazione. Seguire questa sequenza permette di evitare che la struttura del database venga influenzata
+dall'organizzazione contingente di un singolo foglio di calcolo o di uno specifico modulo operativo, costruendo invece un modello
+informativo realmente indipendente dagli strumenti utilizzati oggi.
+                                                                                                                                                                  23
+
+3.1.11 Risultato atteso
+
+Al termine dell'attivita` di analisi dovr`a essere disponibile una rappresentazione completa del patrimonio informativo della
+piattaforma. Tale mappa comprender`a tutti i moduli individuati, le relative sottocategorie, l'insieme delle voci gestibili, le
+caratteristiche di ciascun elemento, le certificazioni associate, i pacchetti che ne determinano l'attivazione, la distinzione tra
+informazioni comuni e specifiche, le esigenze di storicizzazione, le necessit`a documentali e i primi collegamenti logici tra i
+diversi elementi. Questa rappresentazione costituir`a il riferimento principale per la successiva progettazione del database e,
+piu` in generale, per lo sviluppo di tutte le funzionalit`a della piattaforma.
+
+3.2 Modulo -- Scheda Anagrafica Aziendale
+
+3.2.1 Categoria -- Informazioni societarie
+
+Disponibilit`a del modulo: La Scheda Anagrafica Aziendale fino alla categoria organizzazione `e un modulo base della
+piattaforma. Le relative informazioni e funzionalit`a sono disponibili per tutte le aziende, indipendentemente dall'attivazione
+di specifici abbonamenti ISO.
+
+Sottocategoria -- Identificazione Societaria - Dati CCIAA       Settori  IAF
+                                                                Tutti
+Identificazione camerale                                        Tutti
+                                                                Tutti
+                  Elemento                                      Tutti
+                  Ragione sociale                               Tutti
+                  Forma giuridica                               Tutti
+                  Codice fiscale                                Tutti
+                  Partita IVA                                   Tutti
+                  Camera di Commercio competente                Tutti
+                  Ufficio del Registro Imprese                  Tutti
+                  Numero REA                                    Tutti
+                  Provincia REA                                 Tutti
+                  Stato dell'attivit`a                          Tutti
+                  Data dell'atto costitutivo                    Tutti
+                  Data di inizio attivit`a
+                  Data di iscrizione al Registro Imprese
+                  Data dell'ultimo protocollo
+                  Presenza di piu` rappresentanti dell'impresa
+
+Iscrizioni al Registro Imprese Questa informazione `e multipla, poich´e la stessa impresa pu`o risultare iscritta in piu`
+sezioni del Registro Imprese.
+
+Elemento                                                        Settori IAF
+Sezione di iscrizione                                           Tutti
+Data di iscrizione alla sezione                                 Tutti
+Iscrizione nella sezione relativa alla titolarit`a effettiva    Tutti
+Data di iscrizione relativa alla titolarita` effettiva          Tutti
+
+Durata della societ`a ed esercizi                               Settori IAF
+                                                                Tutti
+                  Elemento                                      Tutti
+                  Data di termine della societ`a                Tutti
+                  Scadenza del primo esercizio
+                  Scadenza degli esercizi successivi
+
+Attivit`a esercitata                                            Settori IAF
+                                                                Tutti
+                  Elemento                                      Tutti
+                  Descrizione dell'attivit`a esercitata         Tutti
+                  Data di decorrenza dell'attivit`a
+                  Presenza di attivit`a di import-export
+                                                                                          24
+
+Codici attivit`a economica Questa informazione `e multipla, poich´e una stessa impresa pu`o essere associata a piu` codici
+ATECO (prevalente, primario e secondari), anche appartenenti a classificazioni differenti.
+
+Elemento                                                                    Settori  IAF
+Codice ATECO                                                                Tutti
+Descrizione ATECO                                                           Tutti
+Versione della classificazione                                              Tutti
+Importanza del codice (prevalente, primario, secondario)                    Tutti
+Fonte del codice                                                            Tutti
+Codice NACE                                                                 Tutti
+
+Capitale sociale risultante dalla visura                                    Settori IAF
+                                                                            Tutti
+                  Elemento                                                  Tutti
+                  Capitale sociale                                          Tutti
+                  Valuta                                                    Tutti
+                  Capitale deliberato                                       Tutti
+                  Capitale sottoscritto
+                  Capitale versato
+
+Sistema di amministrazione e controllo                                      Settori  IAF
+                                                                            Tutti
+                  Elemento                                                  Tutti
+                  Sistema di amministrazione                                Tutti
+                  Organo amministrativo in carica                           Tutti
+                  Numero minimo di amministratori                           Tutti
+                  Numero di amministratori in carica                        Tutti
+                  Durata in carica dell'organo                              Tutti
+                  Numero di sindaci o componenti degli organi di controllo
+                  Numero di titolari di cariche
+
+Dati generali dell'elenco soci                                              Settori  IAF
+                                                                            Tutti
+                  Elemento                                                  Tutti
+                  Numero soci                                               Tutti
+                  Data di riferimento                                       Tutti
+                  Numero complessivo dei soci                               Tutti
+                  Capitale sociale dichiarato                               Tutti
+                  Data di deposito della pratica                            Tutti
+                  Data del protocollo
+                  Numero del protocollo
+
+Qualificazione SOA La qualificazione SOA riguarda principalmente le imprese operanti nel settore delle costruzioni e dei
+lavori pubblici (IAF 28). Le categorie SOA costituiscono un'informazione multipla, poich´e una stessa impresa pu`o possedere
+piu` categorie e classifiche contemporaneamente.
+
+Elemento                                                                    Settori  IAF
+Presenza dell'attestazione                                                  28
+Numero dell'attestazione                                                    28
+Organismo di attestazione                                                   28
+Codice identificativo dell'organismo                                        28
+Data di rilascio                                                            28
+Data di scadenza                                                            28
+Regolamento di riferimento                                                  28
+Categoria SOA                                                               28
+Descrizione                                                                 28
+Classifica                                                                  28
+Limite economico                                                            28
+                                                            25
+
+Certificazioni risultanti da fonti collegate Questa informazione `e multipla, poich´e un'impresa pu`o essere titolare di piu`
+certificazioni riferite a norme, settori IAF e organismi di certificazione differenti.
+
+Elemento                                      Settori  IAF
+Tipologia della certificazione                Tutti
+Sigla                                         Tutti
+Norma di riferimento                          Tutti
+Numero del certificato                        Tutti
+Data della prima emissione                    Tutti
+Organismo certificatore                       Tutti
+Codice fiscale dell'organismo certificatore   Tutti
+Settore IAF della certificazione              Tutti
+Fonte dell'informazione                       Tutti
+Data dell'ultimo aggiornamento della fonte    Tutti
+
+Addetti risultanti dalla visura I dati relativi agli addetti sono rilevati con riferimento a uno o piu` periodi. Le informazioni
+periodiche costituiscono pertanto una voce multipla e devono essere associate alla relativa fonte, all'anno di riferimento e alla
+data di rilevazione.
+
+Elemento                                      Settori  IAF
+Fonte                                         Tutti
+Anno di riferimento                           Tutti
+Data di rilevazione                           Tutti
+Numero di dipendenti                          Tutti
+Numero di indipendenti                        Tutti
+Numero totale di addetti                      Tutti
+Numero di collaboratori                       Tutti
+Valore medio degli addetti                    Tutti
+Percentuale di addetti a tempo determinato    Tutti
+Percentuale di addetti a tempo indeterminato  Tutti
+Percentuale di addetti a tempo pieno          Tutti
+Percentuale di addetti a tempo parziale       Tutti
+Percentuale di operai                         Tutti
+Percentuale di impiegati                      Tutti
+
+Addetti per comune Questa informazione `e multipla, poich´e la distribuzione degli addetti pu`o essere rilevata per piu`
+comuni, sedi e periodi di riferimento.
+
+Elemento                                      Settori  IAF
+Comune                                        Tutti
+Provincia                                     Tutti
+Numero di sedi e unit`a locali                Tutti
+Numero di dipendenti per periodo              Tutti
+Numero di indipendenti per periodo            Tutti
+Numero totale di addetti per periodo          Tutti
+Valore medio degli addetti                    Tutti
+
+Albi, ruoli e licenze Questa informazione `e multipla, poich´e la stessa impresa pu`o risultare iscritta contemporaneamente
+a piu` albi, registri, ruoli o sistemi autorizzativi. Tra le iscrizioni possono rientrare, ad esempio, l'Albo delle imprese artigiane
+e l'Albo Nazionale Gestori Ambientali.
+
+Elemento                                      Settori  IAF
+Tipologia di albo, ruolo, registro o licenza  Tutti
+Numero di iscrizione                          Tutti
+Provincia o sezione                           Tutti
+Categoria                                     Tutti
+Descrizione della categoria                   Tutti
+Classe                                        Tutti
+Data di inizio                                Tutti
+Data di scadenza                              Tutti
+Stato dell'iscrizione                         Tutti
+Motivo dell'eventuale cancellazione           Tutti
+                                                                                     26
+
+Data di cessazione                                                     Tutti
+
+Dati riassuntivi camerali                                              Settori  IAF
+                                                                       Tutti
+                  Elemento                                             Tutti
+                  Numero di addetti                                    Tutti
+                  Numero di soci                                       Tutti
+                  Numero di amministratori                             Tutti
+                  Numero di unit`a locali                              Tutti
+                  Numero di pratiche inviate negli ultimi dodici mesi  Tutti
+                  Numero di trasferimenti di quote                     Tutti
+                  Numero di trasferimenti di sede                      Tutti
+                  Partecipazioni in altre societ`a                     Tutti
+                  Bilanci consultabili                                 Tutti
+                  Disponibilit`a del fascicolo                         Tutti
+                  Disponibilit`a dello statuto
+                  Numero di altri atti consultabili
+
+Sottocategoria -- Sedi
+
+Sedi Questa informazione `e multipla, poich´e una stessa azienda pu`o disporre di una o piu` sedi. La sottocategoria consente
+la gestione di un numero illimitato di sedi appartenenti alla medesima organizzazione, indipendentemente dalla loro tipologia.
+
+Elemento                                                               Settori  IAF
+Tipologia sede (Legale, Operativa, Secondaria, Altra)                  Tutti
+Denominazione sede                                                     Tutti
+Stato della sede (Attiva, Chiusa, Sospesa)                             Tutti
+Indirizzo                                                              Tutti
+Numero civico                                                          Tutti
+CAP                                                                    Tutti
+Comune                                                                 Tutti
+Provincia                                                              Tutti
+Regione                                                                Tutti
+Stato                                                                  Tutti
+Coordinate GPS                                                         Tutti
+Zona industriale (S`i/No)                                              Tutti
+
+Sottocategoria -- Contatti e recapiti                                  Settori IAF
+                                                                       Tutti
+Recapiti principali                                                    Tutti
+                                                                       Tutti
+                  Elemento                                             Tutti
+                  Telefono principale                                  Tutti
+                  Email principale
+                  PEC
+                  Sito web
+                  Codice destinatario SDI
+                                                                                                                                                                  27
+
+3.2.2 Categoria -- Organizzazione
+
+Disponibilit`a con abbonamento ISO 9001 A partire dalla presente sezione, le tabelle, le informazioni e le relative
+funzionalit`a del modulo sono disponibili esclusivamente per le aziende con un abbonamento ISO 9001 attivo.
+
+Sottocategoria -- Organizzazione aziendale  Settori IAF   ISO 9001  ISO 14001  ISO 45001
+                                            Tutti
+Contratto di lavoro                         Tutti              
+                                            Tutti              
+           Elemento                         Tutti              
+           CCNL applicato                   Tutti              
+           Settore CCNL                                        
+           Data di applicazione
+           Eventuale CCNL precedente
+           Note
+
+Posizioni assicurative e previdenziali      Settori IAF   ISO 9001  ISO 14001  ISO 45001
+                                            Tutti
+           Elemento                         Tutti              
+           Posizione INPS                                      
+           Posizione INAIL
+
+Fondo interprofessionale                    Settori  IAF  ISO 9001  ISO 14001  ISO 45001
+                                            Tutti
+           Elemento                         Tutti              
+           Fondo interprofessionale         Tutti              
+           Stato dell'iscrizione            Tutti              
+           Data di adesione                 Tutti              
+           Codice del fondo                 Tutti              
+           Eventuale data di recesso                           
+           Note
+
+Sottocategoria -- Organico Dati generali    Settori IAF   ISO 9001  ISO 14001  ISO 45001
+                                            Tutti
+Dati generali                               Tutti              
+                                            Tutti              
+           Elemento                         Tutti              
+           Totale addetti                   Tutti              
+           Totale dipendenti                                   
+           Totale soci lavoratori
+           Organico medio annuo
+           Et`a media del personale
+
+Ripartizione organico Per ciascuna categoria vengono registrati il numero di addetti e la relativa percentuale sul totale
+dell'organico aziendale.
+
+Elemento                                    Settori  IAF  ISO 9001  ISO 14001  ISO 45001
+Amministrativi (n° e %)                     Tutti
+Project manager (n° e %)                    Tutti              
+Tecnici (n° e %)                            Tutti              
+Preposti (n° e %)                           Tutti              
+Operativi (n° e %)                          Tutti              
+Dirigenti della sicurezza (n° e %)          Tutti              
+Uomini (n° e %)                             Tutti              
+Donne (n° e %)                              Tutti              
+Italiani (n° e %)                           Tutti              
+Stranieri (n° e %)                          Tutti              
+Tempo determinato (n° e %)                  Tutti              
+Tempo indeterminato (n° e %)                Tutti              
+Laureati (n° e %)                           Tutti              
+Diplomati (n° e %)                          Tutti              
+                                                               
+                                                                                               28
+
+Sottocategoria -- Turni di lavoro                Settori  IAF  ISO 9001  ISO 14001  ISO 45001
+                                                 Tutti
+Turni di lavoro                                  Tutti              
+                                                 Tutti              
+           Elemento                              Tutti              
+           Presenza turnazioni (S`i/No)          Tutti              
+           Tipologia di turno                    Tutti              
+           Numero di turni                       Tutti              
+           Fasce orarie                          Tutti              
+           Rotazione dei turni                   Tutti              
+           Lavoro notturno (S`i/No)                                 
+           Lavoro festivo (S`i/No)
+           Lavoro a ciclo continuo (S`i/No)
+           Note
+
+Sottocategoria -- Outsourcing
+
+Outsourcing Questa informazione `e multipla, poich´e un'azienda pu`o affidare in outsourcing una o piu` attivit`a o processi a
+soggetti esterni.
+
+Elemento                                         Settori  IAF  ISO 9001  ISO 14001  ISO 45001
+Processo / attivit`a affidata                    Tutti
+Data di inizio                                   Tutti              
+Data di fine                                     Tutti              
+Stato                                            Tutti              
+Referente interno                                Tutti              
+Contratto associato                              Tutti              
+Note                                             Tutti              
+                                                                    
+
+Sottocategoria -- Subappaltatori                 Settori  IAF  ISO 9001  ISO 14001  ISO 45001
+                                                 Tutti
+Subappaltatori                                   Tutti              
+                                                 Tutti              
+           Elemento                              Tutti              
+           Ragione sociale                       Tutti              
+           Codice fiscale / Partita IVA          Tutti              
+           Categoria lavori                      Tutti              
+           Data di inizio                        Tutti              
+           Data di fine                          Tutti              
+           Stato                                                    
+           Referente
+           Documentazione associata
+           Note
+
+Sottocategoria -- Fornitori di materiali         Settori  IAF  ISO 9001  ISO 14001  ISO 45001
+                                                 Tutti
+Fornitori di materiali                           Tutti              
+                                                 Tutti              
+           Elemento                              Tutti              
+           Ragione sociale                       Tutti              
+           Referente                             Tutti              
+           Telefono                              Tutti              
+           Email                                 Tutti              
+           Categoria merceologica                Tutti              
+           Materiali forniti                     Tutti              
+           Data di inizio collaborazione         Tutti              
+           Stato (Attivo / Sospeso / Terminato)  Tutti              
+           Contratto                                                
+           Certificazioni
+           Schede tecniche o di sicurezza
+           Altri documenti
+                                                                                                    29
+
+Sottocategoria -- Lavoratori autonomi                 Settori  IAF  ISO 9001  ISO 14001  ISO 45001
+                                                      Tutti
+Lavoratori autonomi                                   Tutti              
+                                                      Tutti              
+           Elemento                                   Tutti              
+           Nominativo / Ragione sociale               Tutti              
+           Codice fiscale / Partita IVA               Tutti              
+           Mansione                                   Tutti              
+           Attivit`a svolta                           Tutti              
+           Data di inizio collaborazione              Tutti              
+           Data di fine collaborazione                                   
+           Stato
+           Documentazione associata
+           Note
+
+Sottocategoria -- Trend                               Settori IAF   ISO 9001  ISO 14001  ISO 45001
+                                                      Tutti
+Indicatori economici                                  Tutti              
+                                                      Tutti              
+           Elemento                                   Tutti              
+           Anno                                       Tutti              
+           Fatturato                                                     
+           Obiettivo
+           Scostamento
+           Note
+
+Variazioni dell'organico                              Settori  IAF  ISO 9001  ISO 14001  ISO 45001
+                                                      Tutti
+           Elemento                                   Tutti              
+           Anno                                       Tutti              
+           Organico medio annuo                       Tutti              
+           Incremento / decremento del personale (%)  Tutti              
+           Numero di nuove assunzioni                 Tutti              
+           Numero di cessazioni                       Tutti              
+           Obiettivo                                  Tutti              
+           Scostamento                                                   
+           Note
+
+Sottocategoria -- Assicurazioni                       Settori  IAF  ISO 9001  ISO 14001  ISO 45001
+                                                      Tutti
+Assicurazioni                                         Tutti              
+                                                      Tutti              
+           Elemento                                   Tutti              
+           Tipologia di polizza                       Tutti              
+           Compagnia assicurativa                     Tutti              
+           Numero di polizza                          Tutti              
+           Data di emissione                          Tutti              
+           Data di decorrenza                         Tutti              
+           Data di scadenza                           Tutti              
+           Massimale                                  Tutti              
+           Stato                                      Tutti              
+           Contraente                                 Tutti              
+           Referente                                  Tutti              
+           Premio assicurativo                                           
+           Frequenza di rinnovo
+           Documentazione associata
+           Note
+                                                                                           30
+
+3.2.3 Categoria -- Altre informazioni
+
+Sottocategoria -- Contratti di rete
+Contratti di rete
+
+Elemento                                     Settori  IAF  ISO 9001  ISO 14001  ISO 45001
+Presenza                                     Tutti
+Numero di registrazione                      Tutti              
+Numero di repertorio                         Tutti              
+Nome del contratto                           Tutti              
+Data di adesione                             Tutti              
+Data di cessazione                           Tutti              
+Note                                         Tutti              
+Documentazione associata                     Tutti              
+                                                                
+
+Sottocategoria -- Compliance e trasparenza   Settori IAF   ISO 9001  ISO 14001  ISO 45001
+                                             Tutti
+Documentazione                               Tutti              
+                                             Tutti              
+           Elemento                          Tutti              
+           Elemento                          Tutti              
+           Presenza                                             
+           Adozione
+           Dettagli / Note
+           Documentazione associata
+
+    Elementi inizialmente previsti:
+    · Modello Organizzativo 231 (MOG)?;
+    · Organismo di Vigilanza (ODV);
+
+    L'elenco degli elementi di compliance dovr`a essere configurabile ed estendibile, cos`i da consentire l'introduzione di ulteriori
+obblighi normativi o organizzativi senza richiedere modifiche alla struttura della piattaforma.
+
+Sottocategoria -- Registro attivit`a legali  Settori  IAF  ISO 9001  ISO 14001  ISO 45001
+                                             Tutti
+Procedimenti legali                          Tutti              
+                                             Tutti              
+           Elemento                          Tutti              
+           Tipologia di procedimento         Tutti              
+           Controparte                       Tutti              
+           Data di inizio                    Tutti              
+           Data di conclusione               Tutti              
+           Stato                                                
+           Esito
+           Note
+           Documentazione associata
+
+Visite degli enti di controllo               Settori  IAF  ISO 9001  ISO 14001  ISO 45001
+                                             Tutti
+           Elemento                          Tutti              
+           Ente                              Tutti              
+           Tipologia di visita               Tutti              
+           Data della visita                 Tutti              
+           Esito                             Tutti              
+           Prescrizioni                      Tutti              
+           Verbale / Documentazione                             
+           Note
+                                                                                                                                                                  31
+
+3.3 Modulo -- Personale
+
+3.3.1 Categoria -- Anagrafica Persone
+
+Dati anagrafici
+
+Elemento                               Settori  IAF  ISO 9001  ISO 14001  ISO 45001
+Fotografia                             Tutti
+Cognome                                Tutti                                    
+Nome                                   Tutti                                    
+Sesso                                  Tutti                                    
+Data di nascita                        Tutti                                    
+Luogo di nascita                       Tutti                                    
+Nazionalit`a                           Tutti                                    
+Conoscenza della lingua italiana       Tutti                                    
+Codice fiscale                         Tutti                                    
+Residenza                              Tutti                                    
+Tipologia di contratto                 Tutti                                    
+Data di assunzione                     Tutti                                    
+Data di fine rapporto                  Tutti                                    
+Mansione                               Tutti                                    
+Persona di backup                      Tutti                                    
+Processi speciali eseguiti             Tutti                                    
+Conoscenza dell'organizzazione lv.     Tutti                                    
+Competenze lv.                         Tutti                                    
+Consapevolezza lv.                     Tutti                                    
+Frequenza delle visite mediche         Tutti                                    
+Altro                                  Tutti                                    
+Note                                   Tutti                                    
+                                                                                
+
+3.3.2 Categoria -- Ruoli e Incarichi
+
+Catalogo dei Ruoli La seguente tabella rappresenta la configurazione iniziale del Catalogo dei Ruoli. Il catalogo dovr`a
+essere estendibile nel tempo senza richiedere modifiche alla struttura della piattaforma.
+
+Ruolo                                  Settori  IAF  ISO 9001  ISO 14001  ISO 45001
+Legale Rappresentante                  Tutti                                    
+Datore di Lavoro                       Tutti                                    
+Amministratore                         Tutti                                    
+Dirigente                              Tutti                                    
+Responsabile Gestione Qualit`a (RGQ)   Tutti                         
+Responsabile Gestione Integrata (RGI)  Tutti                                    
+Auditor Interno                        Tutti                                    
+RSPP                                   Tutti                                    
+ASPP                                   Tutti                                    
+RLS                                    Tutti                                    
+Preposto                               Tutti                                    
+Addetto Antincendio                    Tutti                                    
+Addetto Primo Soccorso                 Tutti                                    
+Medico Competente                      Tutti                                    
+PES                                    Tutti                                    
+PAV                                    Tutti                                    
+PEI                                    Tutti                                    
+Responsabile RENTRI                    Tutti
+Responsabile Ambientale                Tutti                                    
+Responsabile Whistleblowing            Tutti                                    
+Responsabile Security                  Tutti
+Responsabile Cyber Security            IAF 33                                   
+Capocantiere                           IAF 28                                   
+DGSA                                   IAF 31
+Responsabile Logistica                 IAF 31
+Direttore Tecnico SOA (DT SOA)         IAF 28
+Responsabile Tecnico Officina (RT)  IAF 29                                                         32
+Responsabile FER                    Tutti
+Sindaco                             Tutti                                         
+Revisore Legale                     Tutti                                         
+Amministratore Delegato             Tutti                                         
+Componente (CDA)                    Tutti                                         
+                                                                                
+
+                                                                                
+
+                                                                                
+
+Catalogo delle caratteristiche
+
+Codice                          Caratteristica
+  A01                           Data assegnazione
+  A02                           Data cessazione
+  A03                           Nomina richiesta
+  A04                           Documento di nomina
+  A05                           Elezione richiesta
+  A06                           Verbale di elezione
+  A07                           Delega
+  A08                           Interno / Esterno
+  A09                           Durata incarico
+  A10                           Titolo di studio
+  A11                           Iscrizione ad Albo
+  A12                           Numero iscrizione Albo
+  A13                           Ente / Ordine professionale
+  A14                           Abilitazione professionale
+  A15                           Assenza di cause ostative
+  A16                           Assenza di condanne
+  A17                           Documento aggiuntivo
+  A18                           Note specifiche
+  A19                           Data decorrenza incarico
+  A20                           Data accettazione incarico
+  A21                           Poteri attribuiti
+  A22                           Limitazioni dei poteri
+  A23                           Rappresentanza legale (S`i/No)
+  A24                           Modalit`a di firma
+  A25                           Stato dell'incarico
+  A26                           Motivo della cessazione
+  A27                           Requisito di accesso
+  A28                           Tipologia di incarico
+  A29                           Criterio di scadenza
+  A30                           Documento di riferimento
+  A31                           Fonte del dato
+  A32                           Stato verifica consulente
+  A33                           Lettere di abilitazione FER
+  A34                           Numero iscrizione Registro Revisori Legali
+  A35                           Data iscrizione Registro Revisori Legali
+  A36                           Stato iscrizione Registro Revisori Legali
+  A37                           Numero attestazione SOA
+  A38                           Categoria SOA
+  A39                           Classifica SOA
+  A40                           Titolo professionale richiesto
+  A41                           Tipologia del rapporto con l'azienda
+  A42                           Settore di abilitazione
+  A43                           Numero di iscrizione ad elenco specialistico
+  A44                           Ente certificatore / Autorit`a competente
+  A45                           Ambito di validita` della qualifica
+  A46                           Data ultimo rinnovo
+  A47                           Data prossimo rinnovo
+  A48                           Documento attestante la qualifica
+  A49                           Data atto di nomina
+  A50                           Data prima iscrizione
+  A51                           Data scadenza
+                                                                                                           33
+
+Associazione tra ruoli e caratteristiche Nella colonna Caratteristiche, i codici riportati senza parentesi identificano
+informazioni obbligatorie, mentre i codici racchiusi tra parentesi identificano informazioni facoltative o compilabili soltanto al
+verificarsi della relativa condizione.
+
+Codice  Ruolo                            Caratteristiche
+R002    Datore di Lavoro                 A01, A02, A03, A04, A07, A08, A09, A15, A16, A17, A18, A19, A20,
+R003    Amministratore                   A21, A22, A23, A24, A25, A26, A28, A29, A30, A31, A32
+                                         A01, A02, A03, A04, A08, A09, A15, A16, A17, A18, A19, A20, A21,
+R004    Dirigente                        A22, A23, A24, A25, A26, A28, A29, A30, A31, A32, A48, A49, A50,
+R005    Procuratore                      A51
+R006    Responsabile Gestione Qualit`a   A01, A02, A03, A04, A07, A08, A09, A10, A14, A15, A16, A17, A18,
+R007    Responsabile Gestione Integrata  A19, A20, A21, A22, A24, A25, A26, A28, A29, A30, A31, A32
+R008    Auditor Interno                  A01, A02, A03, A04, A07, A08, A09, A15, A16, A17, A18, A19, A20,
+                                         A21, A22, A23, A24, A25, A26, A28, A29, A30, A31, A32
+R009    RSPP                             A01, A02, A03, A04, A07, A08, A09, A10, A14, A15, A16, A17, A18,
+                                         A19, A20, A21, A22, A25, A26, A27, A28, A29, A30, A31, A32
+R010    ASPP                             A01, A02, A03, A04, A07, A08, A09, A10, A14, A15, A16, A17, A18,
+                                         A19, A20, A21, A22, A25, A26, A27, A28, A29, A30, A31, A32
+R011    RLS                              A01, A02, A03, A04, A07, A08, A09, A10, A14, A15, A16, A17, A18,
+R012    Preposto                         A19, A20, A25, A26, A27, A28, A29, A30, A31, A32, A40, A41, A45,
+R013    Addetto Antincendio              A48
+R014    Addetto Primo Soccorso           A01, A02, A03, A04, A07, A08, A09, A10, A11, A12, A13, A14, A15,
+R015    Medico Competente                A16, A17, A18, A19, A20, A21, A22, A25, A26, A27, A28, A29, A30,
+                                         A31, A32, A40, A41, A44, A45, A48
+R016    PES                              A01, A02, A03, A04, A07, A08, A09, A10, A14, A15, A16, A17, A18,
+                                         A19, A20, A21, A22, A25, A26, A27, A28, A29, A30, A31, A32, A40,
+R017    PAV                              A41, A45, A48
+                                         A01, A02, A05, A06, A08, A09, A15, A16, A17, A18, A19, A20, A21,
+R018    PEI                              A22, A25, A26, A28, A29, A30, A31, A32
+                                         A01, A02, A03, A04, A07, A08, A09, A10, A14, A15, A16, A17, A18,
+R019    Responsabile RENTRI              A19, A20, A21, A22, A25, A26, A27, A28, A29, A30, A31, A32, A48
+                                         A01, A02, A03, A04, A08, A09, A14, A15, A16, A17, A18, A19, A20,
+R020    Responsabile Ambientale          A25, A26, A27, A28, A29, A30, A31, A32, A42, A45, A46, A47, A48
+                                         A01, A02, A03, A04, A08, A09, A14, A15, A16, A17, A18, A19, A20,
+R021    Responsabile Whistleblowing      A25, A26, A27, A28, A29, A30, A31, A32, A42, A45, A46, A47, A48
+                                         A01, A02, A03, A04, A08, A09, A10, A11, A12, A13, A14, A15, A16,
+R022    Responsabile Security            A17, A18, A19, A20, A21, A22, A25, A26, A27, A28, A29, A30, A31,
+                                         A32, A40, A41, A43, A44, A45, A48
+R023    Responsabile Cyber Security      A01, A02, A03, A04, A08, A09, A10, A14, A15, A16, A17, A18, A19,
+                                         A20, A25, A26, A27, A28, A29, A30, A31, A32, A42, A45, A46, A47,
+                                         A48
+                                         A01, A02, A03, A04, A08, A09, A10, A14, A15, A16, A17, A18, A19,
+                                         A20, A25, A26, A27, A28, A29, A30, A31, A32, A42, A45, A46, A47,
+                                         A48
+                                         A01, A02, A03, A04, A08, A09, A10, A14, A15, A16, A17, A18, A19,
+                                         A20, A25, A26, A27, A28, A29, A30, A31, A32, A42, A45, A46, A47,
+                                         A48
+                                         A01, A02, A03, A04, A07, A08, A09, A10, A14, A15, A16, A17, A18,
+                                         A19, A20, A21, A22, A25, A26, A27, A28, A29, A30, A31, A32, A41,
+                                         A42, A44, A45, A48
+                                         A01, A02, A03, A04, A07, A08, A09, A10, A14, A15, A16, A17, A18,
+                                         A19, A20, A21, A22, A25, A26, A27, A28, A29, A30, A31, A32, A41,
+                                         A42, A45, A48
+                                         A01, A02, A03, A04, A07, A08, A09, A10, A14, A15, A16, A17, A18,
+                                         A19, A20, A21, A22, A25, A26, A27, A28, A29, A30, A31, A32, A41,
+                                         A44, A45, A48
+                                         A01, A02, A03, A04, A07, A08, A09, A10, A14, A15, A16, A17, A18,
+                                         A19, A20, A21, A22, A25, A26, A27, A28, A29, A30, A31, A32, A41,
+                                         A42, A45, A48
+                                         A01, A02, A03, A04, A07, A08, A09, A10, A11, A12, A13, A14, A15,
+                                         A16, A17, A18, A19, A20, A21, A22, A25, A26, A27, A28, A29, A30,
+                                         A31, A32, A40, A41, A42, A44, A45, A48
+                                                                                                              34
+
+Codice  Ruolo                              Caratteristiche                                              A18,
+R024    Capocantiere                       A01, A02, A03, A04, A07, A08, A09, A10, A14, A15, A16, A17,  A41,
+R025                                       A19, A20, A21, A22, A25, A26, A27, A28, A29, A30, A31, A32,
+R026    DGSA                               A42, A45, A48                                                A15,
+R027                                       A01, A02, A03, A04, A07, A08, A09, A10, A11, A12, A13, A14,  A30,
+R028    Responsabile Logistica             A16, A17, A18, A19, A20, A21, A22, A25, A26, A27, A28, A29,
+R029                                       A31, A32, A40, A41, A43, A44, A45, A46, A47, A48             A18,
+R030    Direttore Tecnico SOA              A01, A02, A03, A04, A07, A08, A09, A10, A14, A15, A16, A17,  A41,
+R031                                       A19, A20, A21, A22, A25, A26, A27, A28, A29, A30, A31, A32,
+R032    Responsabile Tecnico Officina Au-  A42, A45, A48                                                A18,
+        toriparazione                      A01, A02, A03, A04, A07, A08, A09, A10, A14, A15, A16, A17,  A37,
+R033    Responsabile Tecnico FER           A19, A20, A21, A22, A25, A26, A27, A28, A29, A30, A31, A32,
+R034                                       A38, A39, A40, A41, A42, A44, A45, A48                       A15,
+        Operaio                            A01, A02, A03, A04, A07, A08, A09, A10, A11, A12, A13, A14,  A30,
+        Amministratore Delegato            A16, A17, A18, A19, A20, A21, A22, A25, A26, A27, A28, A29,
+                                           A31, A32, A40, A41, A42, A43, A44, A45, A48                  A18,
+        Componente CdA                     A01, A02, A03, A04, A07, A08, A09, A10, A14, A15, A16, A17,  A33,
+                                           A19, A20, A21, A22, A25, A26, A27, A28, A29, A30, A31, A32,
+                                           A40, A41, A42, A44, A45, A48                                 A20,
+                                           A01, A02, A08, A10, A14, A17, A18, A25, A26, A30, A31, A32   A49,
+                                           A01, A02, A03, A04, A07, A08, A09, A15, A16, A17, A18, A19,
+                                           A21, A22, A23, A24, A25, A26, A28, A29, A30, A31, A32, A48,  A19,
+                                           A50, A51                                                     A48,
+                                           A01, A02, A03, A04, A05, A06, A08, A09, A15, A16, A17, A18,
+                                           A20, A21, A22, A23, A24, A25, A26, A28, A29, A30, A31, A32,
+                                           A49, A50, A51
+
+        Sindaco                            A01, A02, A03, A04, A05, A06, A08, A09, A11, A12, A13, A14, A15,
+        Revisore Legale                    A16, A17, A18, A19, A20, A21, A22, A25, A26, A28, A29, A30, A31,
+                                           A32, 48, A49, A50, A51
+                                           A01, A02, A03, A04, A08, A09, A15, A16, A17, A18, A19, A20, A21,
+                                           A22, A25, A26, A28, A29, A30, A31, A32, A34, A35, A36, A44, A45,
+                                           A48, A49, A50, A51
+
+Modificabilit`a dei collegamenti gerarchici La struttura gerarchica definita nel Catalogo dei Ruoli rappresenta il modello
+organizzativo di riferimento della piattaforma. Tale configurazione costituisce il collegamento predefinito tra i diversi ruoli e
+viene applicata automaticamente a tutte le aziende. Poich´e la struttura organizzativa reale pu`o differire dal modello standard,
+la piattaforma consente al consulente di modificare il collegamento gerarchico per la singola azienda. Per ciascun ruolo sono
+previste tre modalit`a di configurazione:
+
+    · Predefinito: il ruolo mantiene il collegamento gerarchico definito nel Catalogo dei Ruoli.
+
+    · Personalizzato: il consulente assegna un ruolo superiore differente rispetto a quello previsto dal modello standard.
+
+    · Nessun collegamento: il ruolo viene gestito senza alcuna dipendenza gerarchica e risulta indipendente.
+
+La piattaforma non duplica quindi l'intera struttura gerarchica per ogni azienda, ma registra esclusivamente le eventuali
+variazioni rispetto al modello di riferimento. In questo modo il Catalogo dei Ruoli continua a rappresentare l'organigramma
+tipico, mentre la configurazione aziendale conserva soltanto le personalizzazioni necessarie, riducendo la ridondanza dei dati e
+semplificando la manutenzione del sistema.
+
+3.3.3 Categoria -- Titoli di Studio        Settori  IAF  ISO 9001  ISO 14001  ISO 45001
+                                           Tutti
+Titoli di studio                           Tutti                                    
+                                           Tutti                                    
+           Elemento                        Tutti                                    
+           Tipologia del titolo            Tutti                                    
+           Denominazione                   Tutti                                    
+           Specializzazione                Tutti                                    
+           Istituto                                                                 
+           Anno di conseguimento
+           Documento allegato
+           Note
+                                                                                                                                                                  35
+
+3.3.4 Categoria -- DPI (condiviso con piano di manutezione)
+
+Sebbene il modulo DPI costituisca un archivio unico a livello aziendale, la piattaforma ne prevede la visualizzazione e la
+gestione anche all'interno della scheda della persona. Questa scelta nasce dall'esigenza di semplificare il lavoro quotidiano
+delle aziende. Nella maggior parte dei casi, infatti, l'assegnazione dei DPI avviene contestualmente alla gestione del lavoratore:
+durante l'inserimento di una nuova persona o l'aggiornamento della sua posizione, `e naturale registrare immediatamente anche
+i dispositivi consegnati. Per questo motivo il modulo DPI `e accessibile da due punti differenti:
+
+    · Scheda della persona, dove `e possibile visualizzare, assegnare o inserire direttamente i DPI relativi a quel lavoratore;
+
+    · Piano di manutenzione, dove `e possibile consultare e gestire l'intero parco DPI aziendale, monitorandone controlli,
+       manutenzioni, scadenze e stato.
+
+Le due viste operano sullo stesso archivio dati: l'inserimento o la modifica effettuati da una delle due sezioni sono immedia-
+tamente disponibili anche nell'altra. In questo modo si evita qualsiasi duplicazione delle informazioni, garantendo al tempo
+stesso un flusso di lavoro piu` semplice e intuitivo per l'utente.
+
+DPI La tabella logica DPI contiene le informazioni principali che identificano e descrivono il dispositivo. Ogni record
+rappresenta un DPI presente nel patrimonio aziendale, indipendentemente dal fatto che sia gi`a stato assegnato a una persona.
+Le informazioni previste sono:
+
+Elemento                               Settori  IAF  ISO 9001  ISO 14001  ISO 45001
+Tipologia di DPI                       Tutti
+Produttore                             Tutti                                    
+Matricola                              Tutti                                    
+Data di messa in uso                   Tutti                                    
+Anno di fabbricazione                  Tutti                                    
+Data di scadenza                       Tutti                                    
+Dichiarazione di conformit`a           Tutti                                    
+Controlli da effettuare                Tutti                                    
+Incaricato della manutenzione interna  Tutti                                    
+Stato                                  Tutti                                    
+Note                                   Tutti                                    
+                                                                                
+
+Assegnazioni DPI La tabella logica Assegnazioni DPI collega il dispositivo alla persona alla quale viene consegnato.
+La relazione viene gestita attraverso una tabella autonoma, poich´e uno stesso DPI pu`o essere restituito e successivamente
+assegnato a una persona differente. In questo modo la piattaforma pu`o conservare lo storico completo delle assegnazioni senza
+modificare o sovrascrivere le informazioni precedenti. Per ogni assegnazione vengono registrati:
+
+Elemento                               Settori  IAF  ISO 9001  ISO 14001  ISO 45001
+DPI                                    Tutti
+Persona assegnataria                   Tutti                                    
+Data di assegnazione                   Tutti                                    
+Data di restituzione                   Tutti                                    
+Stato                                  Tutti                                    
+Note                                   Tutti                                    
+                                                                                
+
+    La data di restituzione rimane vuota fino alla conclusione dell'assegnazione. La chiusura del rapporto non elimina il
+collegamento precedente, ma ne modifica lo stato consentendo una successiva riassegnazione del dispositivo.
+
+Controlli e manutenzioni DPI La tabella logica Controlli e manutenzioni DPI raccoglie tutte le attivit`a eseguite sul
+dispositivo durante il suo ciclo di utilizzo. Per ogni registrazione vengono gestite le seguenti informazioni:
+
+Elemento                               Settori  IAF  ISO 9001  ISO 14001  ISO 45001
+DPI                                    Tutti
+Tipo di attivit`a                      Tutti                                    
+Data                                   Tutti                                    
+Incaricato / Manutentore               Tutti                                    
+Motivo                                 Tutti                                    
+Esito                                  Tutti                                    
+Costo                                  Tutti                                    
+Registrazione / Documento allegato     Tutti                                    
+Note                                   Tutti                                    
+                                                                                
+                                                                            36
+
+Documentazione DPI La tabella logica Documentazione DPI raccoglie gli allegati collegati al dispositivo e ne consente
+la consultazione da tutti i punti della piattaforma nei quali il DPI viene visualizzato. Tra i documenti gestibili rientrano:
+
+Elemento                      Settori  IAF  ISO 9001  ISO 14001  ISO 45001
+Dichiarazione di conformit`a  Tutti
+Manuale d'uso                 Tutti                                    
+Certificati                   Tutti                                    
+Registrazioni dei controlli   Tutti                                    
+Rapporti di manutenzione      Tutti                                    
+Altri documenti               Tutti                                    
+                                                                       
+
+Collegamento logico
+
+Il collegamento logico `e il seguente: la persona non `e collegata direttamente al dispositivo, ma attraverso la registrazione
+dell'assegnazione. Questa struttura consente di conservare lo storico delle consegne, delle restituzioni e delle eventuali riasse-
+gnazioni. I controlli, le manutenzioni e la documentazione sono invece collegati direttamente al DPI, poich´e accompagnano il
+dispositivo durante l'intero ciclo di vita e rimangono validi indipendentemente dalla persona alla quale esso risulta assegnato.
+
+Modalit`a di utilizzo
+
+Consultazione dalla scheda della persona All'interno della scheda della persona il modulo mostra esclusivamente i DPI
+collegati al lavoratore attraverso le relative assegnazioni. Da questa sezione l'utente pu`o:
+
+    · visualizzare i DPI attualmente assegnati;
+    · inserire un nuovo DPI gi`a collegato alla persona;
+    · associare un DPI gi`a presente nel patrimonio aziendale;
+    · registrare controlli e manutenzioni;
+    · restituire il dispositivo;
+    · sostituire il dispositivo con un altro DPI.
+
+Nel caso di inserimento di un nuovo dispositivo dalla scheda della persona, la piattaforma deve creare sia il record del DPI sia
+la relativa assegnazione, evitando che l'utente debba completare l'operazione in due sezioni differenti.
+
+Nel caso di associazione di un dispositivo gi`a esistente, il sistema deve invece creare esclusivamente una nuova assegnazione,
+verificando che il DPI risulti disponibile e non sia gia` assegnato a un'altra persona.
+
+Consultazione dal Piano di manutenzione Dal Piano di manutenzione il modulo presenta la totalit`a dei DPI registrati
+per l'azienda, indipendentemente dal loro stato o dalla presenza di un'assegnazione attiva. Da questa sezione l'utente pu`o:
+
+    · visualizzare tutti i DPI aziendali;
+    · inserire nuovi dispositivi;
+    · verificare a chi risultano assegnati;
+    · controllare scadenze e stato;
+    · registrare controlli e manutenzioni;
+    · consultare i costi sostenuti;
+    · consultare la documentazione associata.
+
+Questa vista rappresenta quindi l'archivio complessivo dei DPI aziendali e costituisce il principale punto di controllo per le
+attivit`a manutentive e per il monitoraggio delle scadenze.
+                                                                                                                                                                  37
+
+Capitolo 4 - Database
+
+Al fine di garantire una gestione ordinata, scalabile e facilmente manutenibile del database, la struttura del progetto `e
+organizzata in categorie funzionali. Ogni categoria raccoglie le tabelle appartenenti allo stesso ambito applicativo, mentre
+ogni tabella viene definita all'interno di un file SQL dedicato. I file sono numerati progressivamente all'interno della propria
+categoria, cos`i da semplificare la consultazione, il versionamento e le successive modifiche. Questa organizzazione consente di
+individuare rapidamente ogni tabella del database, evitando file di grandi dimensioni e mantenendo una netta separazione tra
+i diversi moduli della piattaforma.
+
+4.1 Sistema
+
+Le tabelle di sistema costituiscono il nucleo della piattaforma e gestiscono gli elementi comuni a tutti i moduli applicativi.
+Esse definiscono le aziende registrate, gli utenti, i profili di accesso, i settori IAF, le certificazioni attive e la configurazione
+dinamica dei moduli disponibili. Tutte le altre tabelle del database fanno riferimento, direttamente o indirettamente, a queste
+informazioni.
+
+001 sys profili utente.sql Contiene il catalogo dei profili utente previsti dalla piattaforma. Ogni profilo definisce il livello
+di autorizzazione e le funzionalit`a disponibili per l'utente. Tra i profili inizialmente previsti rientrano il Super Admin, il Con-
+sulente, l'Admin Aziendale e l'Operatore Aziendale. Questa tabella rappresenta il riferimento per il sistema di autenticazione
+e autorizzazione della piattaforma.
+
+002 sys aziende registrate alla piattaforma.sql Contiene l'anagrafica delle aziende registrate alla piattaforma. Ogni
+azienda costituisce un ambiente di lavoro indipendente all'interno del sistema e rappresenta il punto di partenza per tutti i
+dati che verranno successivamente inseriti nei diversi moduli applicativi. La tabella identifica inoltre la sottoscrizione ai servizi
+della piattaforma e costituisce il riferimento principale per tutte le informazioni aziendali.
+
+003 sys utenti della piattaforma.sql Contiene gli utenti che possono accedere alla piattaforma. Ogni utente possiede
+credenziali personali di autenticazione e pu`o essere associato a una o piu` aziende, assumendo profili differenti in funzione del
+contesto operativo nel quale opera.
+
+004 rel utenti aziende.sql Definisce la relazione tra utenti e aziende. Questa struttura consente a uno stesso utente
+di operare contemporaneamente su piu` aziende e permette a ciascuna azienda di avere piu` utenti con differenti livelli di
+autorizzazione. La tabella rappresenta il collegamento tra il sistema di autenticazione e le singole organizzazioni gestite dalla
+piattaforma.
+
+005 cat settori IAF.sql Contiene il catalogo dei settori IAF supportati dalla piattaforma. Ogni settore identifica una
+specifica tipologia di attivit`a economica e viene utilizzato per determinare la configurazione iniziale della piattaforma, i
+moduli disponibili, i dati richiesti, le certificazioni applicabili e le personalizzazioni specifiche del settore.
+
+006 rel aziende settori IAF.sql Collega ogni azienda ai rispettivi settori IAF. Poich´e una stessa organizzazione pu`o
+operare contemporaneamente in piu` settori, la relazione `e di tipo molti-a-molti. Questa informazione costituisce uno degli
+elementi fondamentali per la configurazione automatica della piattaforma.
+
+007 cat certificazioni.sql Contiene il catalogo delle certificazioni gestite dalla piattaforma. Per ciascuna certificazione
+vengono definite le informazioni necessarie alla configurazione dei moduli e dei dati associati. Tra le certificazioni inizialmente
+previste rientrano, ad esempio, la ISO 9001, la ISO 14001 e la ISO 45001.
+
+008 sys certificazioni attive per azienda.sql Registra le certificazioni effettivamente attive per ciascuna azienda. Sulla
+base di tali informazioni la piattaforma abilita automaticamente i moduli, le categorie, le sottocategorie, gli elementi e le
+funzionalit`a previste dalle certificazioni sottoscritte.
+
+009 cat stati certificazione aziendale.sql Contiene il catalogo degli stati che possono assumere le certificazioni aziendali
+durante il loro ciclo di vita. Tra gli stati inizialmente previsti rientrano, ad esempio, In configurazione, Attiva, Sospesa, Scaduta
+e Revocata. L'utilizzo di un catalogo dedicato consente di gestire in modo uniforme lo stato delle certificazioni per tutte le
+aziende.
+
+010 cat moduli.sql Contiene il catalogo completo dei moduli applicativi previsti dalla piattaforma. Ogni modulo rap-
+presenta un'area funzionale autonoma, come l'Anagrafica Aziendale, il modulo Personale, il Piano Formativo, il Piano di
+Manutenzione, la gestione Documentale o lo Scadenziario. Il catalogo costituisce la base per la configurazione dinamica della
+piattaforma.
+                                                                                                                                                                  38
+
+011 cfg moduli.sql Definisce la configurazione dei moduli per ciascuna azienda. Sulla base delle certificazioni attive, dei
+settori IAF e delle impostazioni definite dal consulente, la piattaforma determina automaticamente quali moduli devono essere
+disponibili e quali funzionalit`a devono essere abilitate. Questa tabella rappresenta il collegamento tra la configurazione teorica
+della piattaforma e l'effettiva esperienza operativa dell'azienda.
+
+012 sys presa visione modifiche.sql Registra la presa visione delle modifiche e degli aggiornamenti della piattaforma da
+parte degli utenti. Questa funzionalit`a consente al consulete di verificare se i nuovi inserimenti, aggiornamenti o modifiche,
+garantendo la tracciabilit`a delle informazioni condivise e la corretta gestione delle comunicazioni di servizio.
+
+013 sys elementi certificazioni.sql Definisce il catalogo centrale con cui le sezioni, le voci e i singoli elementi dell'appli-
+cazione vengono organizzati in una struttura gerarchica e collegati alle certificazioni e ai settori IAF. Attraverso questa tabella
+`e possibile censire gli elementi informativi utilizzati nelle diverse aree dell'applicazione, stabilire la relazione tra ciascun ele-
+mento e la sezione o voce di appartenenza e associare lo stesso elemento a uno o piu` contesti di certificazione e settori IAF.
+Tali associazioni consentono al sistema di determinare quali informazioni rendere disponibili per una determinata azienda
+in funzione delle certificazioni gestite e dell'ambito IAF applicabile. Per ogni elemento pu`o inoltre essere memorizzata una
+descrizione esplicativa, utilizzata dal pulsante informativo dell'interfaccia per fornire all'utente indicazioni sul significato del
+dato e sulle modalit`a di compilazione. La tabella costituisce quindi il riferimento comune consultato dagli script successivi
+per mantenere uniforme la classificazione degli elementi, evitare definizioni duplicate e governare in modo centralizzato la loro
+disponibilit`a nell'applicazione.
+
+4.2 Anagrafica Aziendale
+
+4.2.1 Dati estratti dalla CCIA
+
+Nota progettuale L'estrazione automatica dalla visura camerale rappresenta la prima applicazione di un principio pro-
+gettuale piu` ampio che caratterizza l'intera piattaforma. L'obiettivo del sistema non `e infatti limitarsi alla gestione manuale
+delle informazioni, ma acquisire automaticamente, ove possibile, i dati gi`a disponibili all'interno di documenti ufficiali o di
+altre fonti affidabili, sottoponendoli successivamente alla verifica dell'utente. La Camera di Commercio costituisce quindi
+soltanto la prima fonte documentale integrata. In futuro lo stesso principio potr`a essere progressivamente esteso ad ulteriori
+documenti, quali, a titolo esemplificativo, DURC, attestati di formazione, certificazioni, polizze assicurative, bilanci, autoriz-
+zazioni, verbali, documentazione tecnica e amministrativa, nonch´e ad altre banche dati o servizi che risulteranno disponibili.
+Ogni nuovo sistema di estrazione utilizzer`a la medesima logica: individuare automaticamente le informazioni utili, proporne
+la compilazione all'interno della piattaforma e richiedere all'utente esclusivamente la verifica, l'eventuale integrazione e la
+conferma dei dati. Questa impostazione consente di ridurre progressivamente il tempo necessario alla configurazione iniziale
+dell'azienda, limitare gli errori di trascrizione, aumentare la qualit`a delle informazioni raccolte e valorizzare il patrimonio do-
+cumentale gi`a disponibile. La progressiva estensione delle funzionalit`a di estrazione automatica costituisce pertanto uno degli
+indirizzi evolutivi della piattaforma ed `e pienamente coerente con il principio generale che ispira l'intero progetto: ridurre al
+minimo l'inserimento manuale delle informazioni, massimizzare il riutilizzo dei dati gi`a esistenti e trasformare la piattaforma
+in uno strumento capace di assistere attivamente l'utente nella costruzione e nell'aggiornamento del patrimonio informativo
+aziendale.
+
+Tabelle
+
+Questa sezione raccoglie le tabelle contenenti le informazioni che la piattaforma `e in grado di acquisire automaticamente
+attraverso l'analisi della visura camerale. Il raggruppamento non `e stato effettuato sulla base della funzione svolta dalle
+singole informazioni all'interno dell'Anagrafica Aziendale, bens`i in funzione della loro origine. Tutte le tabelle appartenenti
+a questa sezione rappresentano infatti dati che possono essere riconosciuti, estratti e proposti automaticamente durante la
+fase di importazione della documentazione camerale. Una volta completata l'estrazione, le informazioni vengono associate alle
+rispettive sezioni dell'Anagrafica Aziendale e sottoposte alla verifica dell'utente, che pu`o confermarle, modificarle o integrarle
+con ulteriori dati non presenti nella documentazione ufficiale. Questa organizzazione consente di distinguere chiaramente tre
+diverse modalit`a di acquisizione delle informazioni:
+
+    · informazioni acquisite automaticamente da fonti ufficiali;
+
+    · informazioni inserite manualmente dall'azienda o dal consulente;
+
+    · informazioni generate successivamente dalla piattaforma durante il proprio funzionamento.
+
+L'importazione della visura camerale costituisce quindi il punto di partenza per la compilazione dell'Anagrafica Aziendale,
+mentre i successivi aggiornamenti consentono di mantenere il patrimonio informativo costantemente allineato con l'evoluzione
+dell'organizzazione. Le tabelle riportate nelle pagine successive descrivono pertanto il modello informativo utilizzato dalla
+piattaforma per rappresentare le informazioni potenzialmente estraibili dalla visura camerale. Non tutte le aziende presen-
+teranno necessariamente l'intero insieme dei dati previsti: il sistema importer`a esclusivamente le informazioni effettivamente
+presenti nel documento analizzato, lasciando non compilati i campi non pertinenti.
+                                                                                                                                                                  39
+
+001 ana identificazione camerale.sql Contiene le principali informazioni identificative dell'impresa estratte dalla visura
+camerale, quali ragione sociale, forma giuridica, codice fiscale, partita IVA, Camera di Commercio competente, numero REA
+e gli altri dati necessari all'identificazione univoca dell'organizzazione.
+
+002 ana iscrizioni registro imprese.sql Contiene le informazioni relative all'iscrizione dell'impresa presso il Registro
+delle Imprese, comprese le sezioni di appartenenza e le rispettive date di iscrizione. La struttura `e progettata per gestire
+un numero variabile di iscrizioni, consentendo di rappresentare correttamente anche le aziende che risultano registrate in piu`
+sezioni del Registro delle Imprese o in ulteriori registri camerali.
+
+003 ana durata societa esercizi.sql Raccoglie le informazioni relative alla durata della societ`a e agli esercizi sociali, quali
+la data di termine della societ`a, la scadenza del primo esercizio e quelle degli esercizi successivi. Questi dati consentono di
+ricostruire il ciclo amministrativo dell'impresa e possono essere successivamente utilizzati dalla piattaforma per controlli,
+notifiche e gestione delle scadenze.
+
+004 ana attivita esercitata.sql Contiene la descrizione delle attivit`a economiche esercitate dall'impresa cos`i come risulta-
+no dalla visura camerale. La tabella consente di registrare l'attivit`a prevalente e le eventuali attivit`a secondarie, mantenendo
+una rappresentazione completa dell'operativit`a aziendale e costituendo il collegamento logico con i relativi codici ATECO.
+
+005 ana codici ateco.sql Contiene l'elenco dei codici ATECO associati all'azienda, distinguendo il codice prevalente dagli
+eventuali codici secondari. L'utilizzo di una tabella dedicata permette di gestire un numero illimitato di codici attivit`a e di
+utilizzare tali informazioni per la configurazione automatica dei moduli, dei controlli, delle funzionalit`a e dei profili settoriali
+previsti dalla piattaforma.
+
+006 ana capitale sociale.sql Contiene le informazioni relative al capitale sociale dell'impresa risultanti dalla visura came-
+rale, quali il capitale deliberato, sottoscritto, versato e la relativa valuta. La tabella descrive la struttura patrimoniale della
+societa` e consente di mantenere traccia delle informazioni societarie che possono essere successivamente aggiornate in seguito
+a modifiche del capitale sociale o ad altre variazioni dell'assetto societario.
+
+007 ana amministrazione controllo.sql Contiene le informazioni relative al sistema di amministrazione e controllo adot-
+tato dalla societ`a. La tabella raccoglie la tipologia di governance prevista dallo statuto, la composizione degli organi ammini-
+strativi e di controllo e le principali caratteristiche dell'assetto organizzativo risultanti dalla visura camerale. Queste informa-
+zioni costituiscono il riferimento per la gestione delle qualifiche societarie e delle cariche ricoperte dai soggetti appartenenti
+agli organi dell'impresa.
+
+008 ana soa.sql Contiene le informazioni relative alle attestazioni SOA possedute dall'impresa, quando previste. La tabella
+consente di registrare i dati identificativi dell'attestazione, l'organismo di attestazione, le categorie e le classifiche possedute,
+le date di rilascio e di scadenza e le ulteriori informazioni necessarie alla gestione della qualificazione. La struttura viene
+valorizzata esclusivamente per le imprese soggette a tale tipologia di attestazione e costituisce il riferimento per le funzionalit`a
+della piattaforma dedicate alle aziende operanti nel settore delle costruzioni.
+
+009 ana certificazioni.sql Contiene le certificazioni dell'impresa rilevate dalla visura camerale o da altre fonti ufficiali
+collegate, quali, ad esempio, Accredia. Per ciascuna certificazione possono essere registrate la norma di riferimento, il numero
+del certificato, l'organismo certificatore, la data di prima emissione, i settori IAF interessati e le ulteriori informazioni previste
+dal modello dati della piattaforma. Le informazioni acquisite automaticamente possono essere successivamente integrate,
+aggiornate o completate dall'azienda o dal consulente.
+
+010 ana addetti visura.sql Contiene i dati relativi agli addetti dell'impresa risultanti dalla visura camerale. La tabella
+consente di registrare, per ciascun periodo di rilevazione, il numero di dipendenti, indipendenti, collaboratori e il totale degli
+addetti, oltre agli eventuali valori medi e alle distribuzioni percentuali disponibili. Queste informazioni costituiscono una base
+storica utile per l'elaborazione di indicatori relativi all'evoluzione dell'organico aziendale.
+
+011 ana addetti comune.sql Contiene la distribuzione degli addetti per comune, sede o unit`a locale, quando tale infor-
+mazione risulta disponibile nella documentazione camerale. La struttura permette di associare la consistenza dell'organico alle
+diverse localizzazioni aziendali e di conservarne lo storico, consentendo successive elaborazioni statistiche e confronti temporali.
+
+012 ana albi ruoli licenze.sql Contiene le iscrizioni dell'impresa ad albi, registri, ruoli, licenze e autorizzazioni risultanti
+dalla visura camerale. Per ciascuna iscrizione possono essere registrati la tipologia, il numero di iscrizione, la categoria, la
+classe, lo stato, le date di inizio, di scadenza e di eventuale cessazione, oltre alle ulteriori informazioni previste dal modello
+informativo. La struttura `e progettata per gestire contemporaneamente un numero illimitato di iscrizioni riferite alla medesima
+azienda.
+                                                                                                                                                                  40
+
+013 ana sedi.sql Contiene tutte le sedi dell'azienda. Le informazioni possono essere acquisite automaticamente dalla visura
+camerale oppure inserite e aggiornate manualmente dall'azienda o dal consulente. Per ciascuna sede vengono registrati la
+tipologia, l'ubicazione, lo stato, la data di apertura, i recapiti, i riferimenti organizzativi e le ulteriori informazioni previste
+dall'Anagrafica Aziendale. La tabella consente di gestire un numero illimitato di sedi appartenenti alla stessa organizzazione
+e costituisce il riferimento per tutti i moduli della piattaforma che richiedono l'associazione a una specifica sede aziendale.
+
+014 ana contatti.sql Contiene i recapiti e le informazioni di contatto dell'azienda.
+    Le informazioni possono essere acquisite automaticamente dalla visura camerale oppure inserite e aggiornate manualmente
+
+dall'azienda o dal consulente. La tabella consente di gestire recapiti generali, riferimenti amministrativi, contatti tecnici e
+recapiti dedicati alle emergenze, mantenendo la possibilit`a di associarli a specifiche sedi o funzioni aziendali.
+
+4.2.2 Categoria - Organizzazione, Trend e Assicurazioni
+
+Per ciascuna delle tabelle descritte, lo script contiene, oltre al codice necessario alla creazione della relativa struttura dati,
+anche le istruzioni per migrare e registrare i singoli elementi nel catalogo generale sys elementi certificazioni. Durante
+questa operazione, ogni elemento viene classificato nella corretta sezione e voce gerarchica e associato ai settori IAF e a
+una o piu` certificazioni di appartenenza. In questo modo, la creazione della tabella e l'aggiornamento del catalogo generale
+avvengono contestualmente, mantenendo coerente la struttura del database con il modello operativo della piattaforma.
+
+Tabelle
+
+001 ana contratti lavoro.sql Contiene le informazioni relative al contratto collettivo nazionale applicato dall'azienda.
+Registra il CCNL corrente, il settore contrattuale, la data dalla quale viene applicato, l'eventuale contratto precedente e le
+note. Per ogni azienda viene mantenuta una sola configurazione corrente, che pu`o essere aggiornata quando cambia il contratto
+applicato.
+
+002 ana posizioni assicurative previdenziali.sql Contiene le posizioni previdenziali e assicurative dell'azienda presso
+INPS e INAIL. Per ciascun ente vengono registrati il numero della posizione e la sede territoriale competente. Le informazioni
+costituiscono il riferimento unico e corrente dell'azienda per gli adempimenti previdenziali e assicurativi.
+
+003 ana fondi interprofessionali.sql Gestisce le adesioni dell'azienda ai fondi interprofessionali. Per ogni fondo vengono
+registrati la denominazione, lo stato dell'iscrizione, la data di adesione, l'eventuale codice assegnato, la data di recesso e le
+note. L'azienda pu`o avere piu` adesioni, anche riferite a fondi differenti o a rapporti conclusi, cos`i da conservarne l'evoluzione
+nel tempo.
+
+004 ana dati generali.sql Contiene la fotografia annuale dell'organico aziendale al 31 dicembre. Per ogni anno vengono
+registrati il numero complessivo degli addetti, i dipendenti, i soci lavoratori, l'organico medio annuo e l'et`a media. La tabella
+costituisce la base storica di riferimento per le analisi successive sulla composizione e sull'andamento del personale.
+
+005 ana ripartizione organico.sql Descrive come `e composto l'organico dell'azienda in ciascun anno. La ripartizione
+considera mansioni, genere, nazionalit`a, durata del contratto e titolo di studio. I valori numerici vengono rapportati auto-
+maticamente al totale degli addetti registrato nei dati generali dello stesso anno, cos`i da mostrare anche le percentuali senza
+richiedere un doppio inserimento. Ogni rilevazione `e quindi collegata alla corrispondente fotografia annuale dell'organico.
+
+006 ana turni lavoro.sql Descrive l'organizzazione corrente dei turni di lavoro dell'azienda. Indica se sono presenti tur-
+nazioni e, quando previste, ne specifica tipologia, numero, fasce orarie e modalit`a di rotazione. Registra inoltre la presenza
+di lavoro notturno, festivo o a ciclo continuo. Le informazioni vengono mantenute come configurazione unica dell'azienda e
+aggiornate quando cambia l'organizzazione del lavoro.
+
+007 ana outsourcing.sql Contiene i processi e le attivit`a che l'azienda affida a soggetti esterni. Per ciascun affidamento
+vengono registrati il periodo, lo stato, il referente interno, il contratto associato e le eventuali note. E` possibile censire un
+numero illimitato di affidamenti, mantenendo separati quelli pianificati, attivi, sospesi o conclusi.
+
+008 ana subappaltatori.sql Contiene l'elenco dei subappaltatori utilizzati dall'azienda e descrive i relativi rapporti. Per
+ogni soggetto vengono registrati i dati identificativi, la categoria dei lavori affidati, il periodo di attivit`a, lo stato del rapporto,
+il referente e i riferimenti alla documentazione disponibile. L'azienda pu`o gestire piu` subappaltatori e conservare anche i
+rapporti cessati.
+
+009 ana fornitori materiali.sql Contiene i fornitori di materiali dell'azienda. Per ciascun fornitore vengono registrati i
+dati anagrafici e di contatto, la categoria merceologica, i materiali forniti, l'inizio e lo stato della collaborazione. Possono
+inoltre essere indicati il contratto, le certificazioni, le schede tecniche e di sicurezza e gli altri documenti collegati. La tabella
+costituisce il riferimento per tutti i fornitori di materiali utilizzati nei diversi processi aziendali.
+                                                                                                                                                                  41
+
+010 ana lavoratori autonomi.sql Contiene i lavoratori autonomi e i professionisti esterni che collaborano con l'azienda.
+Per ciascun rapporto vengono registrati il soggetto, i riferimenti fiscali, la mansione, l'attivit`a svolta, il periodo e lo stato della
+collaborazione, oltre alla documentazione e alle note. E` possibile gestire piu` collaboratori e mantenere traccia sia dei rapporti
+attivi sia di quelli conclusi.
+
+011 ana indicatori economici.sql Contiene l'andamento annuale degli indicatori economici dell'azienda. Per ogni eser-
+cizio vengono registrati il fatturato conseguito, l'obiettivo previsto e le eventuali note. Il sistema ricava automaticamente lo
+scostamento tra risultato e obiettivo, consentendo di leggere il trend economico senza memorizzare valori duplicati.
+
+012 ana variazioni organico.sql Contiene l'andamento annuale dell'organico attraverso le nuove assunzioni, le cessazioni
+e l'obiettivo percentuale stabilito dall'azienda. Utilizza l'organico medio gi`a presente nei dati generali e lo confronta con quello
+dell'anno precedente per ricavare automaticamente l'incremento o il decremento percentuale e lo scostamento dall'obiettivo.
+La tabella permette quindi di analizzare i flussi del personale mantenendo un unico dato di riferimento per l'organico annuale.
+
+013 ana assicurazioni.sql Contiene tutte le polizze assicurative dell'azienda. Per ogni polizza vengono registrati la tipo-
+logia, la compagnia, il numero identificativo, le date di emissione, decorrenza e scadenza, il massimale, il premio, lo stato, il
+contraente, il referente e la frequenza di rinnovo. Possono essere collegati anche documentazione e note. E` possibile gestire
+un numero illimitato di polizze e conservarne lo storico operativo, comprese quelle scadute, sospese o disdette.
+
+4.2.3 Categoria - Altre informazioni
+
+001 ana contratti rete.sql Gestisce la partecipazione dell'azienda a contratti di rete. Una prima informazione indica
+in modo generale se l'azienda aderisce a reti d'impresa; quando la risposta `e positiva, possono essere registrati uno o piu`
+contratti con numero di registrazione, repertorio, denominazione, data di adesione, eventuale cessazione, documentazione e
+note. La separazione tra presenza generale ed elenco di dettaglio consente di rappresentare correttamente sia le aziende che
+non partecipano a reti sia quelle che aderiscono a piu` contratti.
+
+002 ana compliance trasparenza.sq Contiene i documenti, i modelli e gli adempimenti adottati dall'azienda in materia
+di compliance e trasparenza. Per ogni elemento viene indicata la presenza, l'eventuale data di adozione, i dettagli e la docu-
+mentazione associata. L'azienda pu`o censire un numero illimitato di elementi, adattando la sezione alle proprie caratteristiche
+e agli obblighi applicabili.
+
+003 ana procedimenti legali.sql Contiene i procedimenti legali che coinvolgono l'azienda. Per ciascun procedimento
+vengono registrati la tipologia, la controparte, la data di inizio, lo stato, l'eventuale conclusione, l'esito, la documentazione
+e le note. E` possibile gestire piu` procedimenti contemporaneamente e conservarne la storia anche dopo la conclusione o
+l'archiviazione.
+
+004 ana visite enti controllo.sql Contiene le visite e le verifiche effettuate dagli enti di controllo presso l'azienda. Per ogni
+evento vengono registrati l'ente, la tipologia della visita, la data, l'esito, le eventuali prescrizioni, il verbale o la documentazione
+collegata e le note. La tabella consente di conservare tutte le visite nel tempo e costituisce il riferimento per seguire gli esiti e
+gli eventuali adempimenti conseguenti.
+

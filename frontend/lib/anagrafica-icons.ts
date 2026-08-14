@@ -4,12 +4,27 @@ import {
   Briefcase,
   Building2,
   CalendarClock,
+  ClipboardCheck,
+  Clock4,
+  FileWarning,
+  Gauge,
   Gavel,
+  HandCoins,
+  Handshake,
+  HardHat,
   Landmark,
   MapPin,
+  Network,
   Phone,
+  PiggyBank,
+  Scale,
   ScrollText,
+  Shield,
+  ShieldAlert,
   ShieldCheck,
+  Truck,
+  TrendingUp,
+  UserCog,
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -20,6 +35,10 @@ export const CATEGORIA_ICONE: Record<string, LucideIcon> = {
   Sedi: MapPin,
   Contatti: Phone,
   "Dati CCIAA": ScrollText,
+  Organizzazione: Network,
+  Trend: TrendingUp,
+  Assicurazioni: Shield,
+  "Altre informazioni": FileWarning,
 };
 
 // Icona per sezione, condivisa tra sidebar, header di pagina e card di
@@ -39,4 +58,29 @@ export const SEZIONE_ICONE: Record<string, LucideIcon> = {
   certificazioni: ShieldCheck,
   "addetti-visura": Users,
   "addetti-comune": Users,
+
+  // Organizzazione (ISO 9001)
+  "contratto-lavoro": ScrollText,
+  "posizioni-assicurative-previdenziali": ShieldAlert,
+  "fondi-interprofessionali": PiggyBank,
+  "dati-generali": Users,
+  "ripartizione-organico": Gauge,
+  "turni-lavoro": Clock4,
+  outsourcing: Handshake,
+  subappaltatori: HardHat,
+  "fornitori-materiali": Truck,
+  "lavoratori-autonomi": UserCog,
+
+  // Trend (ISO 9001)
+  "indicatori-economici": HandCoins,
+  "variazioni-organico": TrendingUp,
+
+  // Assicurazioni (ISO 9001)
+  assicurazioni: Shield,
+
+  // Altre informazioni (ISO 9001)
+  "contratti-rete": Network,
+  "compliance-trasparenza": ClipboardCheck,
+  "procedimenti-legali": Scale,
+  "visite-enti-controllo": FileWarning,
 };

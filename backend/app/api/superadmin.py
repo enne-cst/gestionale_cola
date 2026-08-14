@@ -9,10 +9,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core import abbonamenti as abbonamenti_service
 from app.core.deps import require_superadmin
 from app.core.security import hash_password
 from app.database import get_db
 from app.models.sistema import RelUtenteAzienda, SysAzienda, SysProfilo, SysUtente
+from app.schemas.abbonamenti import AbbonamentoRead, AbbonamentoUpsert
 from app.schemas.superadmin import (
     AssociaConsulenteRequest,
     AziendaAmministrazioneRead,
@@ -267,3 +269,36 @@ def rimuovi_associazione_consulente(azienda_id: UUID, consulente_id: UUID, db: S
     # da associa_consulente sopra.
     relazione.attivo = False
     db.commit()
+
+
+@router.get("/aziende/{azienda_id}/abbonamenti", response_model=list[AbbonamentoRead])
+def elenco_abbonamenti_azienda(azienda_id: UUID, db: Session = Depends(get_db)):
+    _azienda_o_404(db, azienda_id)
+    return [abbonamenti_service.to_read(db, a) for a in abbonamenti_service.elenco_abbonamenti(db, azienda_id)]
+
+
+@router.put("/aziende/{azienda_id}/abbonamenti/{certificazione_id}", response_model=AbbonamentoRead)
+def aggiorna_abbonamento_azienda(
+    azienda_id: UUID,
+    certificazione_id: UUID,
+    payload: AbbonamentoUpsert,
+    db: Session = Depends(get_db),
+):
+    _azienda_o_404(db, azienda_id)
+    abbonamento = abbonamenti_service.upsert_abbonamento(
+        db,
+        azienda_id=azienda_id,
+        certificazione_id=certificazione_id,
+        stato_codice=payload.stato_codice,
+        data_attivazione=payload.data_attivazione,
+        data_scadenza=payload.data_scadenza,
+        rinnovo_automatico=payload.rinnovo_automatico,
+    )
+    return abbonamenti_service.to_read(db, abbonamento)
+
+
+@router.post("/aziende/{azienda_id}/abbonamenti/{certificazione_id}/disattiva", response_model=AbbonamentoRead)
+def disattiva_abbonamento_azienda(azienda_id: UUID, certificazione_id: UUID, db: Session = Depends(get_db)):
+    _azienda_o_404(db, azienda_id)
+    abbonamento = abbonamenti_service.disattiva_abbonamento(db, azienda_id=azienda_id, certificazione_id=certificazione_id)
+    return abbonamenti_service.to_read(db, abbonamento)

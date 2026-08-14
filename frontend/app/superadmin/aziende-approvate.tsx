@@ -1,3 +1,6 @@
+import Link from "next/link";
+
+import { buttonVariants } from "@/components/ui/button";
 import type { AziendaAmministrazione } from "@/lib/types/superadmin";
 
 import { rifiutaAzienda } from "./actions";
@@ -37,7 +40,13 @@ export function AziendeApprovate({ aziende }: { aziende: AziendaAmministrazione[
                     : "—"}
                 </td>
                 <td className="py-2">
-                  <div className="flex justify-end">
+                  <div className="flex justify-end gap-2">
+                    <Link
+                      href={`/superadmin/aziende/${azienda.id}`}
+                      className={buttonVariants({ variant: "outline", size: "sm" })}
+                    >
+                      Abbonamenti
+                    </Link>
                     <BloccaAziendaButton
                       action={rifiutaAzienda.bind(null, azienda.id)}
                       ragioneSociale={azienda.ragione_sociale}

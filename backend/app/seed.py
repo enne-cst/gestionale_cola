@@ -6,11 +6,21 @@ ogni avvio senza creare duplicati (`INSERT ... se non esiste già`).
 Limitato all'ambiente di sviluppo (vedi `app/main.py`)."""
 
 import uuid
+from datetime import date, timedelta
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password
-from app.models.sistema import RelUtenteAzienda, SysAzienda, SysProfilo, SysUtente
+from app.models.sistema import (
+    CatCertificazione,
+    CatStatoCertificazione,
+    RelUtenteAzienda,
+    SysAzienda,
+    SysAziendaCertificazione,
+    SysProfilo,
+    SysUtente,
+)
 
 DEV_AZIENDA_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 DEV_UTENTE_ID = uuid.UUID("00000000-0000-0000-0000-000000000002")
@@ -137,5 +147,32 @@ def run_seed(db: Session) -> None:
                         profilo_id=profilo_superadmin.id,
                     )
                 )
+
+    # Abbonamento ISO 9001 attivo sull'azienda di sviluppo, così le sezioni
+    # soggette a certificazione (Organizzazione, Trend, Assicurazioni, Altre
+    # informazioni) sono testabili subito dopo l'avvio, senza doverlo
+    # attivare a mano da un account consulente/super admin.
+    certificazione_iso9001 = db.scalars(
+        select(CatCertificazione).where(CatCertificazione.codice == "ISO_9001")
+    ).first()
+    stato_attiva = db.scalars(select(CatStatoCertificazione).where(CatStatoCertificazione.nome == "ATTIVA")).first()
+    if certificazione_iso9001 is not None and stato_attiva is not None:
+        abbonamento_esistente = db.scalars(
+            select(SysAziendaCertificazione).where(
+                SysAziendaCertificazione.azienda_id == azienda.id,
+                SysAziendaCertificazione.certificazione_id == certificazione_iso9001.id,
+            )
+        ).first()
+        if abbonamento_esistente is None:
+            db.add(
+                SysAziendaCertificazione(
+                    azienda_id=azienda.id,
+                    certificazione_id=certificazione_iso9001.id,
+                    stato_id=stato_attiva.id,
+                    data_attivazione=date.today(),
+                    data_scadenza=date.today() + timedelta(days=365),
+                    rinnovo_automatico=True,
+                )
+            )
 
     db.commit()

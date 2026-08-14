@@ -11,17 +11,46 @@ prima di allora (vedi `app/api/auth.py`). Il consulente che la crea viene
 comunque associato subito, così la ritrova già collegata a sé una volta
 approvata."""
 
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core import abbonamenti as abbonamenti_service
 from app.core.deps import UtenteContext, require_consulente
 from app.core.security import hash_password
 from app.database import get_db
 from app.models.sistema import RelUtenteAzienda, SysAzienda, SysProfilo, SysUtente
+from app.schemas.abbonamenti import AbbonamentoRead, AbbonamentoUpsert
 from app.schemas.consulente import AziendaClienteRead, NuovaAziendaRequest, NuovaAziendaResponse
 
 router = APIRouter(prefix="/api/consulente", tags=["Consulente"])
+
+
+def _azienda_del_consulente_o_403(db: Session, utente_id: UUID, azienda_id: UUID) -> SysAzienda:
+    """Verifica che l'azienda sia effettivamente cliente del consulente
+    corrente prima di lasciarlo operare sul suo abbonamento — stessa
+    verifica su `rel_utenti_aziende` usata da `get_current_azienda` per il
+    contesto "azienda attiva" (mai fidarsi di un id ricevuto dal client senza
+    controllarne l'autorizzazione, doc. cap. 2.3.12)."""
+    relazione = db.scalars(
+        select(RelUtenteAzienda)
+        .join(SysProfilo, RelUtenteAzienda.profilo_id == SysProfilo.id)
+        .where(
+            RelUtenteAzienda.utente_id == utente_id,
+            RelUtenteAzienda.azienda_id == azienda_id,
+            RelUtenteAzienda.attivo.is_(True),
+            SysProfilo.codice == "CONSULENTE",
+        )
+    ).first()
+    if relazione is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Nessun accesso a questa azienda")
+
+    azienda = db.get(SysAzienda, azienda_id)
+    if azienda is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Azienda non trovata")
+    return azienda
 
 
 @router.get("/aziende", response_model=list[AziendaClienteRead])
@@ -92,3 +121,56 @@ def crea_azienda(
     db.refresh(azienda)
 
     return NuovaAziendaResponse(id=azienda.id, ragione_sociale=azienda.ragione_sociale, email=admin_azienda.email)
+
+
+@router.get("/aziende/{azienda_id}", response_model=AziendaClienteRead)
+def dettaglio_azienda(
+    azienda_id: UUID,
+    db: Session = Depends(get_db),
+    utente: UtenteContext = Depends(require_consulente),
+):
+    azienda = _azienda_del_consulente_o_403(db, utente.utente_id, azienda_id)
+    return AziendaClienteRead(id=azienda.id, ragione_sociale=azienda.ragione_sociale, stato_approvazione=azienda.stato_approvazione)
+
+
+@router.get("/aziende/{azienda_id}/abbonamenti", response_model=list[AbbonamentoRead])
+def elenco_abbonamenti_azienda(
+    azienda_id: UUID,
+    db: Session = Depends(get_db),
+    utente: UtenteContext = Depends(require_consulente),
+):
+    _azienda_del_consulente_o_403(db, utente.utente_id, azienda_id)
+    return [abbonamenti_service.to_read(db, a) for a in abbonamenti_service.elenco_abbonamenti(db, azienda_id)]
+
+
+@router.put("/aziende/{azienda_id}/abbonamenti/{certificazione_id}", response_model=AbbonamentoRead)
+def aggiorna_abbonamento_azienda(
+    azienda_id: UUID,
+    certificazione_id: UUID,
+    payload: AbbonamentoUpsert,
+    db: Session = Depends(get_db),
+    utente: UtenteContext = Depends(require_consulente),
+):
+    _azienda_del_consulente_o_403(db, utente.utente_id, azienda_id)
+    abbonamento = abbonamenti_service.upsert_abbonamento(
+        db,
+        azienda_id=azienda_id,
+        certificazione_id=certificazione_id,
+        stato_codice=payload.stato_codice,
+        data_attivazione=payload.data_attivazione,
+        data_scadenza=payload.data_scadenza,
+        rinnovo_automatico=payload.rinnovo_automatico,
+    )
+    return abbonamenti_service.to_read(db, abbonamento)
+
+
+@router.post("/aziende/{azienda_id}/abbonamenti/{certificazione_id}/disattiva", response_model=AbbonamentoRead)
+def disattiva_abbonamento_azienda(
+    azienda_id: UUID,
+    certificazione_id: UUID,
+    db: Session = Depends(get_db),
+    utente: UtenteContext = Depends(require_consulente),
+):
+    _azienda_del_consulente_o_403(db, utente.utente_id, azienda_id)
+    abbonamento = abbonamenti_service.disattiva_abbonamento(db, azienda_id=azienda_id, certificazione_id=certificazione_id)
+    return abbonamenti_service.to_read(db, abbonamento)

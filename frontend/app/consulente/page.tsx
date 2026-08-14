@@ -50,7 +50,10 @@ export default async function ConsulentePage() {
                   <td className="py-2 text-foreground">{azienda.ragione_sociale}</td>
                   <td className="py-2 text-muted-foreground">{ETICHETTE_STATO[azienda.stato_approvazione]}</td>
                   <td className="py-2">
-                    <div className="flex justify-end">
+                    <div className="flex justify-end gap-2">
+                      <Link href={`/consulente/aziende/${azienda.id}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                        Abbonamenti
+                      </Link>
                       {azienda.stato_approvazione === "approvata" && (
                         <form action={entraInAzienda.bind(null, azienda.id)}>
                           <Button type="submit" size="sm">

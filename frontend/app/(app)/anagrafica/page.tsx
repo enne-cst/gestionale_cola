@@ -10,9 +10,15 @@ import { PageHeader } from "@/components/page-header";
 import { SectionListPreviewCard } from "@/components/section-list-preview-card";
 import { SectionPreviewCard } from "@/components/section-preview-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionLinkCard } from "@/components/section-link-card";
 import { apiFetch } from "@/lib/api";
 import { CATEGORIA_ICONE, SEZIONE_ICONE } from "@/lib/anagrafica-icons";
-import { CATEGORIE_ANAGRAFICA, SEZIONI_ANAGRAFICA, categoriaSlug, sezioniPerCategoria } from "@/lib/anagrafica-sezioni";
+import {
+  categoriaSlug,
+  categorieVisibili,
+  SEZIONI_ANAGRAFICA,
+  sezioniPerCategoriaVisibili,
+} from "@/lib/anagrafica-sezioni";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type {
   AddettiComune,
@@ -47,6 +53,7 @@ function ultimoAggiornamento(...gruppi: (ConMetadatiParziale | null | ConMetadat
 
 export default async function AnagraficaOverviewPage() {
   const [
+    sezioniAbilitate,
     identificazione,
     durata,
     attivita,
@@ -62,6 +69,7 @@ export default async function AnagraficaOverviewPage() {
     addettiVisura,
     addettiComune,
   ] = await Promise.all([
+    apiFetch<string[]>("/api/sezioni"),
     apiFetch<IdentificazioneCamerale | null>("/api/anagrafica/identificazione-camerale"),
     apiFetch<DurataSocietaEsercizi | null>("/api/anagrafica/durata-societa-esercizi"),
     apiFetch<AttivitaEsercitata | null>("/api/anagrafica/attivita-esercitata"),
@@ -98,9 +106,15 @@ export default async function AnagraficaOverviewPage() {
     "addetti-visura": addettiVisura.length > 0,
     "addetti-comune": addettiComune.length > 0,
   };
+  // La completezza traccia solo le sezioni base (sempre visibili): le
+  // sezioni ISO 9001 non hanno qui i dati caricati (vedi SectionLinkCard
+  // sotto, che non li richiede), quindi non possono contribuire a questo
+  // calcolo senza una fetch dedicata per ciascuna.
+  const sezioniBase = SEZIONI_ANAGRAFICA.filter((s) => s.codice === undefined);
   const sezioniCompilate = Object.values(stato).filter(Boolean).length;
-  const percentuale = Math.round((sezioniCompilate / SEZIONI_ANAGRAFICA.length) * 100);
-  const sezioniDaCompletare = SEZIONI_ANAGRAFICA.filter((s) => !stato[s.slug]);
+  const percentuale = Math.round((sezioniCompilate / sezioniBase.length) * 100);
+  const sezioniDaCompletare = sezioniBase.filter((s) => !stato[s.slug]);
+  const sezioniAbilitateSet = new Set(sezioniAbilitate);
   const dataUltimoAggiornamento = ultimoAggiornamento(
     identificazione,
     durata,
@@ -369,7 +383,7 @@ export default async function AnagraficaOverviewPage() {
           <CardContent className="flex items-center gap-4">
             <CompletenessRing percentuale={percentuale} />
             <p className="text-sm text-muted-foreground">
-              {sezioniCompilate} di {SEZIONI_ANAGRAFICA.length} sezioni compilate
+              {sezioniCompilate} di {sezioniBase.length} sezioni compilate
             </p>
           </CardContent>
         </Card>
@@ -417,9 +431,16 @@ export default async function AnagraficaOverviewPage() {
         <ExpandAllButton />
       </div>
 
-      {CATEGORIE_ANAGRAFICA.map((categoria) => {
-        const sezioni = sezioniPerCategoria(categoria.nome);
-        const compilateNellaCategoria = sezioni.filter((s) => stato[s.slug]).length;
+      {categorieVisibili(sezioniAbilitateSet).map((categoria) => {
+        const sezioni = sezioniPerCategoriaVisibili(categoria.nome, sezioniAbilitateSet);
+        // Le sezioni ISO 9001 non hanno un dato "compilata/da compilare"
+        // qui (vedi nota sopra): il sottotitolo mostra il conteggio solo se
+        // almeno una sezione della categoria è effettivamente tracciata.
+        const sezioniTracciate = sezioni.filter((s) => s.slug in stato);
+        const subtitle =
+          sezioniTracciate.length > 0
+            ? `${sezioni.filter((s) => stato[s.slug]).length} di ${sezioni.length} sezioni compilate`
+            : `${sezioni.length} sezioni`;
 
         return (
           <CollapsibleSection
@@ -427,10 +448,19 @@ export default async function AnagraficaOverviewPage() {
             id={categoriaSlug(categoria.nome)}
             icon={<IconAvatar icon={CATEGORIA_ICONE[categoria.nome]} size="sm" />}
             title={categoria.nome}
-            subtitle={`${compilateNellaCategoria} di ${sezioni.length} sezioni compilate`}
+            subtitle={subtitle}
           >
             {sezioni.map((sezione) => (
-              <div key={sezione.slug}>{cardBySlug[sezione.slug]}</div>
+              <div key={sezione.slug}>
+                {cardBySlug[sezione.slug] ?? (
+                  <SectionLinkCard
+                    icon={SEZIONE_ICONE[sezione.slug]}
+                    title={sezione.titolo}
+                    subtitle="Vai alla sezione"
+                    href={`/anagrafica/${sezione.slug}`}
+                  />
+                )}
+              </div>
             ))}
           </CollapsibleSection>
         );
