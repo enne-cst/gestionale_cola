@@ -19,6 +19,9 @@ export type FieldState = {
   verificationVersion: number | null;
   revisionNote: string | null;
   updatedAt: string | null;
+  // Presenti solo quando verificationStatus è "VERIFIED".
+  verifiedAt: string | null;
+  verifiedBy: string | null;
 };
 
 export type SectionGroup = {
@@ -36,10 +39,20 @@ export type Section = {
 };
 
 export type QualitySummary = {
+  // Conteggi e percentuale sui soli campi già compilati (qualità del dato
+  // inserito, non quanto manca): un campo mai toccato non incide qui.
   verified: number;
   pending: number;
   revisionRequired: number;
   percentage: number;
+  // Dimensione dell'intero catalogo applicabile (compilato o no): per
+  // sapere se una sezione è compilata per intero, separatamente dalla
+  // qualità dei soli dati già presenti.
+  totalApplicable: number;
+  // Campi con visibleToCompany=false, compilati o no: da sottrarre a
+  // totalApplicable per capire se una sezione è "completa" ignorando ciò
+  // che il Consulente ha scelto di non mostrare ancora.
+  hidden: number;
 };
 
 export type RecentChange = {

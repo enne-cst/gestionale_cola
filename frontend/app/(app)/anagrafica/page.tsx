@@ -1,4 +1,4 @@
-import { ArrowRightIcon, Building2, CheckCircle2 } from "lucide-react";
+import { ArrowRightIcon, Building2, CheckCircle2Icon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -7,7 +7,8 @@ import { CompletenessRing } from "@/components/completeness-ring";
 import { DataRow } from "@/components/data-row";
 import { ExpandAllButton } from "@/components/expand-all-button";
 import { IconAvatar } from "@/components/icon-avatar";
-import { PageHeader } from "@/components/page-header";
+import { CompanyCard } from "@/components/registro/company-card";
+import { CorporateSection } from "@/components/registro/corporate-section";
 import { InformazioniSocietarieCard } from "@/components/registro/informazioni-societarie-card";
 import { QualityCard } from "@/components/registro/quality-card";
 import { RecentChangesCard } from "@/components/registro/recent-changes-card";
@@ -15,7 +16,6 @@ import { WorkspaceProvider } from "@/components/registro/workspace-provider";
 import { WorkspaceShell } from "@/components/registro/workspace-shell";
 import { SectionListPreviewCard } from "@/components/section-list-preview-card";
 import { SectionPreviewCard } from "@/components/section-preview-card";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { SectionLinkCard } from "@/components/section-link-card";
 import { apiFetch } from "@/lib/api";
 import { getRegistroOverview } from "@/lib/actions/registro";
@@ -112,59 +112,14 @@ export default async function AnagraficaOverviewPage() {
   const percentuale = Math.round((sezioniCompilate / sezioniBase.length) * 100);
   const sezioniDaCompletare = sezioniBase.filter((s) => !stato[s.slug]);
   const sezioniAbilitateSet = new Set(sezioniAbilitate);
+  const IdentificazioneCameraleIcon = SEZIONE_ICONE["identificazione-camerale"];
 
+  // "Informazioni societarie" (Identificazione camerale, Durata società ed
+  // esercizi, Attività esercitata, Capitale sociale) ha un trattamento
+  // grafico dedicato (vedi <CorporateSection> più sotto, calcato sul
+  // prototipo di riferimento): non passa da `cardBySlug`/`CollapsibleSection`
+  // come le altre categorie.
   const cardBySlug: Record<string, ReactNode> = {
-    "identificazione-camerale": <InformazioniSocietarieCard identificazione={identificazione} />,
-    "capitale-sociale": (
-      <SectionPreviewCard
-        icon={SEZIONE_ICONE["capitale-sociale"]}
-        title="Capitale sociale"
-        compilata={stato["capitale-sociale"]}
-        href="/anagrafica/capitale-sociale"
-      >
-        {capitale ? (
-          <div className="grid grid-cols-2 gap-4">
-            <DataRow label="Capitale deliberato" value={formatCurrency(capitale.capitale_deliberato, capitale.valuta ?? "EUR")} />
-            <DataRow label="Capitale sottoscritto" value={formatCurrency(capitale.capitale_sottoscritto, capitale.valuta ?? "EUR")} />
-            <DataRow label="Capitale versato" value={formatCurrency(capitale.capitale_versato, capitale.valuta ?? "EUR")} />
-            <DataRow label="Valuta" value={capitale.valuta} />
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">Nessun dato inserito ancora.</p>
-        )}
-      </SectionPreviewCard>
-    ),
-    "attivita-esercitata": (
-      <SectionPreviewCard
-        icon={SEZIONE_ICONE["attivita-esercitata"]}
-        title="Attività esercitata"
-        compilata={stato["attivita-esercitata"]}
-        href="/anagrafica/attivita-esercitata"
-      >
-        {attivita?.descrizione_attivita_esercitata ? (
-          <p className="line-clamp-3 text-sm text-foreground">{attivita.descrizione_attivita_esercitata}</p>
-        ) : (
-          <p className="text-sm text-muted-foreground">Nessun dato inserito ancora.</p>
-        )}
-      </SectionPreviewCard>
-    ),
-    "durata-societa-esercizi": (
-      <SectionPreviewCard
-        icon={SEZIONE_ICONE["durata-societa-esercizi"]}
-        title="Durata società ed esercizi"
-        compilata={stato["durata-societa-esercizi"]}
-        href="/anagrafica/durata-societa-esercizi"
-      >
-        {durata ? (
-          <div className="grid grid-cols-2 gap-4">
-            <DataRow label="Data termine società" value={formatDate(durata.data_termine_societa)} />
-            <DataRow label="Scadenza primo esercizio" value={formatDate(durata.scadenza_primo_esercizio)} />
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">Nessun dato inserito ancora.</p>
-        )}
-      </SectionPreviewCard>
-    ),
     "iscrizioni-registro-imprese": (
       <SectionListPreviewCard
         icon={SEZIONE_ICONE["iscrizioni-registro-imprese"]}
@@ -326,89 +281,147 @@ export default async function AnagraficaOverviewPage() {
     ),
   };
 
+  const durataDettagli = durata
+    ? ([
+        ["Data termine società", formatDate(durata.data_termine_societa)],
+        ["Scadenza primo esercizio", formatDate(durata.scadenza_primo_esercizio)],
+      ] satisfies [string, ReactNode][])
+    : null;
+  const attivitaDettagli = attivita?.descrizione_attivita_esercitata
+    ? ([["Descrizione", attivita.descrizione_attivita_esercitata]] satisfies [string, ReactNode][])
+    : null;
+  const capitaleDettagli = capitale
+    ? ([
+        ["Capitale deliberato", formatCurrency(capitale.capitale_deliberato, capitale.valuta ?? "EUR")],
+        ["Capitale sottoscritto", formatCurrency(capitale.capitale_sottoscritto, capitale.valuta ?? "EUR")],
+        ["Capitale versato", formatCurrency(capitale.capitale_versato, capitale.valuta ?? "EUR")],
+        ["Valuta", capitale.valuta],
+      ] satisfies [string, ReactNode][])
+    : null;
+
   const contenuto = (
-    <div className="flex flex-col gap-8">
-      <PageHeader
-        icon={Building2}
-        title="Anagrafica Aziendale"
-        subtitle="Informazioni generali e dati comunicati dall'azienda"
-        size="lg"
-      />
-
-      <div className="@container">
-        <div className="grid grid-cols-1 gap-4 @lg:grid-cols-2 @4xl:grid-cols-3">
-          <Card className="gap-4 overflow-hidden py-0 pt-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                <CheckCircle2 className="size-4" />
-                Completamento scheda
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex items-center gap-4">
-              <CompletenessRing percentuale={percentuale} />
-              <p className="text-sm text-muted-foreground">
-                {sezioniCompilate} di {sezioniBase.length} sezioni compilate
-              </p>
-            </CardContent>
-            {sezioniDaCompletare[0] && (
-              <CardFooter className="mt-2 border-t border-primary/15 bg-primary/5 py-3">
-                <Link
-                  href={`/anagrafica/${sezioniDaCompletare[0].slug}`}
-                  className="flex w-full items-center justify-between text-sm font-medium text-primary hover:underline"
-                >
-                  Completa la prossima sezione
-                  <ArrowRightIcon className="size-4 shrink-0" />
-                </Link>
-              </CardFooter>
-            )}
-          </Card>
-
-          {ruolo === "CONSULENTE" && <QualityCard />}
-
-          <div className="@lg:col-span-2 @4xl:col-span-1">
-            <RecentChangesCard />
-          </div>
+    <div className="flex flex-col gap-6">
+      <header className="flex min-h-[76px] items-center gap-7">
+        <div className="grid size-[74px] shrink-0 place-items-center rounded-2xl border border-[var(--az-border)] bg-[rgba(255,255,255,0.84)] text-[var(--az-blue)] shadow-[var(--az-shadow)]">
+          <Building2 className="size-9" />
         </div>
+        <div>
+          <h1 className="mb-1.5 text-[clamp(26px,2.1vw,34px)] font-extrabold tracking-tight text-[var(--az-ink)]">
+            Anagrafica Aziendale
+          </h1>
+          <p className="text-[15px] leading-snug text-[var(--az-ink-soft)]">
+            Informazioni generali e dati comunicati dall&apos;azienda
+          </p>
+        </div>
+      </header>
+
+      {/* @container: la griglia dei KPI deve reflowire in base alla propria
+       * larghezza, non a quella della finestra — nell'affiancamento
+       * home/dettaglio (§8.4) questo contenitore è largo solo ~50% della
+       * pagina anche su schermi ampi. */}
+      <div className="@container">
+      <div className="grid grid-cols-1 gap-[22px] @2xl:grid-cols-2 @5xl:grid-cols-[1fr_1fr_1.06fr]">
+        <article className="az-dashboard-card relative flex min-h-[276px] flex-col overflow-hidden pb-[50px]">
+          <div className="flex min-h-14 items-center gap-2.5 px-[26px] pt-[18px] pb-2.5">
+            <CheckCircle2Icon className="size-4 text-[var(--az-muted)]" />
+            <h2 className="text-base font-extrabold tracking-tight text-[var(--az-ink)]">Completamento scheda</h2>
+          </div>
+          <div className="flex items-center gap-[34px] px-[30px] py-[10px]">
+            <CompletenessRing percentuale={percentuale} />
+            <div className="flex flex-col gap-1.5">
+              <strong className="text-[22px] leading-none text-[var(--az-ink)]">
+                {sezioniCompilate} di {sezioniBase.length}
+              </strong>
+              <span className="text-sm text-[var(--az-muted)]">sezioni completate</span>
+            </div>
+          </div>
+          {sezioniDaCompletare[0] && (
+            <Link
+              href={`/anagrafica/${sezioniDaCompletare[0].slug}`}
+              className="absolute inset-x-0 bottom-0 flex min-h-[50px] items-center gap-3.5 border-t border-[var(--az-border)] bg-[#fbfdfff5] px-[26px] text-sm font-bold text-[var(--az-blue)] transition-colors hover:bg-[#f3f7ff] hover:text-[var(--az-blue-dark)]"
+            >
+              <span className="mr-auto">Completa la prossima sezione</span>
+              <ArrowRightIcon className="size-[18px] shrink-0" />
+            </Link>
+          )}
+        </article>
+
+        <QualityCard />
+
+        <div className="@2xl:col-span-2 @5xl:col-span-1">
+          <RecentChangesCard />
+        </div>
+      </div>
       </div>
 
       <div className="flex justify-end">
         <ExpandAllButton />
       </div>
 
-      {categorieVisibili(sezioniAbilitateSet).map((categoria) => {
-        const sezioni = sezioniPerCategoriaVisibili(categoria.nome, sezioniAbilitateSet);
-        // Le sezioni ISO 9001 non hanno un dato "compilata/da compilare"
-        // qui (vedi nota sopra): il sottotitolo mostra il conteggio solo se
-        // almeno una sezione della categoria è effettivamente tracciata.
-        const sezioniTracciate = sezioni.filter((s) => s.slug in stato);
-        const subtitle =
-          sezioniTracciate.length > 0
-            ? `${sezioni.filter((s) => stato[s.slug]).length} di ${sezioni.length} sezioni compilate`
-            : `${sezioni.length} sezioni`;
+      <CorporateSection icon={<IdentificazioneCameraleIcon className="size-[22px]" />} title="Informazioni societarie">
+        <InformazioniSocietarieCard identificazione={identificazione} />
+        <CompanyCard
+          icon={SEZIONE_ICONE["durata-societa-esercizi"]}
+          title="Durata società ed esercizi"
+          stato={stato["durata-societa-esercizi"] ? "completato" : "incompleto"}
+          details={durataDettagli}
+          actionLabel={stato["durata-societa-esercizi"] ? "Visualizza dettagli" : "Compila sezione"}
+          href="/anagrafica/durata-societa-esercizi"
+        />
+        <CompanyCard
+          icon={SEZIONE_ICONE["attivita-esercitata"]}
+          title="Attività esercitata"
+          stato={stato["attivita-esercitata"] ? "completato" : "incompleto"}
+          details={attivitaDettagli}
+          actionLabel={stato["attivita-esercitata"] ? "Visualizza dettagli" : "Compila sezione"}
+          href="/anagrafica/attivita-esercitata"
+        />
+        <CompanyCard
+          icon={SEZIONE_ICONE["capitale-sociale"]}
+          title="Capitale sociale"
+          stato={stato["capitale-sociale"] ? "completato" : "incompleto"}
+          details={capitaleDettagli}
+          actionLabel={stato["capitale-sociale"] ? "Visualizza dettagli" : "Compila sezione"}
+          href="/anagrafica/capitale-sociale"
+        />
+      </CorporateSection>
 
-        return (
-          <CollapsibleSection
-            key={categoria.slug}
-            id={categoriaSlug(categoria.nome)}
-            icon={<IconAvatar icon={CATEGORIA_ICONE[categoria.nome]} size="sm" />}
-            title={categoria.nome}
-            subtitle={subtitle}
-          >
-            {sezioni.map((sezione) => (
-              <div key={sezione.slug}>
-                {cardBySlug[sezione.slug] ?? (
-                  <SectionLinkCard
-                    icon={SEZIONE_ICONE[sezione.slug]}
-                    title={sezione.titolo}
-                    subtitle="Vai alla sezione"
-                    href={`/anagrafica/${sezione.slug}`}
-                  />
-                )}
-              </div>
-            ))}
-          </CollapsibleSection>
-        );
-      })}
+      {categorieVisibili(sezioniAbilitateSet)
+        .filter((categoria) => categoria.nome !== "Informazioni societarie")
+        .map((categoria) => {
+          const sezioni = sezioniPerCategoriaVisibili(categoria.nome, sezioniAbilitateSet);
+          // Le sezioni ISO 9001 non hanno un dato "compilata/da compilare"
+          // qui (vedi nota sopra): il sottotitolo mostra il conteggio solo
+          // se almeno una sezione della categoria è effettivamente tracciata.
+          const sezioniTracciate = sezioni.filter((s) => s.slug in stato);
+          const subtitle =
+            sezioniTracciate.length > 0
+              ? `${sezioni.filter((s) => stato[s.slug]).length} di ${sezioni.length} sezioni compilate`
+              : `${sezioni.length} sezioni`;
+
+          return (
+            <CollapsibleSection
+              key={categoria.slug}
+              id={categoriaSlug(categoria.nome)}
+              icon={<IconAvatar icon={CATEGORIA_ICONE[categoria.nome]} size="sm" />}
+              title={categoria.nome}
+              subtitle={subtitle}
+            >
+              {sezioni.map((sezione) => (
+                <div key={sezione.slug}>
+                  {cardBySlug[sezione.slug] ?? (
+                    <SectionLinkCard
+                      icon={SEZIONE_ICONE[sezione.slug]}
+                      title={sezione.titolo}
+                      subtitle="Vai alla sezione"
+                      href={`/anagrafica/${sezione.slug}`}
+                    />
+                  )}
+                </div>
+              ))}
+            </CollapsibleSection>
+          );
+        })}
     </div>
   );
 

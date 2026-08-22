@@ -5,6 +5,8 @@ import { AnagraficaNav } from "@/components/anagrafica-nav";
 import { BackToOverview } from "@/components/back-to-overview";
 import { apiFetch } from "@/lib/api";
 
+import "./registro-theme.css";
+
 export default async function AnagraficaLayout({ children }: { children: ReactNode }) {
   // Sezioni soggette ad abbonamento (cap. 4.1 punto 013): risolte una sola
   // volta qui, condivise da nav, breadcrumb e indice tramite le pagine
@@ -24,7 +26,7 @@ export default async function AnagraficaLayout({ children }: { children: ReactNo
         <AnagraficaNav sezioniAbilitate={sezioniAbilitate} />
         <BackToOverview />
       </div>
-      <main className="p-8">{children}</main>
+      <main className="az-scope p-8">{children}</main>
     </div>
   );
 }

@@ -1,0 +1,186 @@
+/* Token e utility locali al modulo Anagrafica Aziendale.
+ *
+ * Riferimento vincolante: frontend/grafica/HTML/ANAGRAFICA_AZIENDALE_PROTOTIPO_INTERATTIVO.html
+ * (grafica) + PROMPT_MASTER_CLAUDE_CODE_ANAGRAFICA_AZIENDALE.md (comportamento/correzioni),
+ * §7 del documento per la tabella colori.
+ *
+ * Le variabili --az-* sono definite su :root (non su `.az-scope`, che resta
+ * comunque applicata al contenitore della pagina per la classe di colore di
+ * base): Radix (Sheet/Dialog/Popover) monta i propri contenuti in un portal
+ * appeso a `document.body`, fuori dal sottoalbero di `.az-scope` — variabili
+ * scoperte lì non erediterebbero. I nomi sono prefissati e questo file è
+ * caricato solo dalle rotte del modulo, quindi il costo di tenerle globali è
+ * trascurabile (nessuna collisione con i token shadcn --primary/--border/...
+ * usati dal resto della piattaforma).
+ */
+
+:root {
+  --az-ink: #0f194e;
+  --az-ink-soft: #23346f;
+  --az-muted: #5e6f9f;
+  --az-blue: #075eff;
+  --az-blue-dark: #0046d8;
+  --az-blue-soft: #eef4ff;
+  --az-green: #08a77e;
+  --az-green-dark: #008d6b;
+  --az-green-soft: #eaf8f3;
+  --az-red: #d7192d;
+  --az-orange: #ee7203;
+  --az-orange-soft: #fff1df;
+  --az-border: #dfe6f2;
+  --az-page: #f7f9fd;
+  --az-shadow: 0 7px 18px rgba(25, 46, 98, 0.08), 0 2px 5px rgba(25, 46, 98, 0.04);
+}
+
+.az-scope {
+  color: var(--az-ink);
+}
+
+@keyframes az-expand-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes az-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes az-drawer-in {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes az-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes az-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -110% 0;
+  }
+}
+
+@keyframes az-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.az-progress-ring {
+  --az-ring-color: var(--az-blue);
+  background: conic-gradient(from 7deg, var(--az-ring-color) 0 var(--az-progress, 0deg), #eaf0f8 var(--az-progress, 0deg) 360deg);
+  border-radius: 9999px;
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+.az-progress-ring::after {
+  content: "";
+  position: absolute;
+  inset: 11px;
+  background: #fff;
+  border-radius: 9999px;
+  box-shadow: inset 0 0 0 1px rgba(226, 232, 243, 0.78);
+}
+.az-progress-ring--green {
+  --az-ring-color: #049c76;
+}
+.az-progress-ring__inner {
+  position: relative;
+  z-index: 1;
+}
+
+.az-skeleton {
+  display: block;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: linear-gradient(100deg, #edf0f5 20%, #f8f9fb 42%, #e9edf3 64%) 0 0 / 220% 100%;
+  animation: az-shimmer 1.2s ease-in-out infinite;
+}
+.az-skeleton-button {
+  overflow: hidden;
+  border: 1px solid #e0e6f0;
+  border-radius: 7px;
+  background: linear-gradient(100deg, #f7f8fb 20%, #fff 42%, #eef1f6 64%) 0 0 / 220% 100%;
+  animation: az-shimmer 1.2s ease-in-out infinite;
+}
+.az-skeleton-button::after {
+  content: "";
+  display: block;
+  width: 48%;
+  height: 9px;
+  margin: 15px auto 0;
+  border-radius: 9999px;
+  background: #d9dde5;
+}
+
+.az-spinner {
+  border: 2px solid #d8e5ff;
+  border-top-color: var(--az-blue);
+  border-radius: 9999px;
+  animation: az-spin 0.76s linear infinite;
+}
+
+.az-popover-arrow {
+  position: absolute;
+  top: -9px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-top: 1px solid #e2e7f0;
+  border-left: 1px solid #e2e7f0;
+  transform: rotate(45deg);
+}
+.az-popover-arrow--below {
+  top: auto;
+  bottom: -9px;
+  transform: rotate(225deg);
+}
+
+.az-scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e7 transparent;
+}
+
+.az-dashboard-card {
+  border: 1px solid var(--az-border);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: var(--az-shadow);
+  border-radius: 15px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .az-scope *,
+  .az-scope *::before,
+  .az-scope *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

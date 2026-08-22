@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
-import { Maximize2Icon, PanelRightIcon, SquareArrowOutUpRightIcon } from "lucide-react";
+import { Maximize2Icon, PanelRightIcon, SquareArrowOutUpRightIcon, XIcon } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { SectionContent } from "@/components/registro/section-content";
 import { UnsavedChangesDialog } from "@/components/registro/unsaved-changes-dialog";
@@ -14,11 +13,40 @@ const TITOLO_SEZIONE: Record<string, string> = {
   "informazioni-societarie": "Informazioni societarie",
 };
 
-/** Shell del workspace (§8): barra delle schede, pannello temporaneo al
- * 50%, scheda a tutta larghezza, vista affiancata 50/50. `children` è la
- * Panoramica (Server Component già renderizzato): la reflow reale in
- * affiancamento (§8.5) è ottenuta con container query sui suoi contenitori
- * `@container`, non da uno stato client duplicato qui. */
+function ShellActionButton({
+  onClick,
+  icon: Icon,
+  children,
+}: {
+  onClick: () => void;
+  icon: typeof PanelRightIcon;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex h-9 items-center gap-2 rounded-[7px] border border-[#cedaf0] bg-white px-3 text-xs font-bold text-[var(--az-blue)] hover:bg-[#f6f9ff]"
+    >
+      <Icon className="size-4" />
+      {children}
+    </button>
+  );
+}
+
+/** Shell del workspace (§8 del prompt master): barra delle schede solo nella
+ * scheda a tutta larghezza (§8.4 — mai nel semplice affiancamento home +
+ * dettaglio), pannello temporaneo, scheda a tutta larghezza, affiancamento
+ * 50/50. `children` è la Panoramica (Server Component già renderizzato): la
+ * reflow reale in affiancamento (§8.5) è ottenuta con container query sui
+ * suoi contenitori `@container`, non da uno stato client duplicato qui.
+ *
+ * Adattamento dichiarato rispetto al prototipo: qui l'affiancamento e la
+ * scheda a tutta larghezza restano nel flusso della pagina (grid inline /
+ * card quasi a piena altezza) invece di un pannello fisso in overlay a
+ * 100vh, perché la piattaforma reale ha già una propria intestazione e
+ * barra laterale fisse che un overlay a viewport pieno romperebbe. Stessi
+ * comportamenti, stessi colori/spaziature/etichette del prototipo. */
 export function WorkspaceShell({ children }: { children: ReactNode }) {
   const { state, requestCloseDrawer, requestPromoteFull, requestPromoteSplit, requestCloseTab, activateTab } =
     useWorkspace();
@@ -35,79 +63,69 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [state.sections]);
 
-  const mostraSchede = state.tabs.length > 0;
+  const mostraSchede = state.mode === "FULL" && state.tabs.length > 0;
 
   return (
     <div className="flex flex-col gap-4">
       {mostraSchede && (
-        <nav className="-mt-2 flex items-center gap-1 border-b border-border">
+        <nav className="-mt-2 flex items-stretch border-b border-[#cbd6eb]" aria-label="Schede anagrafica aperte">
           <button
             type="button"
             onClick={() => activateTab("overview")}
             className={cn(
-              "border-b-2 border-transparent px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground",
-              state.activeSurface === "overview" && "border-primary text-primary",
+              "border-r border-[#cbd6eb] px-6 text-[15px] text-[#111837] hover:bg-[#f8faff]",
+              state.activeSurface === "overview" && "font-bold text-[var(--az-blue)]",
             )}
           >
             Panoramica
           </button>
-          {state.tabs.map((key) => {
-            const sporca = isSectionDirty(state.sections[key] ?? { draft: null, server: null });
-            return (
-              <span
-                key={key}
-                className={cn(
-                  "flex items-center gap-1.5 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-muted-foreground transition-colors",
-                  state.activeSurface === key && "border-primary text-primary",
-                )}
+          {state.tabs.map((key) => (
+            <span
+              key={key}
+              className={cn(
+                "relative flex items-center border-r border-[#b9c9e5] pl-6 pr-2 text-[15px] font-bold",
+                state.activeSurface === key ? "text-[var(--az-blue)] after:absolute after:inset-x-0 after:bottom-[-1px] after:h-0.5 after:bg-[var(--az-blue)]" : "text-[#111837]",
+              )}
+            >
+              <button type="button" onClick={() => activateTab(key)} className="py-2">
+                {TITOLO_SEZIONE[key] ?? key}
+              </button>
+              <button
+                type="button"
+                aria-label={`Chiudi ${TITOLO_SEZIONE[key] ?? key}`}
+                onClick={() => requestCloseTab(key)}
+                className="ml-auto grid size-8 place-items-center rounded-md text-[var(--az-ink)] hover:bg-[#f3f7ff]"
               >
-                <button type="button" onClick={() => activateTab(key)} className="hover:text-foreground">
-                  {TITOLO_SEZIONE[key] ?? key}
-                </button>
-                {sporca && <span className="size-1.5 rounded-full bg-orange-500" aria-label="Modifiche non salvate" />}
-                <button
-                  type="button"
-                  aria-label={`Chiudi ${TITOLO_SEZIONE[key] ?? key}`}
-                  onClick={() => requestCloseTab(key)}
-                  className="ml-0.5 text-muted-foreground/70 hover:text-foreground"
-                >
-                  ×
-                </button>
-              </span>
-            );
-          })}
+                <XIcon className="size-4" />
+              </button>
+            </span>
+          ))}
         </nav>
       )}
 
       {state.mode === "SPLIT" && state.openSectionKey ? (
-        <div className="grid grid-cols-2 gap-0 divide-x divide-border rounded-lg border border-border">
-          <div className="overflow-y-auto">{children}</div>
-          <div className="flex min-h-[32rem] flex-col">
+        <div className="grid grid-cols-2 gap-0 divide-x divide-[var(--az-border)] overflow-hidden rounded-[12px] border border-[var(--az-border)] bg-white shadow-[0_4px_15px_rgba(25,46,98,0.05)]">
+          <div className="az-scroll-thin overflow-y-auto p-1">{children}</div>
+          <div className="flex min-h-[34rem] flex-col">
             <SectionContent
               sectionKey={state.openSectionKey}
               headerActions={
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => requestPromoteFull(state.openSectionKey!)}
-                >
-                  <Maximize2Icon className="size-4" />A tutta larghezza
-                </Button>
+                <ShellActionButton icon={Maximize2Icon} onClick={() => requestPromoteFull(state.openSectionKey!)}>
+                  A tutta larghezza
+                </ShellActionButton>
               }
               onClose={() => requestCloseTab(state.openSectionKey!)}
             />
           </div>
         </div>
       ) : state.mode === "FULL" && state.activeSurface !== "overview" ? (
-        <div className="flex min-h-[32rem] flex-col rounded-lg border border-border">
+        <div className="flex min-h-[34rem] flex-col overflow-hidden rounded-[12px] border border-[var(--az-border)] bg-white">
           <SectionContent
             sectionKey={state.activeSurface}
             headerActions={
-              <Button type="button" variant="outline" size="sm" onClick={() => requestPromoteSplit(state.activeSurface)}>
-                <PanelRightIcon className="size-4" />
+              <ShellActionButton icon={PanelRightIcon} onClick={() => requestPromoteSplit(state.activeSurface)}>
                 Affianca
-              </Button>
+              </ShellActionButton>
             }
           />
         </div>
@@ -117,22 +135,27 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
 
       {state.mode === "DRAWER" && state.openSectionKey && (
         <Sheet open onOpenChange={(open) => !open && requestCloseDrawer()}>
-          <SheetContent className="w-1/2 gap-0 p-0 sm:max-w-none" showCloseButton={false}>
+          <SheetContent className="w-[50vw] min-w-[720px] gap-0 border-l-0 p-0 shadow-[-18px_0_45px_rgba(10,25,66,0.16)] sm:max-w-none" showCloseButton={false}>
             <SectionContent
               sectionKey={state.openSectionKey}
               headerActions={
                 <>
-                  <Button type="button" variant="outline" size="sm" onClick={() => requestPromoteSplit(state.openSectionKey!)}>
-                    <PanelRightIcon className="size-4" />
+                  <ShellActionButton icon={PanelRightIcon} onClick={() => requestPromoteSplit(state.openSectionKey!)}>
                     Affianca
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => requestPromoteFull(state.openSectionKey!)}>
-                    <SquareArrowOutUpRightIcon className="size-4" />
+                  </ShellActionButton>
+                  <ShellActionButton icon={SquareArrowOutUpRightIcon} onClick={() => requestPromoteFull(state.openSectionKey!)}>
                     Apri in scheda
-                  </Button>
+                  </ShellActionButton>
+                  <button
+                    type="button"
+                    aria-label="Chiudi Informazioni societarie"
+                    onClick={requestCloseDrawer}
+                    className="grid size-9 place-items-center rounded-[7px] border border-[#cedaf0] text-[var(--az-ink)] hover:bg-[#f6f9ff]"
+                  >
+                    <XIcon className="size-[18px]" />
+                  </button>
                 </>
               }
-              onClose={requestCloseDrawer}
             />
           </SheetContent>
         </Sheet>

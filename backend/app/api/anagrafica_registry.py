@@ -61,7 +61,9 @@ def leggi_overview(
     ctx: AziendaContext = Depends(get_current_azienda),
     _modulo: None = Depends(_modulo_dep),
 ):
-    quality = valuta_qualita(db, ctx.azienda_id) if ctx.profilo == "CONSULENTE" else None
+    # Visibile anche all'Azienda (non solo al Consulente): misura
+    # l'affidabilità dei dati già inseriti, non un dettaglio riservato.
+    quality = valuta_qualita(db, ctx.azienda_id)
     return OverviewRead(quality=quality, recentChanges=ultime_modifiche(db, ctx.azienda_id))
 
 

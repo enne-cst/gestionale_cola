@@ -4,8 +4,7 @@ import Link from "next/link";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ReviewPopover } from "@/components/registro/review-popover";
-import { VerificationIndicator } from "@/components/registro/verification-indicator";
+import { FieldVerificationPopover } from "@/components/registro/field-verification-popover";
 import { VisibilityToggle } from "@/components/registro/visibility-toggle";
 import { useWorkspace } from "@/components/registro/workspace-provider";
 import { cn } from "@/lib/utils";
@@ -18,6 +17,9 @@ function formattaValore(field: FieldState): string {
   return field.value;
 }
 
+/** Riga di campo in sola lettura (§8.2/§9 del prompt master): occhietto e
+ * indicatore di stato sempre presenti, identici in drawer, affiancamento e
+ * scheda a tutta larghezza. */
 export function FieldRow({
   sectionKey,
   field,
@@ -39,60 +41,59 @@ export function FieldRow({
   const consulente = ruolo === "CONSULENTE";
   const nascosto = consulente && !field.visibleToCompany;
 
-  return (
-    <div className={cn("flex flex-col gap-1.5 rounded-md p-1.5", nascosto && "bg-muted/60")}>
-      <div className="flex items-center gap-1.5">
-        <Label htmlFor={`campo-${sectionKey}-${field.key}`} className="text-xs font-medium text-muted-foreground">
-          {field.label}
-        </Label>
-        {consulente && (
-          <VisibilityToggle
-            label={field.label}
-            visible={field.visibleToCompany}
-            onToggle={() => toggleVisibility(sectionKey, field.key, !field.visibleToCompany)}
-          />
-        )}
-        {consulente && field.verificationStatus && field.verificationStatus !== "PENDING_VERIFICATION" && (
-          <VerificationIndicator status={field.verificationStatus} label={field.label} />
-        )}
-        {consulente && field.verificationStatus === "PENDING_VERIFICATION" && (
-          <ReviewPopover sectionKey={sectionKey} field={field} />
+  if (mode === "VIEW" || !field.editable) {
+    return (
+      <div className={cn("relative -m-2 min-h-[62px] rounded-[7px] p-2", nascosto && "bg-[#f0f2f5]")}>
+        <dt className="flex items-center gap-[7px]">
+          <span className="text-[13px] font-medium text-[#536a9f]">{field.label}</span>
+          {consulente && <VisibilityToggle label={field.label} visible={field.visibleToCompany} onToggle={() => toggleVisibility(sectionKey, field.key, !field.visibleToCompany)} />}
+        </dt>
+        <dd className="mt-[9px] flex min-h-5 items-center gap-[9px]">
+          <span className="min-w-0 text-sm font-bold break-words text-[var(--az-ink)]">{formattaValore(field)}</span>
+          {field.verificationStatus && <FieldVerificationPopover sectionKey={sectionKey} field={field} />}
+        </dd>
+        {mode === "EDIT" && !field.editable && (
+          <p className="mt-1.5 text-xs text-[var(--az-muted)]">
+            Si modifica dalla sezione{" "}
+            <Link href="/anagrafica/sedi" className="underline hover:text-[var(--az-ink)]">
+              Sedi
+            </Link>
+            .
+          </p>
         )}
       </div>
+    );
+  }
 
-      {mode === "VIEW" || !field.editable ? (
-        <span className="text-sm text-foreground">{formattaValore(field)}</span>
-      ) : (
-        <div className="flex flex-col gap-1">
-          <Input
-            id={`campo-${sectionKey}-${field.key}`}
-            type={field.dataType === "date" ? "date" : "text"}
-            placeholder={field.dataType === "day-month" ? "GG/MM" : undefined}
-            value={draftValue ?? ""}
-            disabled={disabled}
-            aria-invalid={Boolean(error)}
-            aria-describedby={error ? `errore-${sectionKey}-${field.key}` : undefined}
-            onChange={(e) => onChange?.(e.target.value)}
-          />
-          {error && (
-            <p id={`errore-${sectionKey}-${field.key}`} className="text-xs text-destructive">
-              {error}
-            </p>
-          )}
-        </div>
-      )}
-      {mode === "EDIT" && !field.editable && (
-        <p className="text-xs text-muted-foreground">
-          Si modifica dalla sezione{" "}
-          <Link href="/anagrafica/sedi" className="underline hover:text-foreground">
-            Sedi
-          </Link>
-          .
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="mb-[7px] flex min-h-[23px] items-center gap-2">
+        <Label htmlFor={`campo-${sectionKey}-${field.key}`} className="text-xs font-semibold text-[#43588e]">
+          {field.label}
+        </Label>
+        {(consulente || field.verificationStatus) && (
+          <span className="ml-auto inline-flex items-center gap-[5px]">
+            {consulente && (
+              <VisibilityToggle label={field.label} visible={field.visibleToCompany} onToggle={() => toggleVisibility(sectionKey, field.key, !field.visibleToCompany)} />
+            )}
+            {field.verificationStatus && <FieldVerificationPopover sectionKey={sectionKey} field={field} />}
+          </span>
+        )}
+      </div>
+      <Input
+        id={`campo-${sectionKey}-${field.key}`}
+        type={field.dataType === "date" ? "date" : "text"}
+        placeholder={field.dataType === "day-month" ? "GG/MM" : undefined}
+        value={draftValue ?? ""}
+        disabled={disabled}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `errore-${sectionKey}-${field.key}` : undefined}
+        onChange={(e) => onChange?.(e.target.value)}
+      />
+      {error && (
+        <p id={`errore-${sectionKey}-${field.key}`} className="text-xs text-destructive">
+          {error}
         </p>
-      )}
-
-      {consulente && field.revisionNote && field.verificationStatus === "REVISION_REQUIRED" && (
-        <p className="text-xs text-orange-600 dark:text-orange-400">Nota: {field.revisionNote}</p>
       )}
     </div>
   );

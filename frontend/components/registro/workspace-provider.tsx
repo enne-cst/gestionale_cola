@@ -197,6 +197,7 @@ type WorkspaceApi = {
   requestDiscard: (sectionKey: string) => void;
   save: (sectionKey: string) => Promise<boolean>;
   toggleVisibility: (sectionKey: string, fieldKey: string, visible: boolean) => void;
+  toggleGroupVisibility: (sectionKey: string, fieldKeys: string[], visible: boolean) => void;
   submitReview: (
     sectionKey: string,
     fieldKey: string,
@@ -360,12 +361,52 @@ export function WorkspaceProvider({
       impostaVisibilitaCampo(sectionKey, fieldKey, visible).then((esito) => {
         if (esito.esito === "ok") {
           dispatch({ type: "FIELD_SNAPSHOT", sectionKey, section: esito.sezione });
+          // La qualità dei dati esclude i campi oscurati (§11.2, decisione
+          // esplicita dell'utente): l'occhietto sposta un campo dentro o
+          // fuori dal calcolo, la card "Qualità dei dati" della Home va
+          // quindi riallineata subito, non solo al prossimo caricamento.
+          rinfrescaOverview();
         } else if (precedente) {
           dispatch({ type: "FIELD_SNAPSHOT", sectionKey, section: precedente });
         }
       });
     },
-    [state.sections],
+    [state.sections, rinfrescaOverview],
+  );
+
+  const toggleGroupVisibility = useCallback(
+    async (sectionKey: string, fieldKeys: string[], visible: boolean) => {
+      // Bulk lato client (§9.3/§24.4 del prompt master): nessun endpoint
+      // dedicato, applica in sequenza lo stesso endpoint per-campo già
+      // usato da toggleVisibility, poi allinea lo stato al risultato finale.
+      const entry = state.sections[sectionKey];
+      const precedente = entry?.server ?? null;
+      if (precedente) {
+        const fieldKeySet = new Set(fieldKeys);
+        const ottimistico: Section = {
+          ...precedente,
+          groups: precedente.groups.map((g) => ({
+            ...g,
+            fields: g.fields.map((f) => (fieldKeySet.has(f.key) ? { ...f, visibleToCompany: visible } : f)),
+          })),
+        };
+        dispatch({ type: "FIELD_SNAPSHOT", sectionKey, section: ottimistico });
+      }
+      let ultima: Section | null = null;
+      let fallita = false;
+      for (const fieldKey of fieldKeys) {
+        const esito = await impostaVisibilitaCampo(sectionKey, fieldKey, visible);
+        if (esito.esito === "ok") ultima = esito.sezione;
+        else fallita = true;
+      }
+      if (ultima) {
+        dispatch({ type: "FIELD_SNAPSHOT", sectionKey, section: ultima });
+        rinfrescaOverview(); // vedi toggleVisibility: la qualità esclude i campi oscurati.
+      } else if (fallita && precedente) {
+        dispatch({ type: "FIELD_SNAPSHOT", sectionKey, section: precedente });
+      }
+    },
+    [state.sections, rinfrescaOverview],
   );
 
   const submitReview = useCallback(
@@ -428,6 +469,7 @@ export function WorkspaceProvider({
       requestDiscard,
       save,
       toggleVisibility,
+      toggleGroupVisibility,
       submitReview,
       cancelConfirm: () => dispatch({ type: "CANCEL_CONFIRM" }),
       confirmSaveAndExit,
@@ -443,6 +485,7 @@ export function WorkspaceProvider({
       requestDiscard,
       save,
       toggleVisibility,
+      toggleGroupVisibility,
       submitReview,
       confirmSaveAndExit,
       confirmDiscardAndExit,

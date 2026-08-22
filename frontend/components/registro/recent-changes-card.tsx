@@ -1,8 +1,7 @@
 "use client";
 
-import { ClockIcon } from "lucide-react";
+import { ArrowRightIcon, HistoryIcon } from "lucide-react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useWorkspace } from "@/components/registro/workspace-provider";
 
 function tempoFa(iso: string): string {
@@ -16,40 +15,46 @@ function tempoFa(iso: string): string {
   return `${giorni} ${giorni === 1 ? "giorno" : "giorni"} fa`;
 }
 
-/** Card "Ultime modifiche" (§8.2): alimentata dall'audit del registro
- * campo-per-campo (nel pilota, solo Informazioni societarie). */
+/** Card "Ultime modifiche" (§8.2 del prompt master): alimentata dall'audit
+ * del registro campo-per-campo (nel pilota, solo Informazioni societarie). */
 export function RecentChangesCard() {
   const { state } = useWorkspace();
   const modifiche = state.overview.recentChanges;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-          <ClockIcon className="size-4" />
-          Ultime modifiche
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+    <article className="az-dashboard-card relative flex min-h-[276px] flex-col overflow-hidden pb-[50px]">
+      <div className="flex min-h-14 items-center gap-2.5 px-[26px] pt-[18px] pb-2.5">
+        <span className="grid place-items-center text-[var(--az-blue)]">
+          <HistoryIcon className="size-6" />
+        </span>
+        <h2 className="text-base font-extrabold tracking-tight text-[var(--az-ink)]">Ultime modifiche</h2>
+      </div>
+      <div className="flex flex-col gap-3.5 px-[28px] py-[10px]">
         {modifiche.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nessuna modifica registrata.</p>
+          <p className="text-[13px] text-[var(--az-muted)]">Nessuna modifica registrata.</p>
         ) : (
-          <ul className="flex flex-col gap-2.5">
-            {modifiche.slice(0, 3).map((m) => (
-              <li key={m.id} className="flex items-start gap-2 text-sm">
-                <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
-                <span className="flex flex-col">
-                  <span className="font-medium text-foreground capitalize">{m.label}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {tempoFa(m.timestamp)}
-                    {m.actor ? ` · ${m.actor}` : ""}
-                  </span>
-                </span>
-              </li>
-            ))}
-          </ul>
+          modifiche.slice(0, 3).map((m) => (
+            <div key={m.id} className="flex items-start gap-4">
+              <span className="mt-[3px] size-3 shrink-0 rounded-full bg-[var(--az-blue)] shadow-[0_0_0_4px_rgba(7,94,255,0.05)]" />
+              <p className="flex flex-col gap-1">
+                <strong className="text-[13px] leading-tight text-[var(--az-ink)] capitalize">{m.label}</strong>
+                <small className="text-xs leading-tight text-[var(--az-muted)]">
+                  {tempoFa(m.timestamp)}
+                  {m.actor ? ` · ${m.actor}` : ""}
+                </small>
+              </p>
+            </div>
+          ))
         )}
-      </CardContent>
-    </Card>
+      </div>
+      <button
+        type="button"
+        className="absolute inset-x-0 bottom-0 flex min-h-[50px] items-center gap-3.5 border-t border-[var(--az-border)] bg-[#fbfdfff5] px-[26px] text-sm font-bold text-[var(--az-blue)] transition-colors hover:bg-[#f3f7ff] hover:text-[var(--az-blue-dark)]"
+      >
+        <HistoryIcon className="size-5" />
+        <span className="mr-auto">Vedi cronologia</span>
+        <ArrowRightIcon className="size-[18px]" />
+      </button>
+    </article>
   );
 }

@@ -5,6 +5,15 @@ export function formatDate(value?: string | null): string {
   return new Intl.DateTimeFormat("it-IT").format(date);
 }
 
+/** Data e ora locale italiana per l'audit di verifica (§29.2 del prompt
+ * master: "mostra date nel formato locale italiano"), es. "22/08/2026, 10:42". */
+export function formatDateTime(value?: string | null): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("it-IT", { dateStyle: "short", timeStyle: "short" }).format(date);
+}
+
 export function formatCurrency(value?: string | null, currency = "EUR"): string {
   if (value === null || value === undefined || value === "") return "—";
   const number = Number(value);

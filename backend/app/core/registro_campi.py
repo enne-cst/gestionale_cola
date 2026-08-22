@@ -238,6 +238,21 @@ def _carica_stati(db: Session, azienda_id: UUID, sezione_codice: str) -> dict[st
     return {r.campo_codice: r for r in righe}
 
 
+def _nome_utente(utente: SysUtente) -> str:
+    # Stesso formato "Nome I." già usato da `ultime_modifiche`.
+    return f"{utente.nome} {utente.cognome[:1]}."
+
+
+def _carica_verificatori(db: Session, stati: dict[str, SysRegistroStatoCampi]) -> dict[UUID, str]:
+    """Nomi (§9.4) degli autori di verifica presenti tra gli stati caricati,
+    in un'unica query invece di una per campo."""
+    ids = {s.verificato_da for s in stati.values() if s.verificato_da is not None}
+    if not ids:
+        return {}
+    utenti = db.scalars(select(SysUtente).where(SysUtente.id.in_(ids))).all()
+    return {u.id: _nome_utente(u) for u in utenti}
+
+
 def costruisci_sezione(
     db: Session,
     ctx: AziendaContext,
@@ -246,6 +261,12 @@ def costruisci_sezione(
 ) -> SectionRead:
     stati = _carica_stati(db, ctx.azienda_id, SEZIONE_INFORMAZIONI_SOCIETARIE)
     consulente = ctx.profilo == "CONSULENTE"
+    # Stato, nota e audit di verifica sono visibili anche all'Azienda in
+    # sola lettura (§13 del prompt master): le servono per capire cosa
+    # correggere quando un campo è "da revisionare". Solo l'occhietto
+    # (visibilità) e le decisioni di verifica restano riservate al
+    # Consulente, applicate lato UI (§9.3) e comunque riverificate qui.
+    verificatori = _carica_verificatori(db, stati)
 
     gruppi: list[SectionGroupRead] = []
     for gruppo in GRUPPI_INFORMAZIONI_SOCIETARIE:
@@ -278,6 +299,16 @@ def costruisci_sezione(
             # stessa che _get_or_create_stato assegnera' quando verra'
             # davvero creata (es. dalla prima decisione di verifica).
             versione = None if vuoto else (stato_riga.versione if stato_riga else 1)
+            verificato_il = (
+                stato_riga.verificato_at.isoformat()
+                if stato_riga is not None and stato_verifica == "VERIFIED" and stato_riga.verificato_at is not None
+                else None
+            )
+            verificato_da_nome = (
+                verificatori.get(stato_riga.verificato_da)
+                if stato_riga is not None and stato_verifica == "VERIFIED" and stato_riga.verificato_da is not None
+                else None
+            )
 
             campo_letto = FieldStateRead(
                 key=campo.key,
@@ -286,10 +317,15 @@ def costruisci_sezione(
                 dataType=campo.data_type,
                 editable=not campo.derived,
                 visibleToCompany=visibile,
-                verificationStatus=stato_verifica if consulente else None,
+                verificationStatus=stato_verifica,
+                # Ancora di concorrenza ottimistica per la decisione di
+                # verifica: usata solo dalla mutazione consulente-only, non
+                # serve (e non va esposta) all'Azienda in sola lettura.
                 verificationVersion=versione if consulente else None,
-                revisionNote=nota if consulente else None,
+                revisionNote=nota,
                 updatedAt=row.updated_at.isoformat() if row is not None else None,
+                verifiedAt=verificato_il,
+                verifiedBy=verificato_da_nome,
             )
             campi_letti.append(campo_letto)
         gruppi.append(SectionGroupRead(key=gruppo.key, title=gruppo.title, fields=campi_letti))
@@ -394,13 +430,38 @@ def applica_modifiche_sezione(
 
 
 def valuta_qualita(db: Session, azienda_id: UUID) -> QualitySummaryRead:
-    """Conteggio su tutte le sezioni registrate per l'azienda (non solo
-    "informazioni-societarie"): la formula scala automaticamente quando
-    altre sezioni adotteranno lo stesso registro, senza modifiche qui."""
+    """Qualità dei *dati già inseriti e visibili all'azienda* (decisione
+    esplicita dell'utente): l'indicatore "Qualità dei dati" misura quanto è
+    affidabile ciò che è stato compilato, non quanto manca da compilare —
+    per questo `percentage` e i conteggi `verified`/`pending`/
+    `revisionRequired` restano sui soli campi compilati, cioè quelli con una
+    riga di stato già creata (un campo mai toccato non ha ancora nulla da
+    "verificare"). Un campo oscurato con l'occhietto (`visibile_azienda`
+    false) è escluso dal calcolo, non solo nascosto all'Azienda: la qualità
+    misura cosa l'azienda vede, non il lavoro interno del Consulente su dati
+    che ha scelto di non mostrare ancora.
+
+    `totalApplicable` (dimensione dell'intero catalogo, compilato o no) è
+    invece quello che serve altrove (card della Home) per sapere se una
+    sezione è compilata per intero, tenuto volutamente fuori da
+    `percentage` qui — e non filtrato per visibilità: "compilato" resta
+    vero anche per un campo oscurato.
+
+    Nel pilota il catalogo applicabile coincide con quello di
+    "informazioni-societarie" (`CHIAVI_CAMPI`, 14 campi): quando altre
+    sezioni adotteranno lo stesso registro, `totalApplicable` dovrà sommare
+    i loro cataloghi invece di usare solo questo.
+
+    `hidden` (campi con `visibile_azienda=false`, indipendentemente dal fatto
+    che siano compilati) è restituito a parte perché lo stato di
+    completamento di una sezione (card della Home) deve ignorare i campi che
+    il Consulente ha scelto di non mostrare ancora: un campo nascosto e
+    non compilato non deve impedire alla sezione di risultare "completa"."""
     righe = db.scalars(
         select(SysRegistroStatoCampi.stato_verifica_codice).where(
             SysRegistroStatoCampi.azienda_id == azienda_id,
             SysRegistroStatoCampi.stato_verifica_codice.is_not(None),
+            SysRegistroStatoCampi.visibile_azienda.is_(True),
         )
     ).all()
     verified = sum(1 for s in righe if s == "APPROVATO")
@@ -408,7 +469,23 @@ def valuta_qualita(db: Session, azienda_id: UUID) -> QualitySummaryRead:
     revision = sum(1 for s in righe if s == "IN_REVISIONE")
     filled = verified + pending + revision
     percentage = round(verified / filled * 100) if filled > 0 else 0
-    return QualitySummaryRead(verified=verified, pending=pending, revisionRequired=revision, percentage=percentage)
+    total_applicable = len(CHIAVI_CAMPI)
+    hidden = len(
+        db.scalars(
+            select(SysRegistroStatoCampi.campo_codice).where(
+                SysRegistroStatoCampi.azienda_id == azienda_id,
+                SysRegistroStatoCampi.visibile_azienda.is_(False),
+            )
+        ).all()
+    )
+    return QualitySummaryRead(
+        verified=verified,
+        pending=pending,
+        revisionRequired=revision,
+        percentage=percentage,
+        totalApplicable=total_applicable,
+        hidden=hidden,
+    )
 
 
 def ultime_modifiche(db: Session, azienda_id: UUID, *, limite: int = 5) -> list[RecentChangeRead]:
@@ -479,12 +556,31 @@ def applica_decisione_verifica(
     if is_empty(valore):
         raise HTTPException(status.HTTP_409_CONFLICT, "Il campo è vuoto: nessun valore da verificare")
 
+    # Vincolo di dominio (non solo di schema, §2.3 CLAUDE.md "la logica di
+    # business sta nel backend"): una richiesta di revisione deve sempre
+    # spiegare cosa correggere. Verificato qui esplicitamente, prima del
+    # CHECK chk_sys_registro_stato_campi_nota_se_in_revisione (021), per
+    # restituire un 422 leggibile invece di un errore di integrità del DB.
+    if decisione == "REVISION_REQUIRED" and is_empty(nota):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "La richiesta di revisione richiede una nota che spieghi cosa correggere",
+        )
+
     stato_riga = _get_or_create_stato(db, ctx, campo, valore_attuale=valore)
 
     if expected_field_version is not None and stato_riga.versione != expected_field_version:
         raise HTTPException(status.HTTP_409_CONFLICT, "Il campo è stato modificato nel frattempo: ricaricare e riprovare")
 
     codice_db = _STATO_API_TO_DB[decisione]
+    # Un campo già confermato che riceve di nuovo la decisione VERIFIED (il
+    # pulsante "Salva nota" del popup, §9.2 punto 6/§23.1) aggiorna solo la
+    # nota: non deve aggiornare falsamente la data/autore di verifica, che
+    # restano quelli della verifica originale. Resta comunque azione
+    # "VERIFICA" nell'audit (chk_sys_registro_audit_azione, 022, non
+    # modificabile senza una nuova migrazione: nessun valore nuovo introdotto
+    # qui, solo riuso di uno già ammesso).
+    solo_nota = decisione == "VERIFIED" and stato_riga.stato_verifica_codice == "APPROVATO"
     stato_riga.stato_verifica_codice = codice_db
     stato_riga.versione += 1
     if decisione == "REVISION_REQUIRED":
@@ -492,8 +588,11 @@ def applica_decisione_verifica(
         stato_riga.verificato_da = None
         stato_riga.verificato_at = None
         azione = "RICHIESTA_REVISIONE"
+    elif solo_nota:
+        stato_riga.nota_revisione = nota
+        azione = "VERIFICA"
     else:
-        stato_riga.nota_revisione = None
+        stato_riga.nota_revisione = nota
         stato_riga.verificato_da = ctx.utente_id
         stato_riga.verificato_at = datetime.now(timezone.utc)
         azione = "VERIFICA"

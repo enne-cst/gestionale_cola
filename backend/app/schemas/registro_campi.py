@@ -28,6 +28,11 @@ class FieldStateRead(BaseModel):
     verificationVersion: int | None = None
     revisionNote: str | None = None
     updatedAt: str | None = None
+    # Presenti solo quando lo stato corrente è VERIFIED (§9.4/§22.1 del
+    # prompt master Anagrafica Aziendale): data e autore dell'ultima verifica
+    # valida per il valore attuale del campo.
+    verifiedAt: str | None = None
+    verifiedBy: str | None = None
 
 
 class SectionGroupRead(BaseModel):
@@ -65,7 +70,18 @@ class QualitySummaryRead(BaseModel):
     verified: int
     pending: int
     revisionRequired: int
+    # Percentuale sui soli campi già compilati (verified / compilati * 100):
+    # la qualità misura quanto è affidabile il dato inserito, non quanto
+    # manca da inserire — vedi `totalApplicable` per quest'ultimo.
     percentage: int
+    # Dimensione dell'intero catalogo applicabile (compilato o no): usato
+    # per sapere se una sezione è compilata per intero, separatamente dalla
+    # qualità dei soli dati già presenti.
+    totalApplicable: int
+    # Campi oscurati con l'occhietto (visibile_azienda=false): sottratti da
+    # `totalApplicable` da chi calcola il completamento di una sezione, cosi'
+    # un campo nascosto e non compilato non blocca lo stato "verde".
+    hidden: int
 
 
 class RecentChangeRead(BaseModel):
