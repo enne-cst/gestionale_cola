@@ -63,3 +63,23 @@ export async function eliminaIncarico(id: string): Promise<{ esito: "ok" } | { e
     return { esito: "errore", messaggio: error instanceof ApiError ? error.message : "Errore imprevisto" };
   }
 }
+
+export type EsitoVerificaIncarico =
+  | { esito: "ok"; incarico: Incarico }
+  | { esito: "conflitto" }
+  | { esito: "errore"; messaggio: string };
+
+export async function inviaVerificaIncarico(
+  id: string,
+  decision: "VERIFIED" | "REVISION_REQUIRED",
+  note: string | null,
+  expectedFieldVersion: number | null,
+): Promise<EsitoVerificaIncarico> {
+  const result = await apiFetchResult<Incarico>(`/api/personale/incarichi/${id}/review`, {
+    method: "POST",
+    body: JSON.stringify({ decision, note, expectedFieldVersion }),
+  });
+  if (result.ok) return { esito: "ok", incarico: result.data };
+  if (result.status === 409) return { esito: "conflitto" };
+  return { esito: "errore", messaggio: messaggioGenerico(result.detail) };
+}

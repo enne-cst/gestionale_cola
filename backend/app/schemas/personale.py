@@ -4,6 +4,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
+from app.schemas.registro_campi import VerificationStatus
+
 
 class _OrmModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -129,3 +131,11 @@ class IncaricoRead(_OrmModel):
     ruolo: RuoloSummary
     created_at: datetime
     updated_at: datetime
+    # Verifica del consulente sulla riga (vedi app/core/incarichi.py): non
+    # più la caratteristica A32 dentro il form, ma lo stesso trattamento del
+    # registro campo-per-campo (nota, audit, concorrenza ottimistica).
+    verificationStatus: VerificationStatus | None = None
+    verificationVersion: int | None = None
+    revisionNote: str | None = None
+    verifiedAt: str | None = None
+    verifiedBy: str | None = None

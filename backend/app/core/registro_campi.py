@@ -28,7 +28,7 @@ from decimal import Decimal, InvalidOperation
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.deps import AziendaContext, get_current_azienda
@@ -43,6 +43,7 @@ from app.models.anagrafica import (
     AnaSedeRev2,
     AnaStatutoRev2,
 )
+from app.models.personale import CatRuolo, PerIncarico
 from app.models.sistema import SysRegistroAudit, SysRegistroStatoCampi, SysUtente
 from app.schemas.registro_campi import (
     CompletionStatus,
@@ -60,12 +61,16 @@ _RE_VALUTA = re.compile(r"^[A-Z]{3}$")
 
 # Mappa stato interno (catalogo cat_stati_verifica_modifiche, condiviso con
 # sys_presa_visione_modifiche) <-> stato logico esposto dall'API (§7.1).
-_STATO_DB_TO_API: dict[str, VerificationStatus] = {
+# Non prefissate perché riusate anche da `app.core.incarichi` per la
+# verifica a livello di riga-incarico (Soci/Amministratori/Sindaci): stesso
+# significato degli stati, stessa tabella `sys_registro_stato_campi`, non
+# duplicare la mappa in due moduli.
+STATO_DB_TO_API: dict[str, VerificationStatus] = {
     "DA_VERIFICARE": "PENDING_VERIFICATION",
     "APPROVATO": "VERIFIED",
     "IN_REVISIONE": "REVISION_REQUIRED",
 }
-_STATO_API_TO_DB = {v: k for k, v in _STATO_DB_TO_API.items()}
+STATO_API_TO_DB = {v: k for k, v in STATO_DB_TO_API.items()}
 
 
 @dataclass(frozen=True)
@@ -78,6 +83,13 @@ class CampoDef:
     # nascondibile come ogni altro campo, ma escluso dalla scrittura via
     # PATCH sezione.
     derived: bool = False
+    # Solo per campi derivati: nome/link della sezione sorgente, mostrati nel
+    # suggerimento "Si modifica dalla sezione ..." quando il campo è aperto
+    # in modifica (§16.1/§29.1: "non duplicare automaticamente"). `source_href`
+    # è opzionale: alcune sorgenti (es. una card CCIAA senza pagina propria)
+    # non hanno una route dedicata da linkare.
+    source_label: str | None = None
+    source_href: str | None = None
 
 
 @dataclass(frozen=True)
@@ -236,6 +248,34 @@ def _codice_nace_di(db: Session, azienda_id: UUID) -> str | None:
     return riga.codice_nace if riga else None
 
 
+def _numero_soci_di(db: Session, azienda_id: UUID) -> str | None:
+    """"Numero dei soci" della card omonima: mai una colonna propria, perché
+    disallineerebbe dalla tabella soci mostrata nella stessa card (§18 del
+    protocollo: "non hard-codificare conteggi"). Conta gli incarichi con
+    ruolo SOCIO, storicizzati compresi (nessun filtro su cessazione: non
+    richiesto, la tabella non nasconde i soci cessati)."""
+    numero = db.scalar(
+        select(func.count())
+        .select_from(PerIncarico)
+        .join(CatRuolo, CatRuolo.id == PerIncarico.ruolo_id)
+        .where(PerIncarico.azienda_id == azienda_id, CatRuolo.codice == "SOCIO")
+    )
+    return str(numero or 0)
+
+
+def _capitale_rappresentato_di(db: Session, azienda_id: UUID) -> str | None:
+    """"Capitale sociale rappresentato" della card "Soci": derivato dal
+    capitale sottoscritto della sezione "Capitale sociale" invece di una
+    colonna propria (decisione esplicita dell'utente, 27/08/2026) — è la
+    parte di capitale effettivamente divisa in quote/azioni tra i soci, a
+    differenza del deliberato (può eccedere il sottoscritto) o del versato
+    (quanto è stato effettivamente pagato)."""
+    capitale = db.scalars(select(AnaCapitaleSociale).where(AnaCapitaleSociale.azienda_id == azienda_id)).first()
+    if capitale is None or capitale.capitale_sottoscritto is None:
+        return None
+    return str(capitale.capitale_sottoscritto)
+
+
 def _valore_campo(db: Session, ctx: AziendaContext, sezione: SezioneRegistro, row: object | None, campo: str) -> str | None:
     """Valore attuale di un campo del catalogo, qualunque sia la sua origine
     (colonna di dominio o derivato): usato ovunque serva leggere "il valore
@@ -329,7 +369,7 @@ def costruisci_sezione(
             if vuoto:
                 stato_verifica = None
             elif stato_riga is not None:
-                stato_verifica = _STATO_DB_TO_API.get(stato_riga.stato_verifica_codice) or "PENDING_VERIFICATION"
+                stato_verifica = STATO_DB_TO_API.get(stato_riga.stato_verifica_codice) or "PENDING_VERIFICATION"
             else:
                 stato_verifica = "PENDING_VERIFICATION"
             nota = None if vuoto else (stato_riga.nota_revisione if stato_riga else None)
@@ -365,6 +405,8 @@ def costruisci_sezione(
                 updatedAt=getattr(row, "updated_at", None).isoformat() if row is not None else None,
                 verifiedAt=verificato_il,
                 verifiedBy=verificato_da_nome,
+                sourceLabel=campo.source_label if campo.derived else None,
+                sourceHref=campo.source_href if campo.derived else None,
             )
             campi_letti.append(campo_letto)
         gruppi.append(SectionGroupRead(key=gruppo.key, title=gruppo.title, fields=campi_letti))
@@ -652,7 +694,7 @@ def applica_decisione_verifica(
     if expected_field_version is not None and stato_riga.versione != expected_field_version:
         raise HTTPException(status.HTTP_409_CONFLICT, "Il campo è stato modificato nel frattempo: ricaricare e riprovare")
 
-    codice_db = _STATO_API_TO_DB[decisione]
+    codice_db = STATO_API_TO_DB[decisione]
     # Un campo già confermato che riceve di nuovo la decisione VERIFIED (il
     # pulsante "Salva nota" del popup, §9.2 punto 6/§23.1) aggiorna solo la
     # nota: non deve aggiornare falsamente la data/autore di verifica, che
@@ -760,7 +802,10 @@ SEZIONE_INFORMAZIONI_SOCIETARIE = SezioneRegistro(
                 CampoDef("numero_iscrizione", "Numero iscrizione", "text"),
                 CampoDef("provincia_rea", "Provincia REA", "text"),
                 CampoDef("data_iscrizione", "Data iscrizione", "date"),
-                CampoDef("sede_legale", "Sede legale", "address", derived=True),
+                CampoDef(
+                    "sede_legale", "Sede legale", "address", derived=True,
+                    source_label="dalla sezione Sedi", source_href="/anagrafica/sedi",
+                ),
                 CampoDef("stato_attivita", "Stato impresa", "text"),
             ],
         ),
@@ -805,7 +850,10 @@ SEZIONE_INFORMAZIONI_SOCIETARIE = SezioneRegistro(
             key="attivita-sintesi",
             title="Attività (sintesi)",
             campi=[
-                CampoDef("codice_nace", "Codice NACE", "text", derived=True),
+                CampoDef(
+                    "codice_nace", "Codice NACE", "text", derived=True,
+                    source_label="dalla sezione Codici ATECO", source_href="/anagrafica/codici-ateco",
+                ),
             ],
         ),
     ],
@@ -885,22 +933,38 @@ SEZIONE_AMMINISTRAZIONE_CONTROLLO = SezioneRegistro(
 # Nuova (mappatura CCIAA §4.2, decisione D-H): estremi di testata
 # dell'elenco soci depositato, 1:1 con l'azienda come capitale sociale. Non
 # è un dato del singolo socio (quello vive in `per_incarichi`, ruolo SOCIO).
+# Corretta il 27/08/2026 per allinearla esattamente alla card "Soci e
+# titolari di diritti su azioni e quote" del prototipo HTML (migrazione
+# 035): rimossi data_atto/data_protocollo (non previsti), etichette
+# allineate al testo del prototipo, "numero_soci" aggiunto come campo
+# derivato (contato dagli incarichi ruolo SOCIO, mai una colonna propria:
+# non deve poter disallinearsi dalla tabella soci sotto la stessa card) e
+# "capitale_sociale_dichiarato" reso derivato da
+# ana_capitale_sociale.capitale_sottoscritto invece che una colonna
+# propria, per non duplicare un dato già verificabile in "Capitale
+# sociale". Ordine campi allineato a `cciaaSections` del prototipo.
 SEZIONE_ELENCO_SOCI_ESTREMI = SezioneRegistro(
     section_key="elenco-soci-estremi",
     sezione_codice="ANAGRAFICA_AZIENDALE.ELENCO_SOCI_ESTREMI",
     title="Estremi dell'elenco soci",
     model=AnaElencoSociEstremi,
+    campi_derivati={"numero_soci": _numero_soci_di, "capitale_sociale_dichiarato": _capitale_rappresentato_di},
     gruppi=[
         GruppoDef(
             key="elenco-soci-estremi",
             title="Estremi dell'elenco soci",
             campi=[
-                CampoDef("data_riferimento", "Data di riferimento dell'elenco", "date"),
-                CampoDef("data_atto", "Data dell'atto", "date"),
-                CampoDef("data_deposito", "Data di deposito", "date"),
-                CampoDef("data_protocollo", "Data di protocollo", "date"),
-                CampoDef("numero_protocollo", "Numero di protocollo", "text"),
-                CampoDef("capitale_sociale_dichiarato", "Capitale sociale dichiarato", "importo"),
+                CampoDef(
+                    "numero_soci", "Numero dei soci", "number", derived=True,
+                    source_label="dai soci registrati nella tabella qui sotto",
+                ),
+                CampoDef("data_riferimento", "Data di riferimento dell'assetto", "date"),
+                CampoDef("data_deposito", "Data deposito elenco soci", "date"),
+                CampoDef("numero_protocollo", "Numero protocollo", "text"),
+                CampoDef(
+                    "capitale_sociale_dichiarato", "Capitale sociale rappresentato", "importo", derived=True,
+                    source_label="dalla sezione Capitale sociale",
+                ),
             ],
         ),
     ],

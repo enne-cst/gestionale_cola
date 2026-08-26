@@ -45,8 +45,15 @@ export function FieldRow({
   const nascosto = consulente && !field.visibleToCompany;
 
   if (mode === "VIEW" || !field.editable) {
+    const derivatoInModifica = mode === "EDIT" && !field.editable;
     return (
-      <div className={cn("relative -m-2 min-h-[62px] rounded-[7px] p-2", nascosto && "bg-[#f0f2f5]")}>
+      <div
+        className={cn(
+          "relative -m-2 min-h-[62px] rounded-[7px] p-2",
+          nascosto && "bg-[#f0f2f5]",
+          derivatoInModifica && "opacity-60",
+        )}
+      >
         <dt className="flex items-center gap-[7px]">
           <span className="text-[13px] font-medium text-[#536a9f]">{field.label}</span>
           {consulente && <VisibilityToggle label={field.label} visible={field.visibleToCompany} onToggle={() => toggleVisibility(sectionKey, field.key, !field.visibleToCompany)} />}
@@ -55,12 +62,16 @@ export function FieldRow({
           <span className="min-w-0 text-sm font-bold break-words text-[var(--az-ink)]">{formattaValore(field)}</span>
           {field.verificationStatus && <FieldVerificationPopover sectionKey={sectionKey} field={field} />}
         </dd>
-        {mode === "EDIT" && !field.editable && (
+        {derivatoInModifica && field.sourceLabel && (
           <p className="mt-1.5 text-xs text-[var(--az-muted)]">
-            Si modifica dalla sezione{" "}
-            <Link href="/anagrafica/sedi" className="underline hover:text-[var(--az-ink)]">
-              Sedi
-            </Link>
+            Si modifica{" "}
+            {field.sourceHref ? (
+              <Link href={field.sourceHref} className="underline hover:text-[var(--az-ink)]">
+                {field.sourceLabel}
+              </Link>
+            ) : (
+              <strong className="font-semibold text-[var(--az-ink)]">{field.sourceLabel}</strong>
+            )}
             .
           </p>
         )}

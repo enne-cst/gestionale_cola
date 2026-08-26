@@ -135,19 +135,18 @@ export default async function AnagraficaOverviewPage() {
     return { confermate: agg.verified, daVerificare: agg.pending, daRevisionare: agg.revisionRequired };
   }
   // Soci/Amministratori/Sindaci non hanno un registro campo-per-campo, ma
-  // ogni incarico porta comunque una verifica reale del consulente
-  // (caratteristica A32 "Stato verifica consulente", obbligatoria per questi
-  // ruoli — vedi `cciaa-incarichi-caratteristiche.ts`): i pallini qui sotto
-  // aggregano quel dato esistente, non ne inventano uno nuovo (§18).
+  // ogni incarico porta comunque una verifica reale del consulente sulla
+  // riga (vedi `app/core/incarichi.py`, non più la caratteristica A32 nel
+  // form): i pallini qui sotto aggregano quel dato esistente, non ne
+  // inventano uno nuovo (§18).
   function statoDaIncarichi(righe: typeof incarichi): CciaaSectionCardStato | null {
     if (righe.length === 0) return null;
     let confermate = 0;
     let daVerificare = 0;
     let daRevisionare = 0;
     for (const r of righe) {
-      const v = r.valori.A32;
-      if (v === "APPROVATO") confermate += 1;
-      else if (v === "IN_REVISIONE") daRevisionare += 1;
+      if (r.verificationStatus === "VERIFIED") confermate += 1;
+      else if (r.verificationStatus === "REVISION_REQUIRED") daRevisionare += 1;
       else daVerificare += 1;
     }
     return { confermate, daVerificare, daRevisionare };

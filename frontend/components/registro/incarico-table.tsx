@@ -5,17 +5,12 @@ import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { IncaricoFormDialog } from "@/components/registro/incarico-form-dialog";
+import { IncaricoVerificationPopover } from "@/components/registro/incarico-verification-popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useWorkspace } from "@/components/registro/workspace-provider";
 import { eliminaIncarico, getIncarichi, getRuoli } from "@/lib/actions/personale";
 import { formatDate } from "@/lib/format";
 import type { Incarico, RuoloSummary } from "@/lib/types/personale";
-import { cn } from "@/lib/utils";
-
-const STATO_A32_META: Record<string, { etichetta: string; className: string }> = {
-  APPROVATO: { etichetta: "Confermato", className: "bg-[var(--az-green-soft)] text-[#007d5d]" },
-  IN_REVISIONE: { etichetta: "Da revisionare", className: "bg-[var(--az-orange-soft)] text-[#c35a00]" },
-  DA_VERIFICARE: { etichetta: "Da verificare", className: "bg-[#fde8e8] text-[#a3142a]" },
-};
 
 /** "Nascita" del soggetto (§5.2 della specifica: luogo e data compilati
  * automaticamente e in sola lettura dal soggetto, mai duplicati sulla
@@ -44,6 +39,8 @@ function primaData(incarico: Incarico, codici: string[]): string {
  * ruolo non ha ancora incarichi registrati, la tabella è semplicemente
  * vuota, non un placeholder statico. */
 export function IncaricoTable({ ruoliCodici, etichettaVuoto }: { ruoliCodici: string[]; etichettaVuoto: string }) {
+  const { ruolo } = useWorkspace();
+  const consulente = ruolo === "CONSULENTE";
   const [ruoli, setRuoli] = useState<RuoloSummary[] | null>(null);
   const [incarichi, setIncarichi] = useState<Incarico[] | null>(null);
   const [errore, setErrore] = useState(false);
@@ -124,9 +121,8 @@ export function IncaricoTable({ ruoliCodici, etichettaVuoto }: { ruoliCodici: st
           </TableHeader>
           <TableBody>
             {incarichi.map((incarico) => {
-              const statoA32 = incarico.valori.A32;
-              const statoMeta = typeof statoA32 === "string" ? STATO_A32_META[statoA32] : undefined;
               const statoCarica = incarico.valori.A25;
+              const nomeIncarico = `${incarico.ruolo.denominazione} ${incarico.persona.cognome} ${incarico.persona.nome}`;
               return (
                 <TableRow key={incarico.id}>
                   <TableCell>
@@ -144,13 +140,12 @@ export function IncaricoTable({ ruoliCodici, etichettaVuoto }: { ruoliCodici: st
                   <TableCell>{primaData(incarico, ["A49", "A01"])}</TableCell>
                   <TableCell>{typeof statoCarica === "string" && statoCarica ? statoCarica : "—"}</TableCell>
                   <TableCell>
-                    {statoMeta ? (
-                      <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold", statoMeta.className)}>
-                        {statoMeta.etichetta}
-                      </span>
-                    ) : (
-                      "—"
-                    )}
+                    <IncaricoVerificationPopover
+                      incarico={incarico}
+                      nomeIncarico={nomeIncarico}
+                      consulente={consulente}
+                      onDecided={carica}
+                    />
                   </TableCell>
                   <TableCell className="flex justify-end gap-1">
                     <IncaricoFormDialog

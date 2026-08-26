@@ -16,9 +16,10 @@ class FieldStateRead(BaseModel):
     label: str
     value: str | None
     dataType: str
-    # False solo per il campo derivato "Sede legale" (nessuna colonna propria,
-    # valore letto da ana_sedi): la sezione lo mostra ma non lo accetta in
-    # scrittura via PATCH. Tutti gli altri campi sono editable=True.
+    # False per i campi derivati (es. "Sede legale", "Capitale sociale
+    # rappresentato": nessuna colonna propria, valore letto da un'altra
+    # sezione): la sezione lo mostra ma non lo accetta in scrittura via
+    # PATCH. Tutti gli altri campi sono editable=True.
     editable: bool = True
     visibleToCompany: bool
     verificationStatus: VerificationStatus | None
@@ -33,6 +34,11 @@ class FieldStateRead(BaseModel):
     # valida per il valore attuale del campo.
     verifiedAt: str | None = None
     verifiedBy: str | None = None
+    # Solo per campi derivati (editable=False): nome della sezione sorgente
+    # per il suggerimento "Si modifica dalla sezione ...". sourceHref è
+    # None quando la sorgente non ha una pagina/route propria da linkare.
+    sourceLabel: str | None = None
+    sourceHref: str | None = None
 
 
 class SectionGroupRead(BaseModel):

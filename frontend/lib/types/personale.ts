@@ -3,6 +3,8 @@
 // sostituisce le tabelle qual_* per le card Soci/Amministratori/Sindaci
 // della griglia CCIAA (solo persone fisiche, decisione utente 2026-08-26).
 
+import type { VerificationStatus } from "@/lib/types/registro";
+
 export type AnaPersona = {
   id: string;
   azienda_id: string;
@@ -82,6 +84,14 @@ export type Incarico = {
   ruolo: RuoloSummary;
   created_at: string;
   updated_at: string;
+  // Verifica del consulente sulla riga (vedi backend/app/core/incarichi.py):
+  // non più la caratteristica A32 dentro il form, stesso trattamento del
+  // registro campo-per-campo (nota, audit, concorrenza ottimistica).
+  verificationStatus: VerificationStatus | null;
+  verificationVersion: number | null;
+  revisionNote: string | null;
+  verifiedAt: string | null;
+  verifiedBy: string | null;
 };
 
 export type IncaricoPayload = {

@@ -693,7 +693,16 @@ class AnaElencoSociEstremi(Base):
     """Dato di testata dell'elenco soci depositato (mappatura CCIAA §4.2),
     1:1 con l'azienda come `AnaCapitaleSociale`. Non è un dato del singolo
     socio (quello vive in `per_incarichi`/`per_incarichi_valori`, ruolo
-    SOCIO)."""
+    SOCIO).
+
+    `data_atto`/`data_protocollo`/`capitale_sociale_dichiarato` rimossi
+    (migrazione 035, tabella mai popolata in produzione): i primi due non
+    previsti dal catalogo campi confermato dall'utente per la card "Soci e
+    titolari di diritti su azioni e quote" del prototipo HTML; il terzo è
+    ora un campo derivato da `AnaCapitaleSociale.capitale_sottoscritto`
+    (vedi `app/core/registro_campi.py::_capitale_rappresentato_di`), non più
+    una colonna propria — evita di duplicare un dato già presente nella
+    sezione "Capitale sociale"."""
 
     __tablename__ = "ana_elenco_soci_estremi"
     __table_args__ = (UniqueConstraint("azienda_id"),)
@@ -702,11 +711,8 @@ class AnaElencoSociEstremi(Base):
     azienda_id: Mapped[uuid.UUID] = _azienda_fk()
 
     data_riferimento: Mapped[date | None]
-    data_atto: Mapped[date | None]
     data_deposito: Mapped[date | None]
-    data_protocollo: Mapped[date | None]
     numero_protocollo: Mapped[str | None] = mapped_column(String(50))
-    capitale_sociale_dichiarato: Mapped[Decimal | None] = mapped_column(Numeric(15, 2))
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

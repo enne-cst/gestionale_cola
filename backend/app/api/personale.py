@@ -23,8 +23,15 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.deps import AziendaContext, get_current_azienda
-from app.core.incarichi import configurazione_ruolo, leggi_valori, valida_e_salva_valori
+from app.core.incarichi import (
+    applica_decisione_verifica_incarico,
+    configurazione_ruolo,
+    leggi_stato_verifica_incarico,
+    leggi_valori,
+    valida_e_salva_valori,
+)
 from app.core.moduli import require_modulo
+from app.core.registro_campi import require_consulente_ctx
 from app.crud.generic import register_list_crud
 from app.database import get_db
 from app.models.personale import AnaPersone, CatRuolo, PerIncarico
@@ -38,6 +45,7 @@ from app.schemas.personale import (
     IncaricoUpdate,
     RuoloSummary,
 )
+from app.schemas.registro_campi import ReviewDecisionRequest
 
 MODULO = "Anagrafica Aziendale"
 TAGS = ["Personale"]
@@ -132,6 +140,7 @@ def _persona_owned_or_404(db: Session, persona_id: UUID, azienda_id: UUID) -> An
 def _to_read(db: Session, incarico: PerIncarico) -> IncaricoRead:
     persona = db.get(AnaPersone, incarico.persona_id)
     ruolo = db.get(CatRuolo, incarico.ruolo_id)
+    stato = leggi_stato_verifica_incarico(db, incarico.azienda_id, incarico.id)
     return IncaricoRead(
         id=incarico.id,
         azienda_id=incarico.azienda_id,
@@ -143,6 +152,11 @@ def _to_read(db: Session, incarico: PerIncarico) -> IncaricoRead:
         ruolo=ruolo,
         created_at=incarico.created_at,
         updated_at=incarico.updated_at,
+        verificationStatus=stato["status"],
+        verificationVersion=stato["version"],
+        revisionNote=stato["note"],
+        verifiedAt=stato["verified_at"],
+        verifiedBy=stato["verified_by"],
     )
 
 
@@ -218,6 +232,32 @@ def update_incarico(
     if payload.valori is not None:
         valida_e_salva_valori(db, incarico, payload.valori, parziale=True)
 
+    db.commit()
+    db.refresh(incarico)
+    return _to_read(db, incarico)
+
+
+@router.post("/incarichi/{incarico_id}/review", response_model=IncaricoRead, tags=TAGS)
+def review_incarico(
+    incarico_id: UUID,
+    payload: ReviewDecisionRequest,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(require_consulente_ctx),
+    _modulo: None = Depends(_modulo_dep),
+):
+    """Decisione di verifica sulla riga-incarico (§ commento in
+    app/core/incarichi.py): stessa azione che prima viveva nella
+    caratteristica A32 dentro il form di compilazione, ora un'azione
+    dedicata come per i campi del registro."""
+    incarico = _incarico_owned_or_404(db, incarico_id, ctx.azienda_id)
+    applica_decisione_verifica_incarico(
+        db,
+        ctx,
+        incarico_id,
+        decisione=payload.decision,
+        nota=payload.note,
+        expected_version=payload.expectedFieldVersion,
+    )
     db.commit()
     db.refresh(incarico)
     return _to_read(db, incarico)

@@ -21,7 +21,9 @@
 export const CARATTERISTICHE_VISIBILI_PER_RUOLO: Record<string, string[]> = {
   // §4.1/4.4: decorrenza ed eventuale cessazione della partecipazione,
   // tipologia/quota/percentuale/tipo di diritto/versamento/numero titoli/
-  // quota del diritto/titolarità/vincoli, nota e verifica interna.
+  // quota del diritto/titolarità/vincoli, nota. La verifica del consulente
+  // (ex A32) non è più qui: è un'azione sulla riga della tabella, non un
+  // campo del form (vedi IncaricoVerificationPopover/app/core/incarichi.py).
   SOCIO: [
     "A01",
     "A02",
@@ -38,26 +40,25 @@ export const CARATTERISTICHE_VISIBILI_PER_RUOLO: Record<string, string[]> = {
     "A62",
     "A63",
     "A18",
-    "A32",
   ],
 
   // §5.4: data assegnazione/nomina, data di iscrizione, scadenza, criterio
   // di scadenza, stato della carica, rappresentanza legale, poteri e
   // limitazioni, modalità di firma. A62/A63 (domicilio della carica, PEC
   // personale/professionale, migrazione 0031) in coda, facoltative.
-  AMMINISTRATORE: ["A01", "A49", "A50", "A51", "A29", "A25", "A23", "A21", "A22", "A24", "A02", "A62", "A63", "A18", "A32"],
+  AMMINISTRATORE: ["A01", "A49", "A50", "A51", "A29", "A25", "A23", "A21", "A22", "A24", "A02", "A62", "A63", "A18"],
   AMMINISTRATORE_DELEGATO: [
-    "A01", "A49", "A50", "A51", "A29", "A25", "A23", "A21", "A22", "A24", "A02", "A62", "A63", "A18", "A32",
+    "A01", "A49", "A50", "A51", "A29", "A25", "A23", "A21", "A22", "A24", "A02", "A62", "A63", "A18",
   ],
-  COMPONENTE_CDA: ["A01", "A49", "A50", "A51", "A29", "A25", "A23", "A21", "A22", "A24", "A02", "A62", "A63", "A18", "A32"],
+  COMPONENTE_CDA: ["A01", "A49", "A50", "A51", "A29", "A25", "A23", "A21", "A22", "A24", "A02", "A62", "A63", "A18"],
 
   // §6.1/6.2: data nomina/iscrizione, durata, stato della carica, registro o
   // albo professionale del sindaco.
-  SINDACO: ["A01", "A49", "A50", "A51", "A25", "A29", "A11", "A12", "A13", "A02", "A62", "A63", "A18", "A32"],
+  SINDACO: ["A01", "A49", "A50", "A51", "A25", "A29", "A11", "A12", "A13", "A02", "A62", "A63", "A18"],
 
   // §6.2: come sindaco, con l'iscrizione al Registro dei Revisori Legali al
   // posto dell'albo generico.
-  REVISORE_LEGALE: ["A01", "A49", "A50", "A51", "A25", "A29", "A34", "A35", "A36", "A02", "A62", "A63", "A18", "A32"],
+  REVISORE_LEGALE: ["A01", "A49", "A50", "A51", "A25", "A29", "A34", "A35", "A36", "A02", "A62", "A63", "A18"],
 };
 
 /** Separa le caratteristiche restituite dall'API in "principali" (curatela

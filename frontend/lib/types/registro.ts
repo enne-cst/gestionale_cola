@@ -22,6 +22,11 @@ export type FieldState = {
   // Presenti solo quando verificationStatus è "VERIFIED".
   verifiedAt: string | null;
   verifiedBy: string | null;
+  // Solo per campi derivati (editable=false): nome della sezione/entità
+  // sorgente per il suggerimento "Si modifica da ...". sourceHref è null
+  // quando la sorgente non ha una pagina propria da linkare.
+  sourceLabel: string | null;
+  sourceHref: string | null;
 };
 
 export type SectionGroup = {

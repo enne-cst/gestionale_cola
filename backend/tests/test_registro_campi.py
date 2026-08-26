@@ -153,14 +153,13 @@ class TestSezioniRegistrate:
     def test_catalogo_elenco_soci_estremi(self):
         indice = _indice(SEZIONE_ELENCO_SOCI_ESTREMI)
         assert indice.chiavi == {
+            "numero_soci",
             "data_riferimento",
-            "data_atto",
             "data_deposito",
-            "data_protocollo",
             "numero_protocollo",
             "capitale_sociale_dichiarato",
         }
-        assert indice.derivate == set()
+        assert indice.derivate == {"numero_soci", "capitale_sociale_dichiarato"}
 
     def test_catalogo_sede(self):
         indice = _indice(SEZIONE_SEDE)
@@ -200,11 +199,12 @@ class TestSezioniRegistrate:
 
     def test_totale_applicabile_su_tutte_le_sezioni(self):
         # Stessa somma che `valuta_qualita`/`riepilogo_sezioni` usano per
-        # `totalApplicable` (22 + 4 + 3 + 6 + 6 + 12 + 12, gli ultimi due per
+        # `totalApplicable` (22 + 4 + 3 + 6 + 5 + 12 + 12, il penultimo per
+        # "elenco-soci-estremi" dopo la correzione 035, gli ultimi due per
         # "sede"/"statuto", pilota su ana_sede_rev2/ana_statuto_rev2): un
         # cambiamento qui e' un promemoria per aggiornare quel numero
         # consapevolmente.
-        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 65
+        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 64
 
 
 class TestValidaCampo:
