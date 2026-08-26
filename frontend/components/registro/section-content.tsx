@@ -4,32 +4,10 @@ import { useEffect, type ReactNode } from "react";
 
 import { FieldRow } from "@/components/registro/field-row";
 import { SectionFooter } from "@/components/registro/section-footer";
+import { StatoPill } from "@/components/registro/stato-pill";
 import { useWorkspace } from "@/components/registro/workspace-provider";
 import { SOTTOTITOLO_SEZIONE_REGISTRO, TITOLO_SEZIONE_REGISTRO } from "@/lib/registro-sezioni-meta";
 import { cn } from "@/lib/utils";
-
-const ETICHETTA_COMPLETAMENTO: Record<string, { testo: string; completa: boolean }> = {
-  NOT_STARTED: { testo: "Da completare", completa: false },
-  IN_PROGRESS: { testo: "Da completare", completa: false },
-  COMPLETE: { testo: "Completa", completa: true },
-};
-
-// Inline (non un sibling flex): deve seguire l'ultima parola del titolo, a
-// capo con esso se il titolo va a capo, non restare ancorato al bordo del
-// contenitore su una riga propria.
-function StatoPill({ status }: { status: string }) {
-  const meta = ETICHETTA_COMPLETAMENTO[status];
-  return (
-    <span
-      className={cn(
-        "ml-2 inline-flex min-h-[30px] items-center rounded-full px-3.5 align-middle text-xs font-semibold",
-        meta.completa ? "bg-[var(--az-green-soft)] text-[#007d5d]" : "bg-[var(--az-orange-soft)] text-[#c35a00]",
-      )}
-    >
-      {meta.testo}
-    </span>
-  );
-}
 
 function LoadingSkeleton() {
   return (
@@ -129,12 +107,20 @@ export function SectionContent({
   const sottotitoloDuplicato =
     entry?.server?.groups.length === 1 && entry.server.groups[0].title === entry.server.title;
   const header = embedded ? (
-    <div className="flex items-center justify-between gap-3 pb-4">
-      <h3 className="text-base font-extrabold tracking-tight text-[var(--az-ink)]">
-        {titolo}
-        {entry?.server && <StatoPill status={entry.server.completionStatus} />}
-      </h3>
-    </div>
+    // Quando il gruppo unico si chiama come la sezione, questo header
+    // duplicherebbe esattamente il titolo del gruppo (con l'occhietto) che
+    // segue subito sotto tra i campi — niente da mostrare qui in quel caso:
+    // l'indicatore di stato passa al titolo del pannello che ospita questo
+    // blocco (vedi CciaaSectionPanel), il titolo del gruppo resta l'unica
+    // intestazione.
+    sottotitoloDuplicato ? null : (
+      <div className="flex items-center justify-between gap-3 pb-4">
+        <h3 className="text-base font-extrabold tracking-tight text-[var(--az-ink)]">
+          {titolo}
+          {entry?.server && <StatoPill status={entry.server.completionStatus} />}
+        </h3>
+      </div>
+    )
   ) : (
     <div className="flex items-start justify-between gap-4 border-b border-[#edf1f7] px-[30px] py-6">
       <div className="min-w-0">

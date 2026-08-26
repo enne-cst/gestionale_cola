@@ -14,6 +14,8 @@ import { IncaricoTable } from "@/components/registro/incarico-table";
 import { SectionContent } from "@/components/registro/section-content";
 import { SectionFooter } from "@/components/registro/section-footer";
 import { SintesiPanel } from "@/components/registro/sintesi-panel";
+import { StatoPill } from "@/components/registro/stato-pill";
+import { useWorkspace } from "@/components/registro/workspace-provider";
 import { TITOLO_VISTA_CCIAA, type CciaaVistaKey } from "@/lib/cciaa-viste";
 import type {
   AddettiComune,
@@ -142,11 +144,28 @@ export function CciaaSectionPanel({
   onClose?: () => void;
 }) {
   const footerSectionKey = VISTA_FOOTER_SECTION_KEY[vistaKey];
+  const { state } = useWorkspace();
+  const sezionePrincipale = footerSectionKey ? state.sections[footerSectionKey]?.server : undefined;
+  // Quando il blocco embedded principale del pannello ha un solo gruppo
+  // omonimo (Estremi dell'elenco soci in "soci", Amministrazione e
+  // controllo in "amministratori"/"sindaci"), il suo header viene
+  // soppresso da `SectionContent` per non duplicare il titolo del gruppo:
+  // l'indicatore di stato di quella sezione va invece qui, sul titolone
+  // del pannello, di seguito alla sua ultima parola.
+  const statoNelTitolo =
+    sezionePrincipale != null &&
+    sezionePrincipale.groups.length === 1 &&
+    sezionePrincipale.groups[0].title === sezionePrincipale.title
+      ? sezionePrincipale.completionStatus
+      : null;
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="flex items-start justify-between gap-4 border-b border-[#edf1f7] px-[30px] py-6">
         <div className="min-w-0">
-          <h2 className="text-2xl font-extrabold tracking-tight text-[var(--az-ink)]">{TITOLO_VISTA_CCIAA[vistaKey]}</h2>
+          <h2 className="text-2xl font-extrabold tracking-tight text-[var(--az-ink)]">
+            {TITOLO_VISTA_CCIAA[vistaKey]}
+            {statoNelTitolo && <StatoPill status={statoNelTitolo} />}
+          </h2>
           <p className="mt-[9px] text-sm text-[#354a89]">{SOTTOTITOLO_VISTA_CCIAA[vistaKey]}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
