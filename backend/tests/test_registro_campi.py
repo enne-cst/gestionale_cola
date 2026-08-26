@@ -186,8 +186,6 @@ class TestSezioniRegistrate:
             "denominazione",
             "registro_imprese",
             "data_iscrizione",
-            "sezione_ordinaria",
-            "sezione_titolarita_effettiva",
             "forma_giuridica",
             "data_atto_costitutivo",
             "data_termine_societa",
@@ -202,11 +200,11 @@ class TestSezioniRegistrate:
 
     def test_totale_applicabile_su_tutte_le_sezioni(self):
         # Stessa somma che `valuta_qualita`/`riepilogo_sezioni` usano per
-        # `totalApplicable` (22 + 4 + 3 + 6 + 6 + 12 + 14, gli ultimi due per
+        # `totalApplicable` (22 + 4 + 3 + 6 + 6 + 12 + 12, gli ultimi due per
         # "sede"/"statuto", pilota su ana_sede_rev2/ana_statuto_rev2): un
         # cambiamento qui e' un promemoria per aggiornare quel numero
         # consapevolmente.
-        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 67
+        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 65
 
 
 class TestValidaCampo:

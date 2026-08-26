@@ -949,13 +949,16 @@ SEZIONE_SEDE = SezioneRegistro(
 )
 
 # Secondo pilota "una tabella per sezione" (26/08/2026, stesso metodo di
-# lavoro concordato con l'utente dopo `SEZIONE_SEDE`): replica 1:1 i 14
+# lavoro concordato con l'utente dopo `SEZIONE_SEDE`): replica 1:1 i 12
 # campi della card "Informazioni da statuto/atto costitutivo" in
 # `ana_statuto_rev2`, al posto della vecchia composizione di
 # "informazioni-societarie" + "durata-societa-esercizi" +
 # "amministrazione-controllo" + tabella "iscrizioni-registro-imprese" (vedi
 # `frontend/components/registro/cciaa-section-panel.tsx`, ora semplificato
 # come già fatto per "sede"). Un solo gruppo, campo guida `denominazione`.
+# Corretto il 27/08/2026 (migrazione 034): rimossi due campi ("Sezione
+# ordinaria"/"Sezione titolarità effettiva") non previsti dal catalogo
+# confermato dall'utente — erano 14, restano 12.
 SEZIONE_STATUTO = SezioneRegistro(
     section_key="statuto",
     sezione_codice="ANAGRAFICA_AZIENDALE.STATUTO",
@@ -970,8 +973,6 @@ SEZIONE_STATUTO = SezioneRegistro(
                 CampoDef("denominazione", "Denominazione", "text"),
                 CampoDef("registro_imprese", "Registro delle Imprese", "text"),
                 CampoDef("data_iscrizione", "Data di iscrizione", "date"),
-                CampoDef("sezione_ordinaria", "Sezione ordinaria", "text"),
-                CampoDef("sezione_titolarita_effettiva", "Sezione titolarità effettiva", "text"),
                 CampoDef("forma_giuridica", "Forma giuridica", "text"),
                 CampoDef("data_atto_costitutivo", "Data atto di costituzione", "date"),
                 CampoDef("data_termine_societa", "Data termine società", "date"),

@@ -666,8 +666,6 @@ class AnaStatutoRev2(Base):
     denominazione: Mapped[str | None] = mapped_column(String(255))
     registro_imprese: Mapped[str | None] = mapped_column(String(150))
     data_iscrizione: Mapped[date | None]
-    sezione_ordinaria: Mapped[str | None] = mapped_column(String(255))
-    sezione_titolarita_effettiva: Mapped[str | None] = mapped_column(String(255))
     forma_giuridica: Mapped[str | None] = mapped_column(String(150))
     data_atto_costitutivo: Mapped[date | None]
 
