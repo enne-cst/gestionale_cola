@@ -7,7 +7,6 @@ import { AddettiComuneTable } from "@/app/(app)/anagrafica/addetti-comune/addett
 import { AddettiVisuraTable } from "@/app/(app)/anagrafica/addetti-visura/addetti-visura-table";
 import { CertificazioniTable } from "@/app/(app)/anagrafica/certificazioni/certificazioni-table";
 import { CodiciAtecoTable } from "@/app/(app)/anagrafica/codici-ateco/codici-ateco-table";
-import { ContattiTable } from "@/app/(app)/anagrafica/contatti/contatti-table";
 import { IscrizioniTable } from "@/app/(app)/anagrafica/iscrizioni-registro-imprese/iscrizioni-table";
 import { SediTable } from "@/app/(app)/anagrafica/sedi/sedi-table";
 import { SoaTable } from "@/app/(app)/anagrafica/soa/soa-table";
@@ -23,7 +22,6 @@ import type {
   AlboRuoloLicenza,
   Certificazione,
   CodiceAteco,
-  Contatto,
   IscrizioneRegistroImprese,
   Sede,
   Soa,
@@ -31,7 +29,6 @@ import type {
 
 const SOTTOTITOLO_VISTA_CCIAA: Record<CciaaVistaKey, string> = {
   sintesi: "Indicatori non presenti nelle altre sezioni, in sola lettura",
-  sede: "Sede legale e domicilio digitale dell'impresa",
   statuto: "Identificazione camerale, durata, amministrazione e iscrizioni al Registro Imprese",
   soci: "Elenco dei soci e titolari di diritti su azioni e quote",
   amministratori: "Organo amministrativo in carica ed elenco degli amministratori",
@@ -47,27 +44,10 @@ function SediSecondarieTable({ sedi, recordIdsInPanoramica }: { sedi: Sede[]; re
   return <SediTable sedi={secondarie} recordIdsInPanoramica={recordIdsInPanoramica} />;
 }
 
-function SedeLegaleTable({ sedi, recordIdsInPanoramica }: { sedi: Sede[]; recordIdsInPanoramica: string[] }) {
-  const legali = sedi.filter((s) => s.tipo_sede.toLowerCase().includes("legale"));
-  return <SediTable sedi={legali} recordIdsInPanoramica={recordIdsInPanoramica} />;
-}
-
 function ContenutoVista({ vistaKey }: { vistaKey: CciaaVistaKey }) {
   switch (vistaKey) {
     case "sintesi":
       return <SintesiPanel />;
-    case "sede":
-      return (
-        <>
-          <SectionContent sectionKey="informazioni-societarie" embedded />
-          <EmbeddedResourceBlock<Sede> title="Sede legale" apiPath="/api/anagrafica/sedi" panoramicaSlug="sedi">
-            {(items, recordIds) => <SedeLegaleTable sedi={items} recordIdsInPanoramica={recordIds} />}
-          </EmbeddedResourceBlock>
-          <EmbeddedResourceBlock<Contatto> title="Contatti e domicilio digitale" apiPath="/api/anagrafica/contatti" panoramicaSlug="contatti">
-            {(items, recordIds) => <ContattiTable contatti={items} recordIdsInPanoramica={recordIds} />}
-          </EmbeddedResourceBlock>
-        </>
-      );
     case "statuto":
       return (
         <>

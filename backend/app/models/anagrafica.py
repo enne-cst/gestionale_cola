@@ -601,6 +601,48 @@ class AnaContatto(Base):
 
 
 # ===========================================================================
+# 032 - Sede (pilota, singleton) - vedi 032_ana_sede_rev2.sql
+# ===========================================================================
+
+
+class AnaSedeRev2(Base):
+    """Card "Sede" (sezione 1 della visura) replicata 1:1 dal prototipo HTML,
+    1:1 con l'azienda come `AnaCapitaleSociale`. Tabella pilota: duplica
+    intenzionalmente colonne già presenti in `AnaIdentificazioneCamerale`
+    (codice fiscale, partita IVA, REA, camera di commercio, provenienza del
+    trasferimento) e in `AnaSede`/`ana_sedi` (indirizzo/comune/provincia/
+    CAP/nazione) — vedi il commento in testa a `032_ana_sede_rev2.sql` per la
+    motivazione e per cosa resta da fare prima di eliminare le tabelle
+    diventate obsolete."""
+
+    __tablename__ = "ana_sede_rev2"
+    __table_args__ = (UniqueConstraint("azienda_id"),)
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+
+    indirizzo_sede_legale: Mapped[str | None] = mapped_column(String(255))
+    comune: Mapped[str | None] = mapped_column(String(150))
+    provincia: Mapped[str | None] = mapped_column(String(100))
+    cap: Mapped[str | None] = mapped_column(String(10))
+    nazione: Mapped[str | None] = mapped_column(String(100))
+
+    pec: Mapped[str | None] = mapped_column(String(255))
+    partita_iva: Mapped[str | None] = mapped_column(String(11))
+    codice_fiscale: Mapped[str | None] = mapped_column(String(16))
+    numero_rea: Mapped[str | None] = mapped_column(String(30))
+    camera_commercio_competente: Mapped[str | None] = mapped_column(String(150))
+
+    provincia_provenienza: Mapped[str | None] = mapped_column(String(100))
+    numero_rea_precedente: Mapped[str | None] = mapped_column(String(30))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+# ===========================================================================
 # 030 - Estremi dell'elenco soci (singleton)
 # ===========================================================================
 

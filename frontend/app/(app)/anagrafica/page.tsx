@@ -153,9 +153,7 @@ export default async function AnagraficaOverviewPage() {
     return { confermate, daVerificare, daRevisionare };
   }
 
-  const hasSedeLegale = sedi.some((s) => s.tipo_sede.toLowerCase().includes("legale"));
   const hasSedeSecondaria = sedi.some((s) => !s.tipo_sede.toLowerCase().includes("legale"));
-  const hasDomicilioDigitale = contatti.some((c) => /pec|digitale/i.test(c.tipo_contatto));
 
   const righeSoci = incarichi.filter((i) => i.ruolo.codice === "SOCIO");
   const righeAmministratori = incarichi.filter((i) => RUOLI_AMMINISTRATORI.has(i.ruolo.codice));
@@ -163,6 +161,7 @@ export default async function AnagraficaOverviewPage() {
 
   const aggStatuto = sommaRegistro(["informazioni-societarie", "durata-societa-esercizi", "amministrazione-controllo"]);
   const aggCapitale = sommaRegistro(["capitale-sociale"]);
+  const aggSede = sommaRegistro(["sede"]);
 
   const cciaaCards: {
     key: string;
@@ -184,9 +183,9 @@ export default async function AnagraficaOverviewPage() {
       key: "sede",
       sectionKey: "sede",
       titolo: "Sede",
-      presenti: Number(hasSedeLegale) + Number(hasDomicilioDigitale),
-      totale: 2,
-      stato: null,
+      presenti: aggSede.verified + aggSede.pending + aggSede.revisionRequired,
+      totale: aggSede.totalApplicable,
+      stato: statoDaRegistro(aggSede),
     },
     {
       key: "statuto",

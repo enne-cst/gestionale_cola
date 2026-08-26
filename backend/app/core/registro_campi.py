@@ -40,6 +40,7 @@ from app.models.anagrafica import (
     AnaElencoSociEstremi,
     AnaIdentificazioneCamerale,
     AnaSede,
+    AnaSedeRev2,
 )
 from app.models.sistema import SysRegistroAudit, SysRegistroStatoCampi, SysUtente
 from app.schemas.registro_campi import (
@@ -902,6 +903,48 @@ SEZIONE_ELENCO_SOCI_ESTREMI = SezioneRegistro(
     ],
 )
 
+# Pilota richiesto esplicitamente dall'utente il 26/08/2026 (vedi
+# 032_ana_sede_rev2.sql): replica 1:1 i 12 campi della card "Sede" del
+# prototipo HTML in un'unica tabella/sezione dedicata, invece che nella
+# combinazione "informazioni-societarie" + tabella `ana_sedi` usata finora
+# (vedi `frontend/components/registro/cciaa-section-panel.tsx`, ora
+# semplificato: "sede" non è più una vista composita ma una sezione a
+# registro come `capitale-sociale`). Un solo gruppo, senza sottotitoli,
+# perché così la mostra il prototipo. Campo guida: `indirizzo_sede_legale`,
+# stessa convenzione delle altre sezioni con un campo identificativo unico.
+# "Provincia di provenienza" riusa deliberatamente la stessa chiave e la
+# stessa etichetta già presenti in "informazioni-societarie" per lo stesso
+# concetto (coerenza nello stesso schema), non l'etichetta letterale del
+# prototipo ("Trasferita da altra provincia", un campo composito booleano+
+# testo che qui non esiste come colonna dedicata).
+SEZIONE_SEDE = SezioneRegistro(
+    section_key="sede",
+    sezione_codice="ANAGRAFICA_AZIENDALE.SEDE",
+    title="Sede",
+    model=AnaSedeRev2,
+    campo_completamento="indirizzo_sede_legale",
+    gruppi=[
+        GruppoDef(
+            key="sede",
+            title="Sede",
+            campi=[
+                CampoDef("indirizzo_sede_legale", "Indirizzo sede legale", "text"),
+                CampoDef("comune", "Comune", "text"),
+                CampoDef("provincia", "Provincia", "text"),
+                CampoDef("cap", "CAP", "text"),
+                CampoDef("nazione", "Nazione", "text"),
+                CampoDef("pec", "Domicilio digitale / PEC", "text"),
+                CampoDef("partita_iva", "Partita IVA", "partita-iva"),
+                CampoDef("codice_fiscale", "Codice fiscale", "codice-fiscale"),
+                CampoDef("numero_rea", "Numero REA", "text"),
+                CampoDef("camera_commercio_competente", "Camera di Commercio competente", "text"),
+                CampoDef("provincia_provenienza", "Provincia di provenienza", "text"),
+                CampoDef("numero_rea_precedente", "Numero REA precedente", "text"),
+            ],
+        ),
+    ],
+)
+
 SEZIONI: dict[str, SezioneRegistro] = {
     s.section_key: s
     for s in (
@@ -910,5 +953,6 @@ SEZIONI: dict[str, SezioneRegistro] = {
         SEZIONE_DURATA_SOCIETA_ESERCIZI,
         SEZIONE_AMMINISTRAZIONE_CONTROLLO,
         SEZIONE_ELENCO_SOCI_ESTREMI,
+        SEZIONE_SEDE,
     )
 }

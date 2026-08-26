@@ -1,16 +1,17 @@
 // Le 10 card della griglia "Dati CCIAA" (§6.3 del protocollo, ordine della
 // visura camerale). Ogni card apre un pannello nel workspace esistente
-// (drawer 50% / affiancamento / tutta larghezza): la card "Capitale sociale"
-// apre direttamente la sezione a registro `capitale-sociale`
-// (SectionContent), le altre 9 aprono `CciaaSectionPanel`, che compone i
-// gruppi a registro e le tabelle esistenti pertinenti (vedi
-// components/registro/cciaa-section-panel.tsx per la composizione di
-// ciascuna). Le chiavi qui sotto sono usate da `WorkspaceShell` per scegliere
-// quale componente montare per un dato `sectionKey`.
+// (drawer 50% / affiancamento / tutta larghezza): le card "Capitale sociale"
+// e "Sede" aprono direttamente la propria sezione a registro (SectionContent
+// — `capitale-sociale`, `sede`, quest'ultima sostenuta da `ana_sede_rev2`,
+// vedi `backend/app/core/registro_campi.py::SEZIONE_SEDE`), le altre 8 aprono
+// `CciaaSectionPanel`, che compone i gruppi a registro e le tabelle esistenti
+// pertinenti (vedi components/registro/cciaa-section-panel.tsx per la
+// composizione di ciascuna). Le chiavi qui sotto sono usate da
+// `WorkspaceShell` per scegliere quale componente montare per un dato
+// `sectionKey`.
 
 export type CciaaVistaKey =
   | "sintesi"
-  | "sede"
   | "statuto"
   | "soci"
   | "amministratori"
@@ -22,7 +23,6 @@ export type CciaaVistaKey =
 
 export const TITOLO_VISTA_CCIAA: Record<CciaaVistaKey, string> = {
   sintesi: "Dati della sintesi",
-  sede: "Sede",
   statuto: "Informazioni da statuto/atto costitutivo",
   soci: "Soci e titolari di diritti su azioni e quote",
   amministratori: "Amministratori",

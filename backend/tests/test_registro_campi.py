@@ -13,6 +13,7 @@ from app.core.registro_campi import (
     SEZIONE_DURATA_SOCIETA_ESERCIZI,
     SEZIONE_ELENCO_SOCI_ESTREMI,
     SEZIONE_INFORMAZIONI_SOCIETARIE,
+    SEZIONE_SEDE,
     SEZIONI,
     _indice,
     is_empty,
@@ -113,13 +114,14 @@ class TestCatalogoInformazioniSocietarie:
 
 
 class TestSezioniRegistrate:
-    def test_cinque_sezioni_registrate(self):
+    def test_sei_sezioni_registrate(self):
         assert set(SEZIONI) == {
             "informazioni-societarie",
             "capitale-sociale",
             "durata-societa-esercizi",
             "amministrazione-controllo",
             "elenco-soci-estremi",
+            "sede",
         }
 
     def test_ogni_sezione_indicizza_se_stessa(self):
@@ -158,11 +160,30 @@ class TestSezioniRegistrate:
         }
         assert indice.derivate == set()
 
+    def test_catalogo_sede(self):
+        indice = _indice(SEZIONE_SEDE)
+        assert indice.chiavi == {
+            "indirizzo_sede_legale",
+            "comune",
+            "provincia",
+            "cap",
+            "nazione",
+            "pec",
+            "partita_iva",
+            "codice_fiscale",
+            "numero_rea",
+            "camera_commercio_competente",
+            "provincia_provenienza",
+            "numero_rea_precedente",
+        }
+        assert indice.derivate == set()
+
     def test_totale_applicabile_su_tutte_le_sezioni(self):
         # Stessa somma che `valuta_qualita`/`riepilogo_sezioni` usano per
-        # `totalApplicable` (22 + 4 + 3 + 6 + 6): un cambiamento qui e' un
-        # promemoria per aggiornare quel numero consapevolmente.
-        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 41
+        # `totalApplicable` (22 + 4 + 3 + 6 + 6 + 12, l'ultimo per "sede",
+        # pilota su ana_sede_rev2): un cambiamento qui e' un promemoria per
+        # aggiornare quel numero consapevolmente.
+        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 53
 
 
 class TestValidaCampo:
