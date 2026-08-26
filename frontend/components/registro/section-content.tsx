@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
-import { PencilIcon } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { FieldRow } from "@/components/registro/field-row";
-import { VerificationLegend } from "@/components/registro/field-verification-popover";
+import { SectionFooter } from "@/components/registro/section-footer";
 import { useWorkspace } from "@/components/registro/workspace-provider";
 import { SOTTOTITOLO_SEZIONE_REGISTRO, TITOLO_SEZIONE_REGISTRO } from "@/lib/registro-sezioni-meta";
 import { cn } from "@/lib/utils";
@@ -16,12 +14,15 @@ const ETICHETTA_COMPLETAMENTO: Record<string, { testo: string; completa: boolean
   COMPLETE: { testo: "Completa", completa: true },
 };
 
+// Inline (non un sibling flex): deve seguire l'ultima parola del titolo, a
+// capo con esso se il titolo va a capo, non restare ancorato al bordo del
+// contenitore su una riga propria.
 function StatoPill({ status }: { status: string }) {
   const meta = ETICHETTA_COMPLETAMENTO[status];
   return (
     <span
       className={cn(
-        "inline-flex min-h-[30px] items-center rounded-full px-3.5 text-xs font-semibold",
+        "ml-2 inline-flex min-h-[30px] items-center rounded-full px-3.5 align-middle text-xs font-semibold",
         meta.completa ? "bg-[var(--az-green-soft)] text-[#007d5d]" : "bg-[var(--az-orange-soft)] text-[#c35a00]",
       )}
     >
@@ -92,6 +93,7 @@ export function SectionContent({
   headerActions,
   onClose,
   embedded = false,
+  hideFooter = false,
 }: {
   sectionKey: string;
   headerActions?: ReactNode;
@@ -102,9 +104,13 @@ export function SectionContent({
   // nessuna azione di apertura/promozione (quelle restano sul pannello
   // esterno che lo ospita, non per singolo blocco).
   embedded?: boolean;
+  // true quando il pannello che ospita questo blocco monta da sé un
+  // `SectionFooter` più in basso (dopo una tabella annidata, es. Soci/
+  // Amministratori/Sindaci): banner di modifica e legenda vanno in fondo
+  // alla pagina, non tra i campi e la tabella (vedi CciaaSectionPanel).
+  hideFooter?: boolean;
 }) {
-  const { state, ruolo, ensureLoaded, reload, enterEdit, updateField, requestDiscard, save, toggleGroupVisibility } =
-    useWorkspace();
+  const { state, ruolo, ensureLoaded, reload, updateField, toggleGroupVisibility } = useWorkspace();
   const entry = state.sections[sectionKey];
   const consulente = ruolo === "CONSULENTE";
 
@@ -113,27 +119,34 @@ export function SectionContent({
   }, [sectionKey, ensureLoaded]);
 
   const wrapperCls = embedded ? "flex flex-col" : "flex flex-1 flex-col overflow-hidden";
+  const titolo = entry?.server?.title ?? TITOLO_SEZIONE_REGISTRO[sectionKey] ?? sectionKey;
+  // Sezioni a gruppo singolo il cui unico gruppo si chiama come la sezione
+  // (Sede, Capitale sociale, Informazioni da statuto/atto costitutivo,
+  // Estremi dell'elenco soci, ...) mostravano due sottotitoli identici: il
+  // testo descrittivo qui sotto e il titolo del gruppo (con l'occhietto)
+  // subito sopra i campi. Tenere solo quello con l'occhietto — è anche
+  // l'unico dei due con una funzione, non solo descrittivo.
+  const sottotitoloDuplicato =
+    entry?.server?.groups.length === 1 && entry.server.groups[0].title === entry.server.title;
   const header = embedded ? (
     <div className="flex items-center justify-between gap-3 pb-4">
-      <div className="flex items-center gap-3">
-        <h3 className="text-base font-extrabold tracking-tight text-[var(--az-ink)]">
-          {entry?.server?.title ?? TITOLO_SEZIONE_REGISTRO[sectionKey] ?? sectionKey}
-        </h3>
+      <h3 className="text-base font-extrabold tracking-tight text-[var(--az-ink)]">
+        {titolo}
         {entry?.server && <StatoPill status={entry.server.completionStatus} />}
-      </div>
+      </h3>
     </div>
   ) : (
     <div className="flex items-start justify-between gap-4 border-b border-[#edf1f7] px-[30px] py-6">
       <div className="min-w-0">
-        <div className="flex items-center gap-3.5">
-          <h2 className="text-2xl font-extrabold tracking-tight text-[var(--az-ink)]">
-            {entry?.server?.title ?? TITOLO_SEZIONE_REGISTRO[sectionKey] ?? sectionKey}
-          </h2>
+        <h2 className="text-2xl font-extrabold tracking-tight text-[var(--az-ink)]">
+          {titolo}
           {entry?.server && <StatoPill status={entry.server.completionStatus} />}
-        </div>
-        <p className="mt-[9px] text-sm text-[#354a89]">
-          {SOTTOTITOLO_SEZIONE_REGISTRO[sectionKey] ?? "Dati della sezione"}
-        </p>
+        </h2>
+        {!sottotitoloDuplicato && (
+          <p className="mt-[9px] text-sm text-[#354a89]">
+            {SOTTOTITOLO_SEZIONE_REGISTRO[sectionKey] ?? "Dati della sezione"}
+          </p>
+        )}
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {headerActions}
@@ -173,10 +186,6 @@ export function SectionContent({
   if (!section) return null;
 
   const modificando = entry.editing;
-
-  async function onSalva() {
-    await save(sectionKey);
-  }
 
   return (
     <div className={wrapperCls}>
@@ -244,53 +253,7 @@ export function SectionContent({
         })}
       </div>
 
-      <div
-        className={cn(
-          "shrink-0 border-t border-[var(--az-border)] py-0",
-          embedded ? "mt-2" : "bg-[#fffffffa] px-[30px] shadow-[0_-7px_22px_rgba(31,50,94,0.04)]",
-        )}
-      >
-        {modificando ? (
-          <div className="flex min-h-[72px] items-center justify-between gap-4">
-            <span className="text-xs text-[var(--az-muted)]">
-              {Object.keys(entry.fieldErrors).length > 0 ? "Modifica i campi evidenziati" : ""}
-            </span>
-            <div className="flex items-center gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11 min-w-[126px] rounded-[7px] border-[var(--az-blue)] text-[var(--az-blue)] hover:bg-[#f5f8ff]"
-                onClick={() => requestDiscard(sectionKey)}
-                disabled={entry.saving}
-              >
-                Annulla
-              </Button>
-              <Button
-                type="button"
-                className="h-11 min-w-[126px] rounded-[7px] bg-[var(--az-blue)] hover:bg-[var(--az-blue-dark)]"
-                onClick={onSalva}
-                disabled={entry.saving || Object.keys(entry.fieldErrors).length > 0}
-              >
-                {entry.saving ? "Salvataggio…" : "Salva modifiche"}
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-5 py-4">
-            <VerificationLegend />
-            <div className="flex items-center gap-4">
-              <Button
-                type="button"
-                className="h-11 w-[168px] rounded-[7px] bg-[var(--az-blue)] text-[13px] font-bold shadow-[0_5px_12px_rgba(7,94,255,0.18)] hover:bg-[var(--az-blue-dark)]"
-                onClick={() => enterEdit(sectionKey)}
-              >
-                <PencilIcon className="size-4" />
-                Modifica dati
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
+      {!hideFooter && <SectionFooter sectionKey={sectionKey} embedded={embedded} />}
     </div>
   );
 }

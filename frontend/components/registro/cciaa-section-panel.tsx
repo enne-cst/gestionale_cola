@@ -12,6 +12,7 @@ import { SoaTable } from "@/app/(app)/anagrafica/soa/soa-table";
 import { EmbeddedResourceBlock } from "@/components/registro/embedded-resource-block";
 import { IncaricoTable } from "@/components/registro/incarico-table";
 import { SectionContent } from "@/components/registro/section-content";
+import { SectionFooter } from "@/components/registro/section-footer";
 import { SintesiPanel } from "@/components/registro/sintesi-panel";
 import { TITOLO_VISTA_CCIAA, type CciaaVistaKey } from "@/lib/cciaa-viste";
 import type {
@@ -23,6 +24,19 @@ import type {
   Sede,
   Soa,
 } from "@/lib/types/anagrafica";
+
+// Vista -> sectionKey il cui SectionFooter (legenda + banner di modifica)
+// va montato in fondo al pannello, come sibling dopo l'area di scroll —
+// mai tra i campi e una tabella annidata (Soci/Amministratori/Sindaci) né
+// dentro il blocco embedded stesso. Le viste assenti da questa mappa non
+// hanno un blocco a registro con footer (solo tabelle, es. "attivita-albi"),
+// o hanno un pannello del tutto diverso ("sintesi").
+const VISTA_FOOTER_SECTION_KEY: Partial<Record<CciaaVistaKey, string>> = {
+  soci: "elenco-soci-estremi",
+  amministratori: "amministrazione-controllo",
+  sindaci: "amministrazione-controllo",
+  "aggiornamento-impresa": "informazioni-societarie",
+};
 
 const SOTTOTITOLO_VISTA_CCIAA: Record<CciaaVistaKey, string> = {
   sintesi: "Indicatori non presenti nelle altre sezioni, in sola lettura",
@@ -47,7 +61,7 @@ function ContenutoVista({ vistaKey }: { vistaKey: CciaaVistaKey }) {
     case "soci":
       return (
         <>
-          <SectionContent sectionKey="elenco-soci-estremi" embedded />
+          <SectionContent sectionKey="elenco-soci-estremi" embedded hideFooter />
           <section className="py-2">
             <IncaricoTable ruoliCodici={["SOCIO"]} etichettaVuoto="Nessun socio registrato." />
           </section>
@@ -56,7 +70,7 @@ function ContenutoVista({ vistaKey }: { vistaKey: CciaaVistaKey }) {
     case "amministratori":
       return (
         <>
-          <SectionContent sectionKey="amministrazione-controllo" embedded />
+          <SectionContent sectionKey="amministrazione-controllo" embedded hideFooter />
           <section className="py-2">
             <IncaricoTable
               ruoliCodici={["AMMINISTRATORE", "AMMINISTRATORE_DELEGATO", "COMPONENTE_CDA"]}
@@ -68,7 +82,7 @@ function ContenutoVista({ vistaKey }: { vistaKey: CciaaVistaKey }) {
     case "sindaci":
       return (
         <>
-          <SectionContent sectionKey="amministrazione-controllo" embedded />
+          <SectionContent sectionKey="amministrazione-controllo" embedded hideFooter />
           <section className="py-2">
             <IncaricoTable ruoliCodici={["SINDACO", "REVISORE_LEGALE"]} etichettaVuoto="Nessun sindaco o revisore registrato." />
           </section>
@@ -109,7 +123,7 @@ function ContenutoVista({ vistaKey }: { vistaKey: CciaaVistaKey }) {
         </EmbeddedResourceBlock>
       );
     case "aggiornamento-impresa":
-      return <SectionContent sectionKey="informazioni-societarie" embedded />;
+      return <SectionContent sectionKey="informazioni-societarie" embedded hideFooter />;
   }
 }
 
@@ -127,6 +141,7 @@ export function CciaaSectionPanel({
   headerActions?: ReactNode;
   onClose?: () => void;
 }) {
+  const footerSectionKey = VISTA_FOOTER_SECTION_KEY[vistaKey];
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="flex items-start justify-between gap-4 border-b border-[#edf1f7] px-[30px] py-6">
@@ -151,6 +166,7 @@ export function CciaaSectionPanel({
       <div className="az-scroll-thin flex-1 overflow-y-auto px-[30px] pb-6">
         <ContenutoVista vistaKey={vistaKey} />
       </div>
+      {footerSectionKey && <SectionFooter sectionKey={footerSectionKey} />}
     </div>
   );
 }
