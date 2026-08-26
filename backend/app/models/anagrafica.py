@@ -643,6 +643,50 @@ class AnaSedeRev2(Base):
 
 
 # ===========================================================================
+# 033 - Informazioni da statuto/atto costitutivo (pilota, singleton) -
+#        vedi 033_ana_statuto_rev2.sql
+# ===========================================================================
+
+
+class AnaStatutoRev2(Base):
+    """Card "Informazioni da statuto/atto costitutivo" (sezione 2 della
+    visura) replicata 1:1 dal prototipo HTML, 1:1 con l'azienda. Tabella
+    pilota, stesso criterio di `AnaSedeRev2`: duplica intenzionalmente
+    concetti già presenti in `AnaIdentificazioneCamerale`,
+    `AnaDurataSocietaEsercizi` e `AnaAmministrazioneControllo` — vedi il
+    commento in testa a `033_ana_statuto_rev2.sql` per la motivazione e per
+    cosa resta da fare prima di eliminare le tabelle diventate obsolete."""
+
+    __tablename__ = "ana_statuto_rev2"
+    __table_args__ = (UniqueConstraint("azienda_id"),)
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+
+    denominazione: Mapped[str | None] = mapped_column(String(255))
+    registro_imprese: Mapped[str | None] = mapped_column(String(150))
+    data_iscrizione: Mapped[date | None]
+    sezione_ordinaria: Mapped[str | None] = mapped_column(String(255))
+    sezione_titolarita_effettiva: Mapped[str | None] = mapped_column(String(255))
+    forma_giuridica: Mapped[str | None] = mapped_column(String(150))
+    data_atto_costitutivo: Mapped[date | None]
+
+    data_termine_societa: Mapped[date | None]
+    scadenza_primo_esercizio: Mapped[date | None]
+    scadenza_esercizi_successivi: Mapped[str | None] = mapped_column(String(50))
+    giorni_proroga_approvazione_bilancio: Mapped[int | None] = mapped_column(Integer)
+
+    sistema_amministrazione_adottato: Mapped[str | None] = mapped_column(String(150))
+    controllo_contabile: Mapped[str | None] = mapped_column(String(150))
+    organi_amministrativi_previsti: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+# ===========================================================================
 # 030 - Estremi dell'elenco soci (singleton)
 # ===========================================================================
 

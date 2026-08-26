@@ -7,14 +7,12 @@ import { AddettiComuneTable } from "@/app/(app)/anagrafica/addetti-comune/addett
 import { AddettiVisuraTable } from "@/app/(app)/anagrafica/addetti-visura/addetti-visura-table";
 import { CertificazioniTable } from "@/app/(app)/anagrafica/certificazioni/certificazioni-table";
 import { CodiciAtecoTable } from "@/app/(app)/anagrafica/codici-ateco/codici-ateco-table";
-import { IscrizioniTable } from "@/app/(app)/anagrafica/iscrizioni-registro-imprese/iscrizioni-table";
 import { SediTable } from "@/app/(app)/anagrafica/sedi/sedi-table";
 import { SoaTable } from "@/app/(app)/anagrafica/soa/soa-table";
 import { EmbeddedResourceBlock } from "@/components/registro/embedded-resource-block";
 import { IncaricoTable } from "@/components/registro/incarico-table";
 import { SectionContent } from "@/components/registro/section-content";
 import { SintesiPanel } from "@/components/registro/sintesi-panel";
-import { SistemiAmministrazioneField } from "@/components/registro/sistemi-amministrazione-field";
 import { TITOLO_VISTA_CCIAA, type CciaaVistaKey } from "@/lib/cciaa-viste";
 import type {
   AddettiComune,
@@ -22,14 +20,12 @@ import type {
   AlboRuoloLicenza,
   Certificazione,
   CodiceAteco,
-  IscrizioneRegistroImprese,
   Sede,
   Soa,
 } from "@/lib/types/anagrafica";
 
 const SOTTOTITOLO_VISTA_CCIAA: Record<CciaaVistaKey, string> = {
   sintesi: "Indicatori non presenti nelle altre sezioni, in sola lettura",
-  statuto: "Identificazione camerale, durata, amministrazione e iscrizioni al Registro Imprese",
   soci: "Elenco dei soci e titolari di diritti su azioni e quote",
   amministratori: "Organo amministrativo in carica ed elenco degli amministratori",
   sindaci: "Organo di controllo ed elenco di sindaci e revisori",
@@ -48,22 +44,6 @@ function ContenutoVista({ vistaKey }: { vistaKey: CciaaVistaKey }) {
   switch (vistaKey) {
     case "sintesi":
       return <SintesiPanel />;
-    case "statuto":
-      return (
-        <>
-          <SectionContent sectionKey="informazioni-societarie" embedded />
-          <SectionContent sectionKey="durata-societa-esercizi" embedded />
-          <SectionContent sectionKey="amministrazione-controllo" embedded />
-          <SistemiAmministrazioneField />
-          <EmbeddedResourceBlock<IscrizioneRegistroImprese>
-            title="Iscrizioni registro imprese"
-            apiPath="/api/anagrafica/iscrizioni-registro-imprese"
-            panoramicaSlug="iscrizioni-registro-imprese"
-          >
-            {(items, recordIds) => <IscrizioniTable iscrizioni={items} recordIdsInPanoramica={recordIds} />}
-          </EmbeddedResourceBlock>
-        </>
-      );
     case "soci":
       return (
         <>

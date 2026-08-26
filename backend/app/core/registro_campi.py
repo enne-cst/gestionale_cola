@@ -41,6 +41,7 @@ from app.models.anagrafica import (
     AnaIdentificazioneCamerale,
     AnaSede,
     AnaSedeRev2,
+    AnaStatutoRev2,
 )
 from app.models.sistema import SysRegistroAudit, SysRegistroStatoCampi, SysUtente
 from app.schemas.registro_campi import (
@@ -812,7 +813,9 @@ SEZIONE_INFORMAZIONI_SOCIETARIE = SezioneRegistro(
 
 # Nuova (fusione CCIAA, card "Capitale sociale"): nessun campo guida unico,
 # stessa convenzione di `page.tsx` (compilata = uno qualunque dei tre importi
-# presente).
+# presente). Ordine campi allineato a `cciaaSections` del prototipo HTML
+# 25-08-26 (deliberato/sottoscritto/versato/valuta): stesse colonne di
+# sempre, nessuna nuova tabella necessaria qui, la card era già fedele.
 SEZIONE_CAPITALE_SOCIALE = SezioneRegistro(
     section_key="capitale-sociale",
     sezione_codice="ANAGRAFICA_AZIENDALE.CAPITALE_SOCIALE",
@@ -823,10 +826,10 @@ SEZIONE_CAPITALE_SOCIALE = SezioneRegistro(
             key="capitale",
             title="Capitale sociale",
             campi=[
-                CampoDef("valuta", "Valuta", "valuta"),
                 CampoDef("capitale_deliberato", "Capitale deliberato", "importo"),
                 CampoDef("capitale_sottoscritto", "Capitale sottoscritto", "importo"),
                 CampoDef("capitale_versato", "Capitale versato", "importo"),
+                CampoDef("valuta", "Valuta", "valuta"),
             ],
         ),
     ],
@@ -945,6 +948,44 @@ SEZIONE_SEDE = SezioneRegistro(
     ],
 )
 
+# Secondo pilota "una tabella per sezione" (26/08/2026, stesso metodo di
+# lavoro concordato con l'utente dopo `SEZIONE_SEDE`): replica 1:1 i 14
+# campi della card "Informazioni da statuto/atto costitutivo" in
+# `ana_statuto_rev2`, al posto della vecchia composizione di
+# "informazioni-societarie" + "durata-societa-esercizi" +
+# "amministrazione-controllo" + tabella "iscrizioni-registro-imprese" (vedi
+# `frontend/components/registro/cciaa-section-panel.tsx`, ora semplificato
+# come già fatto per "sede"). Un solo gruppo, campo guida `denominazione`.
+SEZIONE_STATUTO = SezioneRegistro(
+    section_key="statuto",
+    sezione_codice="ANAGRAFICA_AZIENDALE.STATUTO",
+    title="Informazioni da statuto/atto costitutivo",
+    model=AnaStatutoRev2,
+    campo_completamento="denominazione",
+    gruppi=[
+        GruppoDef(
+            key="statuto",
+            title="Informazioni da statuto/atto costitutivo",
+            campi=[
+                CampoDef("denominazione", "Denominazione", "text"),
+                CampoDef("registro_imprese", "Registro delle Imprese", "text"),
+                CampoDef("data_iscrizione", "Data di iscrizione", "date"),
+                CampoDef("sezione_ordinaria", "Sezione ordinaria", "text"),
+                CampoDef("sezione_titolarita_effettiva", "Sezione titolarità effettiva", "text"),
+                CampoDef("forma_giuridica", "Forma giuridica", "text"),
+                CampoDef("data_atto_costitutivo", "Data atto di costituzione", "date"),
+                CampoDef("data_termine_societa", "Data termine società", "date"),
+                CampoDef("scadenza_primo_esercizio", "Scadenza primo esercizio", "date"),
+                CampoDef("scadenza_esercizi_successivi", "Scadenza esercizi successivi", "day-month"),
+                CampoDef("giorni_proroga_approvazione_bilancio", "Proroga approvazione bilancio", "number"),
+                CampoDef("sistema_amministrazione_adottato", "Sistema di amministrazione adottato", "text"),
+                CampoDef("controllo_contabile", "Controllo contabile", "text"),
+                CampoDef("organi_amministrativi_previsti", "Organi amministrativi previsti", "text"),
+            ],
+        ),
+    ],
+)
+
 SEZIONI: dict[str, SezioneRegistro] = {
     s.section_key: s
     for s in (
@@ -954,5 +995,6 @@ SEZIONI: dict[str, SezioneRegistro] = {
         SEZIONE_AMMINISTRAZIONE_CONTROLLO,
         SEZIONE_ELENCO_SOCI_ESTREMI,
         SEZIONE_SEDE,
+        SEZIONE_STATUTO,
     )
 }

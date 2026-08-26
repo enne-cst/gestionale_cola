@@ -14,6 +14,7 @@ from app.core.registro_campi import (
     SEZIONE_ELENCO_SOCI_ESTREMI,
     SEZIONE_INFORMAZIONI_SOCIETARIE,
     SEZIONE_SEDE,
+    SEZIONE_STATUTO,
     SEZIONI,
     _indice,
     is_empty,
@@ -114,7 +115,7 @@ class TestCatalogoInformazioniSocietarie:
 
 
 class TestSezioniRegistrate:
-    def test_sei_sezioni_registrate(self):
+    def test_sette_sezioni_registrate(self):
         assert set(SEZIONI) == {
             "informazioni-societarie",
             "capitale-sociale",
@@ -122,6 +123,7 @@ class TestSezioniRegistrate:
             "amministrazione-controllo",
             "elenco-soci-estremi",
             "sede",
+            "statuto",
         }
 
     def test_ogni_sezione_indicizza_se_stessa(self):
@@ -178,12 +180,33 @@ class TestSezioniRegistrate:
         }
         assert indice.derivate == set()
 
+    def test_catalogo_statuto(self):
+        indice = _indice(SEZIONE_STATUTO)
+        assert indice.chiavi == {
+            "denominazione",
+            "registro_imprese",
+            "data_iscrizione",
+            "sezione_ordinaria",
+            "sezione_titolarita_effettiva",
+            "forma_giuridica",
+            "data_atto_costitutivo",
+            "data_termine_societa",
+            "scadenza_primo_esercizio",
+            "scadenza_esercizi_successivi",
+            "giorni_proroga_approvazione_bilancio",
+            "sistema_amministrazione_adottato",
+            "controllo_contabile",
+            "organi_amministrativi_previsti",
+        }
+        assert indice.derivate == set()
+
     def test_totale_applicabile_su_tutte_le_sezioni(self):
         # Stessa somma che `valuta_qualita`/`riepilogo_sezioni` usano per
-        # `totalApplicable` (22 + 4 + 3 + 6 + 6 + 12, l'ultimo per "sede",
-        # pilota su ana_sede_rev2): un cambiamento qui e' un promemoria per
-        # aggiornare quel numero consapevolmente.
-        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 53
+        # `totalApplicable` (22 + 4 + 3 + 6 + 6 + 12 + 14, gli ultimi due per
+        # "sede"/"statuto", pilota su ana_sede_rev2/ana_statuto_rev2): un
+        # cambiamento qui e' un promemoria per aggiornare quel numero
+        # consapevolmente.
+        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 67
 
 
 class TestValidaCampo:

@@ -9,6 +9,7 @@ export const TITOLO_SEZIONE_REGISTRO: Record<string, string> = {
   "durata-societa-esercizi": "Durata società ed esercizi",
   "amministrazione-controllo": "Amministrazione e controllo",
   sede: "Sede",
+  statuto: "Informazioni da statuto/atto costitutivo",
 };
 
 export const SOTTOTITOLO_SEZIONE_REGISTRO: Record<string, string> = {
@@ -17,4 +18,5 @@ export const SOTTOTITOLO_SEZIONE_REGISTRO: Record<string, string> = {
   "durata-societa-esercizi": "Durata della società e chiusura degli esercizi",
   "amministrazione-controllo": "Organo amministrativo in carica e conteggi aggregati",
   sede: "Sede legale, domicilio digitale e dati identificativi camerali",
+  statuto: "Denominazione, iscrizione, durata e sistema di amministrazione adottato",
 };

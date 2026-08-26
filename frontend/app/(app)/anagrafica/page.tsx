@@ -159,7 +159,7 @@ export default async function AnagraficaOverviewPage() {
   const righeAmministratori = incarichi.filter((i) => RUOLI_AMMINISTRATORI.has(i.ruolo.codice));
   const righeSindaci = incarichi.filter((i) => RUOLI_SINDACI.has(i.ruolo.codice));
 
-  const aggStatuto = sommaRegistro(["informazioni-societarie", "durata-societa-esercizi", "amministrazione-controllo"]);
+  const aggStatuto = sommaRegistro(["statuto"]);
   const aggCapitale = sommaRegistro(["capitale-sociale"]);
   const aggSede = sommaRegistro(["sede"]);
 
@@ -191,8 +191,8 @@ export default async function AnagraficaOverviewPage() {
       key: "statuto",
       sectionKey: "statuto",
       titolo: "Informazioni da statuto/atto costitutivo",
-      presenti: aggStatuto.verified + aggStatuto.pending + aggStatuto.revisionRequired + Number(stato["iscrizioni-registro-imprese"]),
-      totale: aggStatuto.totalApplicable + 1,
+      presenti: aggStatuto.verified + aggStatuto.pending + aggStatuto.revisionRequired,
+      totale: aggStatuto.totalApplicable,
       stato: statoDaRegistro(aggStatuto),
     },
     {
