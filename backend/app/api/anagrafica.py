@@ -34,21 +34,14 @@ from app.models.anagrafica import (
     AnaCodiceAteco,
     AnaContatto,
     AnaDurataSocietaEsercizi,
+    AnaElencoSociEstremi,
     AnaIdentificazioneCamerale,
     AnaIscrizioneRegistroImprese,
     AnaSede,
+    AnaSedeAttivita,
     AnaSistemaAmministrazione,
     AnaSoa,
     AnaSoaCategoria,
-    QualAmministratoreCarica,
-    QualAmministratoreDelegato,
-    QualComponenteConsiglioAmministrazione,
-    QualDirettoreTecnicoSoa,
-    QualElencoSoci,
-    QualResponsabileFer,
-    QualRevisoreLegale,
-    QualSindaco,
-    QualSocio,
 )
 from app.models.anagrafica_iso9001 import (
     AnaAssicurazione,
@@ -95,12 +88,6 @@ from app.schemas.anagrafica import (
     AlboRuoloLicenzaUpdate,
     AmministrazioneControlloRead,
     AmministrazioneControlloUpsert,
-    AmministratoreCaricaCreate,
-    AmministratoreCaricaRead,
-    AmministratoreCaricaUpdate,
-    AmministratoreDelegatoCreate,
-    AmministratoreDelegatoRead,
-    AmministratoreDelegatoUpdate,
     AttivitaEsercitataRead,
     AttivitaEsercitataUpsert,
     CapitaleSocialeRead,
@@ -112,44 +99,27 @@ from app.schemas.anagrafica import (
     CodiceAtecoCreate,
     CodiceAtecoRead,
     CodiceAtecoUpdate,
-    ComponenteCdaCreate,
-    ComponenteCdaRead,
-    ComponenteCdaUpdate,
     ContattoCreate,
     ContattoRead,
     ContattoUpdate,
-    DirettoreTecnicoSoaCreate,
-    DirettoreTecnicoSoaRead,
-    DirettoreTecnicoSoaUpdate,
     DurataSocietaEserciziRead,
     DurataSocietaEserciziUpsert,
-    ElencoSociRead,
-    ElencoSociUpsert,
+    ElencoSociEstremiRead,
+    ElencoSociEstremiUpsert,
     IdentificazioneCameraleRead,
     IdentificazioneCameraleUpsert,
     IscrizioneRegistroImpreseCreate,
     IscrizioneRegistroImpreseRead,
     IscrizioneRegistroImpreseUpdate,
-    ResponsabileFerCreate,
-    ResponsabileFerRead,
-    ResponsabileFerUpdate,
-    RevisoreLegaleCreate,
-    RevisoreLegaleRead,
-    RevisoreLegaleUpdate,
+    SedeAttivitaRead,
     SedeCreate,
     SedeRead,
     SedeUpdate,
-    SindacoCreate,
-    SindacoRead,
-    SindacoUpdate,
     SistemaAmministrazioneRead,
     SoaCategoriaRead,
     SoaCreate,
     SoaRead,
     SoaUpdate,
-    SocioCreate,
-    SocioRead,
-    SocioUpdate,
 )
 from app.schemas.anagrafica_iso9001 import (
     AssicurazioneCreate,
@@ -280,12 +250,12 @@ register_singleton_crud(
 
 register_singleton_crud(
     router,
-    path="/elenco-soci",
+    path="/elenco-soci-estremi",
     tags=TAGS,
     modulo=MODULO,
-    model=QualElencoSoci,
-    read_schema=ElencoSociRead,
-    upsert_schema=ElencoSociUpsert,
+    model=AnaElencoSociEstremi,
+    read_schema=ElencoSociEstremiRead,
+    upsert_schema=ElencoSociEstremiUpsert,
 )
 
 # ---------------------------------------------------------------------------
@@ -334,28 +304,6 @@ register_list_crud(
 
 register_list_crud(
     router,
-    path="/soci",
-    tags=TAGS,
-    modulo=MODULO,
-    model=QualSocio,
-    read_schema=SocioRead,
-    create_schema=SocioCreate,
-    update_schema=SocioUpdate,
-)
-
-register_list_crud(
-    router,
-    path="/amministratori-cariche",
-    tags=TAGS,
-    modulo=MODULO,
-    model=QualAmministratoreCarica,
-    read_schema=AmministratoreCaricaRead,
-    create_schema=AmministratoreCaricaCreate,
-    update_schema=AmministratoreCaricaUpdate,
-)
-
-register_list_crud(
-    router,
     path="/albi-ruoli-licenze",
     tags=TAGS,
     modulo=MODULO,
@@ -365,7 +313,7 @@ register_list_crud(
     update_schema=AlboRuoloLicenzaUpdate,
 )
 
-register_list_crud(
+register_list_crud_with_children(
     router,
     path="/sedi",
     tags=TAGS,
@@ -374,6 +322,10 @@ register_list_crud(
     read_schema=SedeRead,
     create_schema=SedeCreate,
     update_schema=SedeUpdate,
+    child_model=AnaSedeAttivita,
+    child_fk_field="sede_id",
+    children_attr="attivita",
+    child_read_schema=SedeAttivitaRead,
 )
 
 register_list_crud(
@@ -385,72 +337,6 @@ register_list_crud(
     read_schema=ContattoRead,
     create_schema=ContattoCreate,
     update_schema=ContattoUpdate,
-)
-
-register_list_crud(
-    router,
-    path="/responsabili-fer",
-    tags=TAGS,
-    modulo=MODULO,
-    model=QualResponsabileFer,
-    read_schema=ResponsabileFerRead,
-    create_schema=ResponsabileFerCreate,
-    update_schema=ResponsabileFerUpdate,
-)
-
-register_list_crud(
-    router,
-    path="/sindaci",
-    tags=TAGS,
-    modulo=MODULO,
-    model=QualSindaco,
-    read_schema=SindacoRead,
-    create_schema=SindacoCreate,
-    update_schema=SindacoUpdate,
-)
-
-register_list_crud(
-    router,
-    path="/revisori-legali",
-    tags=TAGS,
-    modulo=MODULO,
-    model=QualRevisoreLegale,
-    read_schema=RevisoreLegaleRead,
-    create_schema=RevisoreLegaleCreate,
-    update_schema=RevisoreLegaleUpdate,
-)
-
-register_list_crud(
-    router,
-    path="/direttori-tecnici-soa",
-    tags=TAGS,
-    modulo=MODULO,
-    model=QualDirettoreTecnicoSoa,
-    read_schema=DirettoreTecnicoSoaRead,
-    create_schema=DirettoreTecnicoSoaCreate,
-    update_schema=DirettoreTecnicoSoaUpdate,
-)
-
-register_list_crud(
-    router,
-    path="/amministratori-delegati",
-    tags=TAGS,
-    modulo=MODULO,
-    model=QualAmministratoreDelegato,
-    read_schema=AmministratoreDelegatoRead,
-    create_schema=AmministratoreDelegatoCreate,
-    update_schema=AmministratoreDelegatoUpdate,
-)
-
-register_list_crud(
-    router,
-    path="/componenti-cda",
-    tags=TAGS,
-    modulo=MODULO,
-    model=QualComponenteConsiglioAmministrazione,
-    read_schema=ComponenteCdaRead,
-    create_schema=ComponenteCdaCreate,
-    update_schema=ComponenteCdaUpdate,
 )
 
 # ---------------------------------------------------------------------------

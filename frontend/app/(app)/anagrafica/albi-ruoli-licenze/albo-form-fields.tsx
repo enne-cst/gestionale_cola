@@ -1,12 +1,14 @@
 import { FormField } from "@/components/form-field";
 import { FormTextareaField } from "@/components/form-textarea-field";
-import type { AlboRuoloLicenza } from "@/lib/types/anagrafica";
+import { SedeSelectField } from "@/components/sede-select-field";
+import type { AlboRuoloLicenza, Sede } from "@/lib/types/anagrafica";
 
-export function AlboFormFields({ dati }: { dati?: AlboRuoloLicenza }) {
+export function AlboFormFields({ dati, sedi = [] }: { dati?: AlboRuoloLicenza; sedi?: Sede[] }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FormField label="Tipologia" name="tipologia" defaultValue={dati?.tipologia} required />
+        <SedeSelectField sedi={sedi} defaultValue={dati?.sede_id} />
         <FormField label="Numero iscrizione" name="numero_iscrizione" defaultValue={dati?.numero_iscrizione} />
         <FormField label="Provincia" name="provincia" defaultValue={dati?.provincia} />
         <FormField label="Sezione" name="sezione" defaultValue={dati?.sezione} />

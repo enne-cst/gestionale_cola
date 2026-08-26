@@ -4,14 +4,34 @@ import { useEffect, type ReactNode } from "react";
 import { Maximize2Icon, PanelRightIcon, SquareArrowOutUpRightIcon, XIcon } from "lucide-react";
 
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { CciaaSectionPanel } from "@/components/registro/cciaa-section-panel";
 import { SectionContent } from "@/components/registro/section-content";
 import { UnsavedChangesDialog } from "@/components/registro/unsaved-changes-dialog";
 import { isSectionDirty, useWorkspace } from "@/components/registro/workspace-provider";
+import { isCciaaVistaKey, TITOLO_VISTA_CCIAA } from "@/lib/cciaa-viste";
+import { TITOLO_SEZIONE_REGISTRO } from "@/lib/registro-sezioni-meta";
 import { cn } from "@/lib/utils";
 
-const TITOLO_SEZIONE: Record<string, string> = {
-  "informazioni-societarie": "Informazioni societarie",
-};
+const TITOLO_SEZIONE: Record<string, string> = { ...TITOLO_SEZIONE_REGISTRO, ...TITOLO_VISTA_CCIAA };
+
+/** Sceglie tra la sezione a registro "pura" (Informazioni societarie,
+ * Capitale sociale, ...) e il pannello composito di una card CCIAA (Sede,
+ * Statuto, Soci, ...): stesso `sectionKey` generico del workspace, la
+ * differenza è tutta qui, non nello stato del provider. */
+function SectionOrCciaaPanel({
+  sectionKey,
+  headerActions,
+  onClose,
+}: {
+  sectionKey: string;
+  headerActions?: ReactNode;
+  onClose?: () => void;
+}) {
+  if (isCciaaVistaKey(sectionKey)) {
+    return <CciaaSectionPanel vistaKey={sectionKey} headerActions={headerActions} onClose={onClose} />;
+  }
+  return <SectionContent sectionKey={sectionKey} headerActions={headerActions} onClose={onClose} />;
+}
 
 function ShellActionButton({
   onClick,
@@ -107,7 +127,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
         <div className="grid grid-cols-2 gap-0 divide-x divide-[var(--az-border)] overflow-hidden rounded-[12px] border border-[var(--az-border)] bg-white shadow-[0_4px_15px_rgba(25,46,98,0.05)]">
           <div className="az-scroll-thin overflow-y-auto p-1">{children}</div>
           <div className="flex min-h-[34rem] flex-col">
-            <SectionContent
+            <SectionOrCciaaPanel
               sectionKey={state.openSectionKey}
               headerActions={
                 <ShellActionButton icon={Maximize2Icon} onClick={() => requestPromoteFull(state.openSectionKey!)}>
@@ -120,7 +140,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
         </div>
       ) : state.mode === "FULL" && state.activeSurface !== "overview" ? (
         <div className="flex min-h-[34rem] flex-col overflow-hidden rounded-[12px] border border-[var(--az-border)] bg-white">
-          <SectionContent
+          <SectionOrCciaaPanel
             sectionKey={state.activeSurface}
             headerActions={
               <ShellActionButton icon={PanelRightIcon} onClick={() => requestPromoteSplit(state.activeSurface)}>
@@ -136,7 +156,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
       {state.mode === "DRAWER" && state.openSectionKey && (
         <Sheet open onOpenChange={(open) => !open && requestCloseDrawer()}>
           <SheetContent className="w-[50vw] min-w-[720px] gap-0 border-l-0 p-0 shadow-[-18px_0_45px_rgba(10,25,66,0.16)] sm:max-w-none" showCloseButton={false}>
-            <SectionContent
+            <SectionOrCciaaPanel
               sectionKey={state.openSectionKey}
               headerActions={
                 <>
@@ -148,7 +168,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
                   </ShellActionButton>
                   <button
                     type="button"
-                    aria-label="Chiudi Informazioni societarie"
+                    aria-label={`Chiudi ${TITOLO_SEZIONE[state.openSectionKey] ?? state.openSectionKey}`}
                     onClick={requestCloseDrawer}
                     className="grid size-9 place-items-center rounded-[7px] border border-[#cedaf0] text-[var(--az-ink)] hover:bg-[#f6f9ff]"
                   >

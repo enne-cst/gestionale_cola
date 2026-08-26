@@ -1,10 +1,17 @@
 "use server";
 
 import { apiFetch, apiFetchResult } from "@/lib/api";
-import type { RegistryOverview, Section } from "@/lib/types/registro";
+import type { RegistryOverview, Section, SectionSummary } from "@/lib/types/registro";
 
 export async function getRegistroOverview(): Promise<RegistryOverview> {
   return apiFetch<RegistryOverview>("/api/anagrafica/registro/overview");
+}
+
+/** Conteggi confermato/da verificare/da revisionare per ciascuna sezione a
+ * registro (§6.4 del prototipo): alimenta la riga a tre pallini di ogni card
+ * della griglia CCIAA senza che il frontend debba ricalcolare nulla. */
+export async function getRiepilogoSezioni(): Promise<SectionSummary[]> {
+  return apiFetch<SectionSummary[]>("/api/anagrafica/registro/sections/summary");
 }
 
 export async function getRegistroSezione(sectionKey: string): Promise<Section> {

@@ -14,20 +14,22 @@ export type SezioneAnagrafica = {
 };
 
 // Elenco delle voci del modulo Anagrafica Aziendale, raggruppate per
-// categoria mostrata nella panoramica e nella barra di navigazione: le
-// informazioni societarie principali restano in evidenza, Sedi e Contatti
-// hanno una categoria propria, i dati estratti dalla visura camerale (cap.
-// 3.2.1) confluiscono in "Dati CCIAA". Organizzazione, Trend, Assicurazioni
-// e Altre informazioni (cap. 4.2.2/4.2.3) sono soggette all'abbonamento
-// ISO 9001: `sezioniVisibili`/`categorieVisibili` sotto le filtrano in base
-// a `GET /api/sezioni`.
+// categoria mostrata nella panoramica e nella barra di navigazione. Le 14
+// sezioni base (ex "Informazioni societarie"/"Sedi"/"Contatti"/"Dati CCIAA",
+// fuse in un'unica macrosezione "Dati CCIAA" ordinata come la visura
+// camerale, vedi `frontend/components/registro/cciaa-macro-section.tsx`)
+// restano tutte raggiungibili dalle rotte `/anagrafica/<slug>` esistenti.
+// Organizzazione, Trend, Assicurazioni e Altre informazioni (cap.
+// 4.2.2/4.2.3) sono soggette all'abbonamento ISO 9001:
+// `sezioniVisibili`/`categorieVisibili` sotto le filtrano in base a
+// `GET /api/sezioni`.
 export const SEZIONI_ANAGRAFICA: SezioneAnagrafica[] = [
-  { slug: "identificazione-camerale", titolo: "Identificazione camerale", categoria: "Informazioni societarie" },
-  { slug: "durata-societa-esercizi", titolo: "Durata società ed esercizi", categoria: "Informazioni societarie" },
-  { slug: "attivita-esercitata", titolo: "Attività esercitata", categoria: "Informazioni societarie" },
-  { slug: "capitale-sociale", titolo: "Capitale sociale", categoria: "Informazioni societarie" },
-  { slug: "sedi", titolo: "Sedi", categoria: "Sedi" },
-  { slug: "contatti", titolo: "Contatti e recapiti", categoria: "Contatti" },
+  { slug: "identificazione-camerale", titolo: "Identificazione camerale", categoria: "Dati CCIAA" },
+  { slug: "durata-societa-esercizi", titolo: "Durata società ed esercizi", categoria: "Dati CCIAA" },
+  { slug: "attivita-esercitata", titolo: "Attività esercitata", categoria: "Dati CCIAA" },
+  { slug: "capitale-sociale", titolo: "Capitale sociale", categoria: "Dati CCIAA" },
+  { slug: "sedi", titolo: "Sedi", categoria: "Dati CCIAA" },
+  { slug: "contatti", titolo: "Contatti e recapiti", categoria: "Dati CCIAA" },
   { slug: "iscrizioni-registro-imprese", titolo: "Iscrizioni registro imprese", categoria: "Dati CCIAA" },
   { slug: "codici-ateco", titolo: "Codici ATECO", categoria: "Dati CCIAA" },
   { slug: "amministrazione-controllo", titolo: "Amministrazione e controllo", categoria: "Dati CCIAA" },
@@ -161,9 +163,6 @@ export type CategoriaAnagrafica = {
 // panoramica. Lo slug è usato come ancora (#slug) per saltare alla sezione
 // corrispondente della panoramica dalle altre pagine del modulo.
 export const CATEGORIE_ANAGRAFICA: CategoriaAnagrafica[] = [
-  { nome: "Informazioni societarie", slug: "informazioni-societarie" },
-  { nome: "Sedi", slug: "sedi" },
-  { nome: "Contatti", slug: "contatti" },
   { nome: "Dati CCIAA", slug: "dati-cciaa" },
   { nome: "Organizzazione", slug: "organizzazione" },
   { nome: "Trend", slug: "trend" },

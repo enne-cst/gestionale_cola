@@ -3,6 +3,16 @@
 Mappano le tabelle già create dalla baseline (`database_struttura/Mod.
 Anagrafica Aziendale/Dati estrapolati dalla CCIA/`). Non introducono nulla
 di nuovo a schema: descrivono da codice una struttura dati che esiste già.
+
+Le tabelle `qual_*` (soci, amministratori, sindaci, revisori, direttore
+tecnico SOA, amministratore delegato, componente CdA, responsabile FER)
+sono state eliminate (migrazione 0021/0022): duplicavano l'anagrafica
+persona (`per_persone`, a sua volta sostituita da `ana_persone`) invece di
+riferirla. Sostituite dal motore generico "ruolo + caratteristiche" del
+modulo Personale (`per_incarichi`/`per_incarichi_valori`, vedi
+`app/models/personale.py`), che collega `ana_persone` a `cat_ruoli` senza
+duplicare dati anagrafici. Vedi `session-log/` per il dettaglio della
+migrazione.
 """
 
 import uuid
@@ -59,6 +69,20 @@ class AnaIdentificazioneCamerale(Base):
     termine_esercizio: Mapped[str | None] = mapped_column(String(5))
     inizio_esercizio: Mapped[str | None] = mapped_column(String(5))
     data_ultimo_bilancio_approvato: Mapped[date | None]
+
+    # Trasferimento da altra provincia (migrazione 029, mappatura CCIAA §1.4).
+    # "Presenza del trasferimento" e' derivabile da provincia_provenienza
+    # IS NOT NULL, nessuna colonna dedicata.
+    provincia_provenienza: Mapped[str | None] = mapped_column(String(5))
+    numero_rea_precedente: Mapped[str | None] = mapped_column(String(30))
+    data_trasferimento_provincia: Mapped[date | None]
+
+    # Indicatori "L'impresa in cifre" non disponibili altrove (migrazione
+    # 029, mappatura CCIAA §0.4).
+    pratiche_ultimi_12_mesi: Mapped[int | None] = mapped_column(Integer)
+    trasferimenti_quote: Mapped[int | None] = mapped_column(Integer)
+    trasferimenti_sede: Mapped[int | None] = mapped_column(Integer)
+    partecipazioni_altre_societa: Mapped[bool | None]
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -155,6 +179,12 @@ class AnaCodiceAteco(Base):
     fonte: Mapped[str | None] = mapped_column(String(150))
     codice_nace: Mapped[str | None] = mapped_column(String(20))
 
+    # Riferimento opzionale a una specifica unità locale (migrazione 028,
+    # mappatura CCIAA §10.2); NULL = riferito all'intera azienda.
+    sede_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("ana_sedi.id", ondelete="CASCADE")
+    )
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -222,120 +252,16 @@ class AnaSistemaAmministrazione(Base):
     )
     sistema_amministrazione: Mapped[str] = mapped_column(String(255))
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
-
-
-# ===========================================================================
-# 008 - Soci (multipla) + dati generali elenco soci (singleton)
-# ===========================================================================
-
-
-class QualSocio(Base):
-    __tablename__ = "qual_soci"
-
-    id: Mapped[uuid.UUID] = _id_col()
-    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
-
-    persona_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("per_persone.id"))
-
-    tipo_soggetto: Mapped[str] = mapped_column(String(20))
-
-    denominazione_organizzazione: Mapped[str | None] = mapped_column(String(255))
-    codice_fiscale_organizzazione: Mapped[str | None] = mapped_column(String(16))
-
-    comune_domicilio: Mapped[str | None] = mapped_column(String(150))
-    provincia_domicilio: Mapped[str | None] = mapped_column(String(5))
-    indirizzo_domicilio: Mapped[str | None] = mapped_column(String(255))
-    cap_domicilio: Mapped[str | None] = mapped_column(String(10))
-
-    tipo_diritto: Mapped[str | None] = mapped_column(String(100))
-
-    quota_nominale: Mapped[Decimal | None] = mapped_column(Numeric(15, 2))
-    quota_versata: Mapped[Decimal | None] = mapped_column(Numeric(15, 2))
-    percentuale_partecipazione: Mapped[Decimal | None] = mapped_column(Numeric(7, 4))
-
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
-
-
-class QualElencoSoci(Base):
-    __tablename__ = "qual_elenco_soci"
-    __table_args__ = (UniqueConstraint("azienda_id"),)
-
-    id: Mapped[uuid.UUID] = _id_col()
-    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
-
-    numero_soci: Mapped[int | None] = mapped_column(Integer)
-    data_riferimento: Mapped[date | None]
-
-    numero_complessivo_soci: Mapped[int | None] = mapped_column(Integer)
-
-    capitale_sociale_dichiarato: Mapped[Decimal | None] = mapped_column(Numeric(15, 2))
-    valuta: Mapped[str | None] = mapped_column(String(3))
-
-    data_deposito_pratica: Mapped[date | None]
-    data_protocollo: Mapped[date | None]
-    numero_protocollo: Mapped[str | None] = mapped_column(String(100))
-
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
-
-
-# ===========================================================================
-# 009 - Amministratori e cariche (multipla)
-# ===========================================================================
-
-
-class QualAmministratoreCarica(Base):
-    __tablename__ = "qual_amministratori_cariche"
-    __table_args__ = (UniqueConstraint("azienda_id", "persona_id", "tipo_carica", "data_atto_nomina"),)
-
-    id: Mapped[uuid.UUID] = _id_col()
-    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
-    persona_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("per_persone.id"))
-
-    data_assegnazione: Mapped[date | None]
-    data_cessazione: Mapped[date | None]
-    nomina_richiesta: Mapped[bool | None]
-    documento_nomina_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    delega_presente: Mapped[bool | None]
-    interno_esterno: Mapped[str | None] = mapped_column(String(30))
-    durata: Mapped[str | None] = mapped_column(String(150))
-    assenza_cause_ostative: Mapped[bool | None]
-    assenza_condanne: Mapped[bool | None]
-    documento_aggiuntivo_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    note: Mapped[str | None] = mapped_column(Text)
-    data_decorrenza: Mapped[date | None]
-    data_accettazione: Mapped[date | None]
-    poteri_attribuiti: Mapped[str | None] = mapped_column(Text)
-    limitazioni_poteri: Mapped[str | None] = mapped_column(Text)
-    legale_rappresentante: Mapped[bool] = mapped_column(Boolean, default=False)
-
-    modalita_firma: Mapped[str | None] = mapped_column(String(150))
-    poteri_rappresentanza: Mapped[str | None] = mapped_column(Text)
-    limitazioni_rappresentanza: Mapped[str | None] = mapped_column(Text)
-    data_decorrenza_rappresentanza: Mapped[date | None]
-    data_scadenza_rappresentanza: Mapped[date | None]
-    documento_rappresentanza_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    note_rappresentanza: Mapped[str | None] = mapped_column(Text)
-
-    stato_incarico: Mapped[str | None] = mapped_column(String(100))
-    motivo_cessazione: Mapped[str | None] = mapped_column(Text)
-    tipo_carica: Mapped[str] = mapped_column(String(150))
-    criterio_scadenza: Mapped[str | None] = mapped_column(Text)
-    documento_riferimento_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    fonte_dato: Mapped[str | None] = mapped_column(String(150))
-    documento_qualifica_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    data_atto_nomina: Mapped[date | None]
-    data_prima_iscrizione: Mapped[date | None]
-    data_scadenza: Mapped[date | None]
+    # Dettaglio dell'organo previsto dallo statuto (migrazione 025,
+    # mappatura CCIAA §2.4.4): regole generali, non la nomina effettiva di
+    # una persona (quella vive in per_incarichi).
+    numero_minimo_componenti: Mapped[int | None] = mapped_column(Integer)
+    numero_massimo_componenti: Mapped[int | None] = mapped_column(Integer)
+    regole_decisionali: Mapped[str | None] = mapped_column(Text)
+    deleghe_previste: Mapped[str | None] = mapped_column(Text)
+    regime_rappresentanza: Mapped[str | None] = mapped_column(Text)
+    gestione_opposizione: Mapped[str | None] = mapped_column(Text)
+    in_carica: Mapped[bool] = mapped_column(Boolean, default=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -573,6 +499,12 @@ class AnaAlboRuoloLicenza(Base):
 
     fonte: Mapped[str | None] = mapped_column(String(150))
 
+    # Riferimento opzionale a una specifica unità locale (migrazione 028,
+    # mappatura CCIAA §10.2); NULL = riferito all'intera azienda.
+    sede_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("ana_sedi.id", ondelete="CASCADE")
+    )
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -607,6 +539,38 @@ class AnaSede(Base):
 
     nazione: Mapped[str | None] = mapped_column(String(100))
 
+    # Componenti dell'indirizzo e dettaglio unità locale (migrazione 026,
+    # mappatura CCIAA §1.1/§10.2). `indirizzo` resta la denominazione
+    # stradale; `toponimo` la precede (es. "Via" + "Roma").
+    toponimo: Mapped[str | None] = mapped_column(String(30))
+    indirizzo_originale: Mapped[str | None] = mapped_column(Text)
+    numero_rea_unita: Mapped[str | None] = mapped_column(String(30))
+    data_chiusura: Mapped[date | None]
+    stato: Mapped[str | None] = mapped_column(String(50))
+    sigla_territoriale: Mapped[str | None] = mapped_column(String(10))
+    numero_progressivo: Mapped[str | None] = mapped_column(String(20))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class AnaSedeAttivita(Base):
+    """Attività esercitata presso una specifica unità locale (migrazione
+    027, mappatura CCIAA §10.2). Distinta da `AnaAttivitaEsercitata`
+    (attività dell'intera impresa) e da `AnaCodiceAteco` (classificazioni)."""
+
+    __tablename__ = "ana_sedi_attivita"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    sede_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_sedi.id", ondelete="CASCADE"))
+
+    descrizione_attivita: Mapped[str] = mapped_column(Text)
+    data_inizio: Mapped[date | None]
+    data_fine: Mapped[date | None]
+    ruolo_importanza: Mapped[str | None] = mapped_column(String(50))
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -637,326 +601,28 @@ class AnaContatto(Base):
 
 
 # ===========================================================================
-# 017 - Responsabile tecnico FER (multipla)
+# 030 - Estremi dell'elenco soci (singleton)
 # ===========================================================================
 
 
-class QualResponsabileFer(Base):
-    __tablename__ = "qual_responsabile_fer"
+class AnaElencoSociEstremi(Base):
+    """Dato di testata dell'elenco soci depositato (mappatura CCIAA §4.2),
+    1:1 con l'azienda come `AnaCapitaleSociale`. Non è un dato del singolo
+    socio (quello vive in `per_incarichi`/`per_incarichi_valori`, ruolo
+    SOCIO)."""
 
-    id: Mapped[uuid.UUID] = _id_col()
-    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
-    persona_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("per_persone.id"))
-
-    data_assegnazione: Mapped[date | None]
-    data_cessazione: Mapped[date | None]
-    nomina_richiesta: Mapped[bool | None]
-    documento_nomina_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    delega_presente: Mapped[bool | None]
-    interno_esterno: Mapped[str | None] = mapped_column(String(30))
-    durata: Mapped[str | None] = mapped_column(String(150))
-    titolo_studio_id: Mapped[uuid.UUID | None] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("per_titoli_studio.id")
-    )
-    abilitazione_professionale: Mapped[str | None] = mapped_column(Text)
-    assenza_cause_ostative: Mapped[bool | None]
-    assenza_condanne: Mapped[bool | None]
-    documento_aggiuntivo_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    note: Mapped[str | None] = mapped_column(Text)
-    data_decorrenza: Mapped[date | None]
-    data_accettazione: Mapped[date | None]
-    poteri_attribuiti: Mapped[str | None] = mapped_column(Text)
-    limitazioni_poteri: Mapped[str | None] = mapped_column(Text)
-    stato_incarico: Mapped[str | None] = mapped_column(String(100))
-    motivo_cessazione: Mapped[str | None] = mapped_column(Text)
-    requisito_accesso: Mapped[str | None] = mapped_column(String(150))
-    tipo_incarico: Mapped[str | None] = mapped_column(String(150))
-    criterio_scadenza: Mapped[str | None] = mapped_column(Text)
-    documento_riferimento_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    fonte_dato: Mapped[str | None] = mapped_column(String(150))
-    lettere_abilitazione: Mapped[str | None] = mapped_column(String(50))
-    titolo_professionale_richiesto: Mapped[str | None] = mapped_column(String(150))
-    tipologia_rapporto: Mapped[str | None] = mapped_column(String(150))
-    settore_abilitazione: Mapped[str | None] = mapped_column(String(255))
-    autorita_competente: Mapped[str | None] = mapped_column(String(255))
-    ambito_validita: Mapped[str | None] = mapped_column(Text)
-    documento_qualifica_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    data_atto_nomina: Mapped[date | None]
-    data_prima_iscrizione: Mapped[date | None]
-    data_scadenza: Mapped[date | None]
-
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
-
-
-# ===========================================================================
-# 018 - Sindaco (multipla)
-# ===========================================================================
-
-
-class QualSindaco(Base):
-    __tablename__ = "qual_sindaco"
-    __table_args__ = (UniqueConstraint("azienda_id", "persona_id", "tipo_carica", "data_atto_nomina"),)
-
-    id: Mapped[uuid.UUID] = _id_col()
-    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
-    persona_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("per_persone.id"))
-
-    data_assegnazione: Mapped[date | None]
-    data_cessazione: Mapped[date | None]
-    nomina_richiesta: Mapped[bool | None]
-    documento_nomina_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    elezione_richiesta: Mapped[bool | None]
-    verbale_elezione_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    interno_esterno: Mapped[str | None] = mapped_column(String(30))
-    durata: Mapped[str | None] = mapped_column(String(150))
-    iscrizione_albo: Mapped[bool | None]
-    numero_iscrizione_albo: Mapped[str | None] = mapped_column(String(100))
-    ente_ordine_professionale: Mapped[str | None] = mapped_column(String(255))
-    abilitazione_professionale: Mapped[str | None] = mapped_column(Text)
-    assenza_cause_ostative: Mapped[bool | None]
-    assenza_condanne: Mapped[bool | None]
-    documento_aggiuntivo_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    note: Mapped[str | None] = mapped_column(Text)
-    data_decorrenza: Mapped[date | None]
-    data_accettazione: Mapped[date | None]
-    poteri_attribuiti: Mapped[str | None] = mapped_column(Text)
-    limitazioni_poteri: Mapped[str | None] = mapped_column(Text)
-    stato_incarico: Mapped[str | None] = mapped_column(String(100))
-    motivo_cessazione: Mapped[str | None] = mapped_column(Text)
-    tipo_carica: Mapped[str] = mapped_column(String(150))
-    criterio_scadenza: Mapped[str | None] = mapped_column(Text)
-    documento_riferimento_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    fonte_dato: Mapped[str | None] = mapped_column(String(150))
-    documento_qualifica_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    data_atto_nomina: Mapped[date | None]
-    data_prima_iscrizione: Mapped[date | None]
-    data_scadenza: Mapped[date | None]
-
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
-
-
-# ===========================================================================
-# 019 - Revisore legale (multipla)
-# ===========================================================================
-
-
-class QualRevisoreLegale(Base):
-    __tablename__ = "qual_revisore_legale"
+    __tablename__ = "ana_elenco_soci_estremi"
+    __table_args__ = (UniqueConstraint("azienda_id"),)
 
     id: Mapped[uuid.UUID] = _id_col()
     azienda_id: Mapped[uuid.UUID] = _azienda_fk()
 
-    tipo_soggetto: Mapped[str] = mapped_column(String(20))
-    persona_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("per_persone.id"))
-
-    denominazione_societa_revisione: Mapped[str | None] = mapped_column(String(255))
-    codice_fiscale_societa_revisione: Mapped[str | None] = mapped_column(String(16))
-
-    data_assegnazione: Mapped[date | None]
-    data_cessazione: Mapped[date | None]
-    nomina_richiesta: Mapped[bool | None]
-    documento_nomina_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    interno_esterno: Mapped[str | None] = mapped_column(String(30))
-    durata: Mapped[str | None] = mapped_column(String(255))
-    assenza_cause_ostative: Mapped[bool | None]
-    assenza_condanne: Mapped[bool | None]
-    documento_aggiuntivo_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    note: Mapped[str | None] = mapped_column(Text)
-    data_decorrenza: Mapped[date | None]
-    data_accettazione: Mapped[date | None]
-    poteri_attribuiti: Mapped[str | None] = mapped_column(Text)
-    limitazioni_poteri: Mapped[str | None] = mapped_column(Text)
-    stato_incarico: Mapped[str | None] = mapped_column(String(100))
-    motivo_cessazione: Mapped[str | None] = mapped_column(Text)
-    tipo_incarico: Mapped[str] = mapped_column(String(255))
-    criterio_scadenza: Mapped[str | None] = mapped_column(Text)
-    documento_riferimento_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    fonte_dato: Mapped[str | None] = mapped_column(String(150))
-
-    numero_iscrizione_registro_revisori: Mapped[str | None] = mapped_column(String(100))
-    data_iscrizione_registro_revisori: Mapped[date | None]
-    stato_iscrizione_registro: Mapped[str | None] = mapped_column(String(150))
-
-    autorita_competente: Mapped[str | None] = mapped_column(String(255))
-    ambito_validita: Mapped[str | None] = mapped_column(Text)
-    documento_qualifica_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    data_atto_nomina: Mapped[date | None]
-    data_prima_iscrizione: Mapped[date | None]
-    data_scadenza: Mapped[date | None]
-
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
-
-
-# ===========================================================================
-# 020 - Direttore tecnico SOA (multipla)
-# ===========================================================================
-
-
-class QualDirettoreTecnicoSoa(Base):
-    __tablename__ = "qual_direttore_tecnico_soa"
-
-    id: Mapped[uuid.UUID] = _id_col()
-    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
-    persona_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("per_persone.id"))
-    soa_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_soa.id"))
-
-    data_assegnazione: Mapped[date | None]
-    data_cessazione: Mapped[date | None]
-    nomina_richiesta: Mapped[bool | None]
-    documento_nomina_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    delega_presente: Mapped[bool | None]
-    interno_esterno: Mapped[str | None] = mapped_column(String(30))
-    durata: Mapped[str | None] = mapped_column(String(255))
-    titolo_studio_id: Mapped[uuid.UUID | None] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("per_titoli_studio.id")
-    )
-    abilitazione_professionale: Mapped[str | None] = mapped_column(Text)
-    assenza_cause_ostative: Mapped[bool | None]
-    assenza_condanne: Mapped[bool | None]
-    documento_aggiuntivo_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    note: Mapped[str | None] = mapped_column(Text)
-    data_decorrenza: Mapped[date | None]
-    data_accettazione: Mapped[date | None]
-    poteri_attribuiti: Mapped[str | None] = mapped_column(Text)
-    limitazioni_poteri: Mapped[str | None] = mapped_column(Text)
-    stato_incarico: Mapped[str | None] = mapped_column(String(100))
-    motivo_cessazione: Mapped[str | None] = mapped_column(Text)
-    requisito_accesso: Mapped[str | None] = mapped_column(Text)
-    tipo_incarico: Mapped[str | None] = mapped_column(String(150))
-    criterio_scadenza: Mapped[str | None] = mapped_column(Text)
-    documento_riferimento_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    fonte_dato: Mapped[str | None] = mapped_column(String(150))
-    titolo_professionale: Mapped[str | None] = mapped_column(String(150))
-    tipologia_rapporto: Mapped[str | None] = mapped_column(String(150))
-    settore_abilitazione: Mapped[str | None] = mapped_column(String(255))
-    autorita_competente: Mapped[str | None] = mapped_column(String(255))
-    ambito_validita: Mapped[str | None] = mapped_column(Text)
-    documento_qualifica_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    data_atto_nomina: Mapped[date | None]
-    data_prima_iscrizione: Mapped[date | None]
-    data_scadenza: Mapped[date | None]
-
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
-
-
-# ===========================================================================
-# 021 - Amministratore delegato (multipla)
-# ===========================================================================
-
-
-class QualAmministratoreDelegato(Base):
-    __tablename__ = "qual_amministratore_delegato"
-    __table_args__ = (UniqueConstraint("azienda_id", "persona_id", "data_atto_nomina"),)
-
-    id: Mapped[uuid.UUID] = _id_col()
-    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
-    persona_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("per_persone.id"))
-
-    data_assegnazione: Mapped[date | None]
-    data_cessazione: Mapped[date | None]
-    nomina_richiesta: Mapped[bool | None]
-    documento_nomina_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    delega_presente: Mapped[bool | None]
-    interno_esterno: Mapped[str | None] = mapped_column(String(30))
-    durata: Mapped[str | None] = mapped_column(String(255))
-    assenza_cause_ostative: Mapped[bool | None]
-    assenza_condanne: Mapped[bool | None]
-    documento_aggiuntivo_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    note: Mapped[str | None] = mapped_column(Text)
-    data_decorrenza: Mapped[date | None]
-    data_accettazione: Mapped[date | None]
-    poteri_delegati: Mapped[str | None] = mapped_column(Text)
-    limitazioni_poteri: Mapped[str | None] = mapped_column(Text)
-    legale_rappresentante: Mapped[bool] = mapped_column(Boolean, default=False)
-
-    modalita_firma: Mapped[str | None] = mapped_column(String(150))
-    poteri_rappresentanza: Mapped[str | None] = mapped_column(Text)
-    limitazioni_rappresentanza: Mapped[str | None] = mapped_column(Text)
-    data_decorrenza_rappresentanza: Mapped[date | None]
-    data_scadenza_rappresentanza: Mapped[date | None]
-    documento_rappresentanza_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    note_rappresentanza: Mapped[str | None] = mapped_column(Text)
-
-    stato_incarico: Mapped[str | None] = mapped_column(String(100))
-    motivo_cessazione: Mapped[str | None] = mapped_column(Text)
-    tipo_incarico: Mapped[str | None] = mapped_column(String(150))
-    criterio_scadenza: Mapped[str | None] = mapped_column(Text)
-    documento_riferimento_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    fonte_dato: Mapped[str | None] = mapped_column(String(150))
-    documento_qualifica_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    data_atto_nomina: Mapped[date | None]
-    data_prima_iscrizione: Mapped[date | None]
-    data_scadenza: Mapped[date | None]
-
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
-
-
-# ===========================================================================
-# 022 - Componente Consiglio di Amministrazione (multipla)
-# ===========================================================================
-
-
-class QualComponenteConsiglioAmministrazione(Base):
-    __tablename__ = "qual_componente_consiglio_amministrazione"
-    __table_args__ = (UniqueConstraint("azienda_id", "persona_id", "ruolo_nel_consiglio", "data_atto_nomina"),)
-
-    id: Mapped[uuid.UUID] = _id_col()
-    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
-    persona_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("per_persone.id"))
-
-    data_assegnazione: Mapped[date | None]
-    data_cessazione: Mapped[date | None]
-    nomina_richiesta: Mapped[bool | None]
-    documento_nomina_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    elezione_richiesta: Mapped[bool | None]
-    verbale_elezione_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    interno_esterno: Mapped[str | None] = mapped_column(String(30))
-    durata: Mapped[str | None] = mapped_column(String(255))
-    assenza_cause_ostative: Mapped[bool | None]
-    assenza_condanne: Mapped[bool | None]
-    documento_aggiuntivo_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    note: Mapped[str | None] = mapped_column(Text)
-    data_decorrenza: Mapped[date | None]
-    data_accettazione: Mapped[date | None]
-    poteri_attribuiti: Mapped[str | None] = mapped_column(Text)
-    limitazioni_poteri: Mapped[str | None] = mapped_column(Text)
-    legale_rappresentante: Mapped[bool] = mapped_column(Boolean, default=False)
-
-    modalita_firma: Mapped[str | None] = mapped_column(String(150))
-    poteri_rappresentanza: Mapped[str | None] = mapped_column(Text)
-    limitazioni_rappresentanza: Mapped[str | None] = mapped_column(Text)
-    data_decorrenza_rappresentanza: Mapped[date | None]
-    data_scadenza_rappresentanza: Mapped[date | None]
-    documento_rappresentanza_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    note_rappresentanza: Mapped[str | None] = mapped_column(Text)
-
-    stato_incarico: Mapped[str | None] = mapped_column(String(100))
-    motivo_cessazione: Mapped[str | None] = mapped_column(Text)
-    ruolo_nel_consiglio: Mapped[str] = mapped_column(String(150))
-    criterio_scadenza: Mapped[str | None] = mapped_column(Text)
-    documento_riferimento_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    fonte_dato: Mapped[str | None] = mapped_column(String(150))
-    documento_qualifica_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
-    data_atto_nomina: Mapped[date | None]
-    data_prima_iscrizione: Mapped[date | None]
-    data_scadenza: Mapped[date | None]
-
-    rappresentante_impresa: Mapped[bool | None]
+    data_riferimento: Mapped[date | None]
+    data_atto: Mapped[date | None]
+    data_deposito: Mapped[date | None]
+    data_protocollo: Mapped[date | None]
+    numero_protocollo: Mapped[str | None] = mapped_column(String(50))
+    capitale_sociale_dichiarato: Mapped[Decimal | None] = mapped_column(Numeric(15, 2))
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

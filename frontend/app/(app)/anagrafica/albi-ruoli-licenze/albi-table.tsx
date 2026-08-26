@@ -8,7 +8,7 @@ import { DeleteButton } from "@/components/delete-button";
 import { PinRecordButton } from "@/components/pin-record-button";
 import { MODULO_ANAGRAFICA } from "@/lib/anagrafica-sezioni";
 import { formatDate } from "@/lib/format";
-import type { AlboRuoloLicenza } from "@/lib/types/anagrafica";
+import type { AlboRuoloLicenza, Sede } from "@/lib/types/anagrafica";
 
 import { deleteAlbo } from "./actions";
 import { AlboDialog } from "./albo-dialog";
@@ -17,15 +17,18 @@ const SEZIONE_SLUG = "albi-ruoli-licenze";
 
 export function AlbiTable({
   albi,
+  sedi = [],
   recordIdsInPanoramica,
 }: {
   albi: AlboRuoloLicenza[];
+  sedi?: Sede[];
   recordIdsInPanoramica: string[];
 }) {
   return (
     <div className="flex flex-col gap-4">
       <div>
         <AlboDialog
+          sedi={sedi}
           trigger={
             <Button>
               <PlusIcon className="size-4" />
@@ -65,6 +68,7 @@ export function AlbiTable({
                   />
                   <AlboDialog
                     dati={albo}
+                    sedi={sedi}
                     trigger={
                       <Button variant="ghost" size="icon" aria-label="Modifica">
                         <PencilIcon className="size-4" />

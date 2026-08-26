@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { FieldRow } from "@/components/registro/field-row";
 import { VerificationLegend } from "@/components/registro/field-verification-popover";
 import { useWorkspace } from "@/components/registro/workspace-provider";
+import { SOTTOTITOLO_SEZIONE_REGISTRO, TITOLO_SEZIONE_REGISTRO } from "@/lib/registro-sezioni-meta";
 import { cn } from "@/lib/utils";
 
 const ETICHETTA_COMPLETAMENTO: Record<string, { testo: string; completa: boolean }> = {
@@ -14,11 +15,6 @@ const ETICHETTA_COMPLETAMENTO: Record<string, { testo: string; completa: boolean
   IN_PROGRESS: { testo: "Da completare", completa: false },
   COMPLETE: { testo: "Completa", completa: true },
 };
-
-// Titolo di fallback prima che la sezione risulti caricata (§8.8: titolo e
-// struttura della superficie restano stabili durante il caricamento). Unica
-// sezione del pilota: nessuna mappa serve finché non ce n'è una seconda.
-const TITOLO_FALLBACK = "Informazioni societarie";
 
 function StatoPill({ status }: { status: string }) {
   const meta = ETICHETTA_COMPLETAMENTO[status];
@@ -95,10 +91,17 @@ export function SectionContent({
   sectionKey,
   headerActions,
   onClose,
+  embedded = false,
 }: {
   sectionKey: string;
   headerActions?: ReactNode;
   onClose?: () => void;
+  // true quando questo blocco è annidato dentro `CciaaSectionPanel` insieme
+  // ad altri gruppi/tabelle di una card composita (§9 del prototipo): niente
+  // colonna a piena altezza con scroll proprio, un solo header più leggero,
+  // nessuna azione di apertura/promozione (quelle restano sul pannello
+  // esterno che lo ospita, non per singolo blocco).
+  embedded?: boolean;
 }) {
   const { state, ruolo, ensureLoaded, reload, enterEdit, updateField, requestDiscard, save, toggleGroupVisibility } =
     useWorkspace();
@@ -109,15 +112,27 @@ export function SectionContent({
     ensureLoaded(sectionKey);
   }, [sectionKey, ensureLoaded]);
 
-  const header = (
+  const wrapperCls = embedded ? "flex flex-col" : "flex flex-1 flex-col overflow-hidden";
+  const header = embedded ? (
+    <div className="flex items-center justify-between gap-3 pb-4">
+      <div className="flex items-center gap-3">
+        <h3 className="text-base font-extrabold tracking-tight text-[var(--az-ink)]">
+          {entry?.server?.title ?? TITOLO_SEZIONE_REGISTRO[sectionKey] ?? sectionKey}
+        </h3>
+        {entry?.server && <StatoPill status={entry.server.completionStatus} />}
+      </div>
+    </div>
+  ) : (
     <div className="flex items-start justify-between gap-4 border-b border-[#edf1f7] px-[30px] py-6">
       <div className="min-w-0">
         <div className="flex items-center gap-3.5">
-          <h2 className="text-2xl font-extrabold tracking-tight text-[var(--az-ink)]">{entry?.server?.title ?? TITOLO_FALLBACK}</h2>
+          <h2 className="text-2xl font-extrabold tracking-tight text-[var(--az-ink)]">
+            {entry?.server?.title ?? TITOLO_SEZIONE_REGISTRO[sectionKey] ?? sectionKey}
+          </h2>
           {entry?.server && <StatoPill status={entry.server.completionStatus} />}
         </div>
         <p className="mt-[9px] text-sm text-[#354a89]">
-          {entry?.editing ? "Modifica dei dati identificativi e societari" : "Dati identificativi e societari dell'azienda"}
+          {SOTTOTITOLO_SEZIONE_REGISTRO[sectionKey] ?? "Dati della sezione"}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
@@ -138,7 +153,7 @@ export function SectionContent({
 
   if (!entry || (entry.loading && !entry.server)) {
     return (
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className={wrapperCls}>
         {header}
         <LoadingSkeleton />
       </div>
@@ -147,7 +162,7 @@ export function SectionContent({
 
   if (entry.error && !entry.server) {
     return (
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className={wrapperCls}>
         {header}
         <ErrorState onRetry={() => reload(sectionKey)} />
       </div>
@@ -164,16 +179,16 @@ export function SectionContent({
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className={wrapperCls}>
       {header}
 
       {entry.error && (
-        <p className="mx-[30px] mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <p className={cn("mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive", !embedded && "mx-[30px]")}>
           {entry.error}
         </p>
       )}
 
-      <div className="az-scroll-thin flex-1 overflow-y-auto px-[30px] pb-6">
+      <div className={embedded ? "" : "az-scroll-thin flex-1 overflow-y-auto px-[30px] pb-6"}>
         {section.groups.map((group) => {
           const tuttiNascosti = group.fields.length > 0 && group.fields.every((f) => !f.visibleToCompany);
           return (
@@ -229,7 +244,12 @@ export function SectionContent({
         })}
       </div>
 
-      <div className="shrink-0 border-t border-[var(--az-border)] bg-[#fffffffa] px-[30px] py-0 shadow-[0_-7px_22px_rgba(31,50,94,0.04)]">
+      <div
+        className={cn(
+          "shrink-0 border-t border-[var(--az-border)] py-0",
+          embedded ? "mt-2" : "bg-[#fffffffa] px-[30px] shadow-[0_-7px_22px_rgba(31,50,94,0.04)]",
+        )}
+      >
         {modificando ? (
           <div className="flex min-h-[72px] items-center justify-between gap-4">
             <span className="text-xs text-[var(--az-muted)]">

@@ -55,6 +55,14 @@ export type QualitySummary = {
   hidden: number;
 };
 
+export type SectionSummary = {
+  sectionKey: string;
+  verified: number;
+  pending: number;
+  revisionRequired: number;
+  totalApplicable: number;
+};
+
 export type RecentChange = {
   id: string;
   label: string;

@@ -38,6 +38,7 @@ export function SediTable({ sedi, recordIdsInPanoramica }: { sedi: Sede[]; recor
               <TableHead>Denominazione</TableHead>
               <TableHead>Comune</TableHead>
               <TableHead>Indirizzo</TableHead>
+              <TableHead>Stato</TableHead>
               <TableHead className="w-28" />
             </TableRow>
           </TableHeader>
@@ -50,6 +51,7 @@ export function SediTable({ sedi, recordIdsInPanoramica }: { sedi: Sede[]; recor
                 <TableCell>
                   {[sede.indirizzo, sede.numero_civico].filter(Boolean).join(" ") || "—"}
                 </TableCell>
+                <TableCell>{sede.stato ?? "—"}</TableCell>
                 <TableCell className="flex justify-end gap-1">
                   <PinRecordButton
                     modulo={MODULO_ANAGRAFICA}

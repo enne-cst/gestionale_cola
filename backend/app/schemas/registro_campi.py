@@ -84,6 +84,18 @@ class QualitySummaryRead(BaseModel):
     hidden: int
 
 
+class SectionSummaryRead(BaseModel):
+    """Conteggi di stato per una singola sezione (§6.4 del prototipo: la riga
+    a tre pallini di ogni card della Home) — a differenza di
+    `QualitySummaryRead`, che aggrega l'intero modulo."""
+
+    sectionKey: str
+    verified: int
+    pending: int
+    revisionRequired: int
+    totalApplicable: int
+
+
 class RecentChangeRead(BaseModel):
     id: str
     label: str

@@ -4,16 +4,19 @@ import Link from "next/link";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FieldVerificationPopover } from "@/components/registro/field-verification-popover";
 import { VisibilityToggle } from "@/components/registro/visibility-toggle";
 import { useWorkspace } from "@/components/registro/workspace-provider";
 import { cn } from "@/lib/utils";
 import type { FieldState } from "@/lib/types/registro";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDecimal } from "@/lib/format";
 
 function formattaValore(field: FieldState): string {
   if (field.value === null || field.value === "") return "—";
   if (field.dataType === "date") return formatDate(field.value);
+  if (field.dataType === "importo") return formatDecimal(field.value);
+  if (field.dataType === "boolean") return field.value === "true" ? "Sì" : field.value === "false" ? "No" : "—";
   return field.value;
 }
 
@@ -80,16 +83,36 @@ export function FieldRow({
           </span>
         )}
       </div>
-      <Input
-        id={`campo-${sectionKey}-${field.key}`}
-        type={field.dataType === "date" ? "date" : "text"}
-        placeholder={field.dataType === "day-month" ? "GG/MM" : undefined}
-        value={draftValue ?? ""}
-        disabled={disabled}
-        aria-invalid={Boolean(error)}
-        aria-describedby={error ? `errore-${sectionKey}-${field.key}` : undefined}
-        onChange={(e) => onChange?.(e.target.value)}
-      />
+      {field.dataType === "boolean" ? (
+        <Select
+          value={draftValue ? draftValue : "__non_disponibile__"}
+          disabled={disabled}
+          onValueChange={(value) => onChange?.(value === "__non_disponibile__" ? "" : value)}
+        >
+          <SelectTrigger id={`campo-${sectionKey}-${field.key}`} aria-invalid={Boolean(error)}>
+            <SelectValue placeholder="Non disponibile" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__non_disponibile__">Non disponibile</SelectItem>
+            <SelectItem value="true">Sì</SelectItem>
+            <SelectItem value="false">No</SelectItem>
+          </SelectContent>
+        </Select>
+      ) : (
+        <Input
+          id={`campo-${sectionKey}-${field.key}`}
+          type={field.dataType === "date" ? "date" : field.dataType === "importo" || field.dataType === "number" ? "number" : "text"}
+          step={field.dataType === "importo" ? "0.01" : undefined}
+          min={field.dataType === "importo" || field.dataType === "number" ? 0 : undefined}
+          maxLength={field.dataType === "valuta" ? 3 : undefined}
+          placeholder={field.dataType === "day-month" ? "GG/MM" : field.dataType === "valuta" ? "EUR" : undefined}
+          value={draftValue ?? ""}
+          disabled={disabled}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? `errore-${sectionKey}-${field.key}` : undefined}
+          onChange={(e) => onChange?.(field.dataType === "valuta" ? e.target.value.toUpperCase() : e.target.value)}
+        />
+      )}
       {error && (
         <p id={`errore-${sectionKey}-${field.key}`} className="text-xs text-destructive">
           {error}

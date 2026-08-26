@@ -5,13 +5,14 @@ import { getVociPanoramica } from "@/lib/actions/panoramica";
 import { SEZIONE_ICONE } from "@/lib/anagrafica-icons";
 import { MODULO_ANAGRAFICA } from "@/lib/anagrafica-sezioni";
 import { recordIdsFissati } from "@/lib/panoramica-helpers";
-import type { AlboRuoloLicenza } from "@/lib/types/anagrafica";
+import type { AlboRuoloLicenza, Sede } from "@/lib/types/anagrafica";
 
 import { AlbiTable } from "./albi-table";
 
 export default async function AlbiRuoliLicenzePage() {
-  const [albi, voci] = await Promise.all([
+  const [albi, sedi, voci] = await Promise.all([
     apiFetch<AlboRuoloLicenza[]>("/api/anagrafica/albi-ruoli-licenze"),
+    apiFetch<Sede[]>("/api/anagrafica/sedi"),
     getVociPanoramica(MODULO_ANAGRAFICA),
   ]);
 
@@ -23,7 +24,7 @@ export default async function AlbiRuoliLicenzePage() {
         subtitle="Iscrizioni ad albi, registri, ruoli, licenze e autorizzazioni dell'azienda."
         badge={<SectionStatusBadge compilata={albi.length > 0} />}
       />
-      <AlbiTable albi={albi} recordIdsInPanoramica={recordIdsFissati(voci, "albi-ruoli-licenze")} />
+      <AlbiTable albi={albi} sedi={sedi} recordIdsInPanoramica={recordIdsFissati(voci, "albi-ruoli-licenze")} />
     </div>
   );
 }

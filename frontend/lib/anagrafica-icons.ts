@@ -2,6 +2,7 @@ import {
   Award,
   BadgeCheck,
   Briefcase,
+  Building,
   Building2,
   CalendarClock,
   ClipboardCheck,
@@ -12,7 +13,9 @@ import {
   HandCoins,
   Handshake,
   HardHat,
+  History,
   Landmark,
+  LayoutDashboard,
   MapPin,
   Network,
   Phone,
@@ -28,6 +31,23 @@ import {
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+
+// Icona per ciascuna delle 10 card della griglia "Dati CCIAA" (§6.3 del
+// protocollo), chiavi = CciaaVistaKey più "capitale-sociale" (card semplice,
+// apre direttamente la sezione a registro con lo stesso nome).
+export const CCIAA_CARD_ICONE: Record<string, LucideIcon> = {
+  sintesi: LayoutDashboard,
+  sede: MapPin,
+  statuto: Building2,
+  "capitale-sociale": Landmark,
+  soci: Handshake,
+  amministratori: Gavel,
+  sindaci: ShieldCheck,
+  "attivita-albi": Briefcase,
+  "personale-occupazione": Users,
+  "sedi-secondarie": Building,
+  "aggiornamento-impresa": History,
+};
 
 // Icona per categoria, usata nella tab bar del modulo Anagrafica Aziendale.
 export const CATEGORIA_ICONE: Record<string, LucideIcon> = {

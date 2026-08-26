@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
@@ -8,38 +9,123 @@ class _OrmModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class PersonaCreate(_OrmModel):
-    categoria: str
-    nominativo: str
-    codice_fiscale: str | None = None
+class AnaPersoneCreate(_OrmModel):
+    fotografia: str | None = None
+    cognome: str
+    nome: str
+    sesso: str | None = None
     data_nascita: date | None = None
-    comune_nascita: str | None = None
-    provincia_nascita: str | None = None
-    comune_domicilio: str | None = None
-    provincia_domicilio: str | None = None
-    indirizzo_domicilio: str | None = None
-    cap_domicilio: str | None = None
-    frazione_domicilio: str | None = None
-    pec: str | None = None
+    luogo_nascita: str | None = None
+    nazionalita: str | None = None
+    conoscenza_lingua_italiana: str | None = None
+    codice_fiscale: str
+    residenza: str | None = None
+    tipologia_contratto: str | None = None
+    data_assunzione: date | None = None
+    data_fine_rapporto: date | None = None
+    mansione: str | None = None
+    persona_backup_id: uuid.UUID | None = None
+    processi_speciali_eseguiti: str | None = None
+    conoscenza_organizzazione_livello_id: uuid.UUID | None = None
+    competenze_livello_id: uuid.UUID | None = None
+    consapevolezza_livello_id: uuid.UUID | None = None
+    frequenza_visite_mediche: int | None = None
+    altro: str | None = None
+    note: str | None = None
 
 
-class PersonaUpdate(_OrmModel):
-    categoria: str | None = None
-    nominativo: str | None = None
-    codice_fiscale: str | None = None
+class AnaPersoneUpdate(_OrmModel):
+    fotografia: str | None = None
+    cognome: str | None = None
+    nome: str | None = None
+    sesso: str | None = None
     data_nascita: date | None = None
-    comune_nascita: str | None = None
-    provincia_nascita: str | None = None
-    comune_domicilio: str | None = None
-    provincia_domicilio: str | None = None
-    indirizzo_domicilio: str | None = None
-    cap_domicilio: str | None = None
-    frazione_domicilio: str | None = None
-    pec: str | None = None
+    luogo_nascita: str | None = None
+    nazionalita: str | None = None
+    conoscenza_lingua_italiana: str | None = None
+    codice_fiscale: str | None = None
+    residenza: str | None = None
+    tipologia_contratto: str | None = None
+    data_assunzione: date | None = None
+    data_fine_rapporto: date | None = None
+    mansione: str | None = None
+    persona_backup_id: uuid.UUID | None = None
+    processi_speciali_eseguiti: str | None = None
+    conoscenza_organizzazione_livello_id: uuid.UUID | None = None
+    competenze_livello_id: uuid.UUID | None = None
+    consapevolezza_livello_id: uuid.UUID | None = None
+    frequenza_visite_mediche: int | None = None
+    altro: str | None = None
+    note: str | None = None
 
 
-class PersonaRead(PersonaCreate):
+class AnaPersoneRead(AnaPersoneCreate):
     id: uuid.UUID
     azienda_id: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class PersonaSummary(_OrmModel):
+    """Dati anagrafici per la compilazione automatica e sola lettura delle
+    righe incarico (specifica CCIAA §5.2/5.3/6.2: nome, nascita, cittadinanza
+    e domicilio del soggetto sono "letti dal soggetto", mai duplicati o
+    modificabili nel record della carica). Nessuna colonna nuova: sono già
+    tutte presenti su `ana_persone`, prima non esposte qui."""
+
+    id: uuid.UUID
+    nome: str
+    cognome: str
+    codice_fiscale: str
+    data_nascita: date | None = None
+    luogo_nascita: str | None = None
+    nazionalita: str | None = None
+    residenza: str | None = None
+
+
+class RuoloSummary(_OrmModel):
+    id: uuid.UUID
+    codice: str
+    codice_documento: str | None = None
+    denominazione: str
+
+
+class CaratteristicaRuoloRead(_OrmModel):
+    """Configurazione di una caratteristica per un ruolo (join
+    rel_ruoli_caratteristiche + cat_caratteristiche_incarico): usata dal
+    frontend per costruire il form dinamico di un incarico senza duplicare
+    lato client le regole già lette da `app.core.incarichi`."""
+
+    id: uuid.UUID
+    codice: str
+    denominazione: str
+    tipoDato: str
+    valoriAmmessi: list[str] | None = None
+    obbligatorieta: str
+
+
+class IncaricoCreate(_OrmModel):
+    persona_id: uuid.UUID
+    ruolo_id: uuid.UUID
+    note: str | None = None
+    valori: dict[str, Any] = {}
+
+
+class IncaricoUpdate(_OrmModel):
+    persona_id: uuid.UUID | None = None
+    ruolo_id: uuid.UUID | None = None
+    note: str | None = None
+    valori: dict[str, Any] | None = None
+
+
+class IncaricoRead(_OrmModel):
+    id: uuid.UUID
+    azienda_id: uuid.UUID
+    persona_id: uuid.UUID
+    ruolo_id: uuid.UUID
+    note: str | None = None
+    valori: dict[str, Any] = {}
+    persona: PersonaSummary
+    ruolo: RuoloSummary
     created_at: datetime
     updated_at: datetime

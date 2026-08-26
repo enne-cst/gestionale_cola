@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DeleteButton } from "@/components/delete-button";
 import { PinRecordButton } from "@/components/pin-record-button";
 import { MODULO_ANAGRAFICA } from "@/lib/anagrafica-sezioni";
-import type { CodiceAteco } from "@/lib/types/anagrafica";
+import type { CodiceAteco, Sede } from "@/lib/types/anagrafica";
 
 import { deleteCodiceAteco } from "./actions";
 import { CodiceAtecoDialog } from "./codice-ateco-dialog";
@@ -16,15 +16,18 @@ const SEZIONE_SLUG = "codici-ateco";
 
 export function CodiciAtecoTable({
   codici,
+  sedi = [],
   recordIdsInPanoramica,
 }: {
   codici: CodiceAteco[];
+  sedi?: Sede[];
   recordIdsInPanoramica: string[];
 }) {
   return (
     <div className="flex flex-col gap-4">
       <div>
         <CodiceAtecoDialog
+          sedi={sedi}
           trigger={
             <Button>
               <PlusIcon className="size-4" />
@@ -64,6 +67,7 @@ export function CodiciAtecoTable({
                   />
                   <CodiceAtecoDialog
                     dati={codice}
+                    sedi={sedi}
                     trigger={
                       <Button variant="ghost" size="icon" aria-label="Modifica">
                         <PencilIcon className="size-4" />

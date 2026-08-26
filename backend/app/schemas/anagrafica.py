@@ -16,7 +16,6 @@ from pydantic import BaseModel, ConfigDict
 PeriodoRilevazione = Literal[
     "PRIMO_TRIMESTRE", "SECONDO_TRIMESTRE", "TERZO_TRIMESTRE", "QUARTO_TRIMESTRE", "MEDIA"
 ]
-TipoSoggetto = Literal["PERSONA", "ORGANIZZAZIONE"]
 
 
 class _OrmModel(BaseModel):
@@ -116,6 +115,7 @@ class CodiceAtecoCreate(_OrmModel):
     origine_codice: str | None = None
     fonte: str | None = None
     codice_nace: str | None = None
+    sede_id: uuid.UUID | None = None
 
 
 class CodiceAtecoUpdate(_OrmModel):
@@ -126,6 +126,7 @@ class CodiceAtecoUpdate(_OrmModel):
     origine_codice: str | None = None
     fonte: str | None = None
     codice_nace: str | None = None
+    sede_id: uuid.UUID | None = None
 
 
 class CodiceAtecoRead(CodiceAtecoCreate, _ReadMeta):
@@ -155,11 +156,25 @@ class CapitaleSocialeRead(CapitaleSocialeUpsert, _ReadMeta):
 
 class SistemaAmministrazioneIn(_OrmModel):
     sistema_amministrazione: str
+    numero_minimo_componenti: int | None = None
+    numero_massimo_componenti: int | None = None
+    regole_decisionali: str | None = None
+    deleghe_previste: str | None = None
+    regime_rappresentanza: str | None = None
+    gestione_opposizione: str | None = None
+    in_carica: bool = False
 
 
 class SistemaAmministrazioneRead(_OrmModel):
     id: uuid.UUID
     sistema_amministrazione: str
+    numero_minimo_componenti: int | None = None
+    numero_massimo_componenti: int | None = None
+    regole_decisionali: str | None = None
+    deleghe_previste: str | None = None
+    regime_rappresentanza: str | None = None
+    gestione_opposizione: str | None = None
+    in_carica: bool = False
 
 
 class AmministrazioneControlloUpsert(_OrmModel):
@@ -183,143 +198,6 @@ class AmministrazioneControlloRead(_ReadMeta):
     numero_sindaci_organi_controllo: int | None = None
     numero_titolari_cariche: int | None = None
     sistemi_amministrazione: list[SistemaAmministrazioneRead] = []
-
-
-# ===========================================================================
-# Soci (multipla) + dati generali elenco soci (singleton)
-# ===========================================================================
-
-
-class SocioCreate(_OrmModel):
-    persona_id: uuid.UUID | None = None
-    tipo_soggetto: TipoSoggetto
-    denominazione_organizzazione: str | None = None
-    codice_fiscale_organizzazione: str | None = None
-    comune_domicilio: str | None = None
-    provincia_domicilio: str | None = None
-    indirizzo_domicilio: str | None = None
-    cap_domicilio: str | None = None
-    tipo_diritto: str | None = None
-    quota_nominale: Decimal | None = None
-    quota_versata: Decimal | None = None
-    percentuale_partecipazione: Decimal | None = None
-
-
-class SocioUpdate(_OrmModel):
-    persona_id: uuid.UUID | None = None
-    tipo_soggetto: TipoSoggetto | None = None
-    denominazione_organizzazione: str | None = None
-    codice_fiscale_organizzazione: str | None = None
-    comune_domicilio: str | None = None
-    provincia_domicilio: str | None = None
-    indirizzo_domicilio: str | None = None
-    cap_domicilio: str | None = None
-    tipo_diritto: str | None = None
-    quota_nominale: Decimal | None = None
-    quota_versata: Decimal | None = None
-    percentuale_partecipazione: Decimal | None = None
-
-
-class SocioRead(SocioCreate, _ReadMeta):
-    pass
-
-
-class ElencoSociUpsert(_OrmModel):
-    numero_soci: int | None = None
-    data_riferimento: date | None = None
-    numero_complessivo_soci: int | None = None
-    capitale_sociale_dichiarato: Decimal | None = None
-    valuta: str | None = None
-    data_deposito_pratica: date | None = None
-    data_protocollo: date | None = None
-    numero_protocollo: str | None = None
-
-
-class ElencoSociRead(ElencoSociUpsert, _ReadMeta):
-    pass
-
-
-# ===========================================================================
-# Amministratori e cariche (multipla)
-# ===========================================================================
-
-
-class AmministratoreCaricaCreate(_OrmModel):
-    persona_id: uuid.UUID
-    data_assegnazione: date | None = None
-    data_cessazione: date | None = None
-    nomina_richiesta: bool | None = None
-    documento_nomina_id: uuid.UUID | None = None
-    delega_presente: bool | None = None
-    interno_esterno: str | None = None
-    durata: str | None = None
-    assenza_cause_ostative: bool | None = None
-    assenza_condanne: bool | None = None
-    documento_aggiuntivo_id: uuid.UUID | None = None
-    note: str | None = None
-    data_decorrenza: date | None = None
-    data_accettazione: date | None = None
-    poteri_attribuiti: str | None = None
-    limitazioni_poteri: str | None = None
-    legale_rappresentante: bool = False
-    modalita_firma: str | None = None
-    poteri_rappresentanza: str | None = None
-    limitazioni_rappresentanza: str | None = None
-    data_decorrenza_rappresentanza: date | None = None
-    data_scadenza_rappresentanza: date | None = None
-    documento_rappresentanza_id: uuid.UUID | None = None
-    note_rappresentanza: str | None = None
-    stato_incarico: str | None = None
-    motivo_cessazione: str | None = None
-    tipo_carica: str
-    criterio_scadenza: str | None = None
-    documento_riferimento_id: uuid.UUID | None = None
-    fonte_dato: str | None = None
-    documento_qualifica_id: uuid.UUID | None = None
-    data_atto_nomina: date | None = None
-    data_prima_iscrizione: date | None = None
-    data_scadenza: date | None = None
-
-
-class AmministratoreCaricaUpdate(_OrmModel):
-    persona_id: uuid.UUID | None = None
-    data_assegnazione: date | None = None
-    data_cessazione: date | None = None
-    nomina_richiesta: bool | None = None
-    documento_nomina_id: uuid.UUID | None = None
-    delega_presente: bool | None = None
-    interno_esterno: str | None = None
-    durata: str | None = None
-    assenza_cause_ostative: bool | None = None
-    assenza_condanne: bool | None = None
-    documento_aggiuntivo_id: uuid.UUID | None = None
-    note: str | None = None
-    data_decorrenza: date | None = None
-    data_accettazione: date | None = None
-    poteri_attribuiti: str | None = None
-    limitazioni_poteri: str | None = None
-    legale_rappresentante: bool | None = None
-    modalita_firma: str | None = None
-    poteri_rappresentanza: str | None = None
-    limitazioni_rappresentanza: str | None = None
-    data_decorrenza_rappresentanza: date | None = None
-    data_scadenza_rappresentanza: date | None = None
-    documento_rappresentanza_id: uuid.UUID | None = None
-    note_rappresentanza: str | None = None
-    stato_incarico: str | None = None
-    motivo_cessazione: str | None = None
-    tipo_carica: str | None = None
-    criterio_scadenza: str | None = None
-    documento_riferimento_id: uuid.UUID | None = None
-    fonte_dato: str | None = None
-    documento_qualifica_id: uuid.UUID | None = None
-    data_atto_nomina: date | None = None
-    data_prima_iscrizione: date | None = None
-    data_scadenza: date | None = None
-
-
-class AmministratoreCaricaRead(AmministratoreCaricaCreate, _ReadMeta):
-    pass
 
 
 # ===========================================================================
@@ -503,6 +381,7 @@ class AlboRuoloLicenzaCreate(_OrmModel):
     data_cessazione: date | None = None
     data_caricamento: date | None = None
     fonte: str | None = None
+    sede_id: uuid.UUID | None = None
 
 
 class AlboRuoloLicenzaUpdate(_OrmModel):
@@ -523,6 +402,7 @@ class AlboRuoloLicenzaUpdate(_OrmModel):
     data_cessazione: date | None = None
     data_caricamento: date | None = None
     fonte: str | None = None
+    sede_id: uuid.UUID | None = None
 
 
 class AlboRuoloLicenzaRead(AlboRuoloLicenzaCreate, _ReadMeta):
@@ -530,8 +410,19 @@ class AlboRuoloLicenzaRead(AlboRuoloLicenzaCreate, _ReadMeta):
 
 
 # ===========================================================================
-# Sedi (multipla)
+# Sedi (multipla) + attività per unità locale
 # ===========================================================================
+
+
+class SedeAttivitaIn(_OrmModel):
+    descrizione_attivita: str
+    data_inizio: date | None = None
+    data_fine: date | None = None
+    ruolo_importanza: str | None = None
+
+
+class SedeAttivitaRead(SedeAttivitaIn):
+    id: uuid.UUID
 
 
 class SedeCreate(_OrmModel):
@@ -546,6 +437,14 @@ class SedeCreate(_OrmModel):
     provincia: str | None = None
     frazione: str | None = None
     nazione: str | None = None
+    toponimo: str | None = None
+    indirizzo_originale: str | None = None
+    numero_rea_unita: str | None = None
+    data_chiusura: date | None = None
+    stato: str | None = None
+    sigla_territoriale: str | None = None
+    numero_progressivo: str | None = None
+    attivita: list[SedeAttivitaIn] = []
 
 
 class SedeUpdate(_OrmModel):
@@ -560,10 +459,19 @@ class SedeUpdate(_OrmModel):
     provincia: str | None = None
     frazione: str | None = None
     nazione: str | None = None
+    toponimo: str | None = None
+    indirizzo_originale: str | None = None
+    numero_rea_unita: str | None = None
+    data_chiusura: date | None = None
+    stato: str | None = None
+    sigla_territoriale: str | None = None
+    numero_progressivo: str | None = None
+    attivita: list[SedeAttivitaIn] | None = None
+    """Se presente, sostituisce integralmente le attività esistenti."""
 
 
 class SedeRead(SedeCreate, _ReadMeta):
-    pass
+    attivita: list[SedeAttivitaRead] = []
 
 
 # ===========================================================================
@@ -590,407 +498,20 @@ class ContattoRead(ContattoCreate, _ReadMeta):
 
 
 # ===========================================================================
-# Campi comuni alle qualifiche (catalogo A01-A51): definiti per esteso in
-# ciascuno schema, senza ereditarietà condivisa, perché ogni qualifica ne
-# usa un sottoinsieme diverso (cfr. cap. 3.3.2 del documento di progetto).
+# Estremi dell'elenco soci (singleton)
 # ===========================================================================
 
 
-class ResponsabileFerCreate(_OrmModel):
-    persona_id: uuid.UUID
-    data_assegnazione: date | None = None
-    data_cessazione: date | None = None
-    nomina_richiesta: bool | None = None
-    documento_nomina_id: uuid.UUID | None = None
-    delega_presente: bool | None = None
-    interno_esterno: str | None = None
-    durata: str | None = None
-    titolo_studio_id: uuid.UUID | None = None
-    abilitazione_professionale: str | None = None
-    assenza_cause_ostative: bool | None = None
-    assenza_condanne: bool | None = None
-    documento_aggiuntivo_id: uuid.UUID | None = None
-    note: str | None = None
-    data_decorrenza: date | None = None
-    data_accettazione: date | None = None
-    poteri_attribuiti: str | None = None
-    limitazioni_poteri: str | None = None
-    stato_incarico: str | None = None
-    motivo_cessazione: str | None = None
-    requisito_accesso: str | None = None
-    tipo_incarico: str | None = None
-    criterio_scadenza: str | None = None
-    documento_riferimento_id: uuid.UUID | None = None
-    fonte_dato: str | None = None
-    lettere_abilitazione: str | None = None
-    titolo_professionale_richiesto: str | None = None
-    tipologia_rapporto: str | None = None
-    settore_abilitazione: str | None = None
-    autorita_competente: str | None = None
-    ambito_validita: str | None = None
-    documento_qualifica_id: uuid.UUID | None = None
-    data_atto_nomina: date | None = None
-    data_prima_iscrizione: date | None = None
-    data_scadenza: date | None = None
+class ElencoSociEstremiUpsert(_OrmModel):
+    data_riferimento: date | None = None
+    data_atto: date | None = None
+    data_deposito: date | None = None
+    data_protocollo: date | None = None
+    numero_protocollo: str | None = None
+    capitale_sociale_dichiarato: Decimal | None = None
 
 
-class ResponsabileFerUpdate(ResponsabileFerCreate):
-    persona_id: uuid.UUID | None = None  # type: ignore[assignment]
-
-
-class ResponsabileFerRead(ResponsabileFerCreate, _ReadMeta):
+class ElencoSociEstremiRead(ElencoSociEstremiUpsert, _ReadMeta):
     pass
 
 
-class SindacoCreate(_OrmModel):
-    persona_id: uuid.UUID
-    data_assegnazione: date | None = None
-    data_cessazione: date | None = None
-    nomina_richiesta: bool | None = None
-    documento_nomina_id: uuid.UUID | None = None
-    elezione_richiesta: bool | None = None
-    verbale_elezione_id: uuid.UUID | None = None
-    interno_esterno: str | None = None
-    durata: str | None = None
-    iscrizione_albo: bool | None = None
-    numero_iscrizione_albo: str | None = None
-    ente_ordine_professionale: str | None = None
-    abilitazione_professionale: str | None = None
-    assenza_cause_ostative: bool | None = None
-    assenza_condanne: bool | None = None
-    documento_aggiuntivo_id: uuid.UUID | None = None
-    note: str | None = None
-    data_decorrenza: date | None = None
-    data_accettazione: date | None = None
-    poteri_attribuiti: str | None = None
-    limitazioni_poteri: str | None = None
-    stato_incarico: str | None = None
-    motivo_cessazione: str | None = None
-    tipo_carica: str
-    criterio_scadenza: str | None = None
-    documento_riferimento_id: uuid.UUID | None = None
-    fonte_dato: str | None = None
-    documento_qualifica_id: uuid.UUID | None = None
-    data_atto_nomina: date | None = None
-    data_prima_iscrizione: date | None = None
-    data_scadenza: date | None = None
-
-
-class SindacoUpdate(_OrmModel):
-    persona_id: uuid.UUID | None = None
-    data_assegnazione: date | None = None
-    data_cessazione: date | None = None
-    nomina_richiesta: bool | None = None
-    documento_nomina_id: uuid.UUID | None = None
-    elezione_richiesta: bool | None = None
-    verbale_elezione_id: uuid.UUID | None = None
-    interno_esterno: str | None = None
-    durata: str | None = None
-    iscrizione_albo: bool | None = None
-    numero_iscrizione_albo: str | None = None
-    ente_ordine_professionale: str | None = None
-    abilitazione_professionale: str | None = None
-    assenza_cause_ostative: bool | None = None
-    assenza_condanne: bool | None = None
-    documento_aggiuntivo_id: uuid.UUID | None = None
-    note: str | None = None
-    data_decorrenza: date | None = None
-    data_accettazione: date | None = None
-    poteri_attribuiti: str | None = None
-    limitazioni_poteri: str | None = None
-    stato_incarico: str | None = None
-    motivo_cessazione: str | None = None
-    tipo_carica: str | None = None
-    criterio_scadenza: str | None = None
-    documento_riferimento_id: uuid.UUID | None = None
-    fonte_dato: str | None = None
-    documento_qualifica_id: uuid.UUID | None = None
-    data_atto_nomina: date | None = None
-    data_prima_iscrizione: date | None = None
-    data_scadenza: date | None = None
-
-
-class SindacoRead(SindacoCreate, _ReadMeta):
-    pass
-
-
-class RevisoreLegaleCreate(_OrmModel):
-    tipo_soggetto: TipoSoggetto
-    persona_id: uuid.UUID | None = None
-    denominazione_societa_revisione: str | None = None
-    codice_fiscale_societa_revisione: str | None = None
-    data_assegnazione: date | None = None
-    data_cessazione: date | None = None
-    nomina_richiesta: bool | None = None
-    documento_nomina_id: uuid.UUID | None = None
-    interno_esterno: str | None = None
-    durata: str | None = None
-    assenza_cause_ostative: bool | None = None
-    assenza_condanne: bool | None = None
-    documento_aggiuntivo_id: uuid.UUID | None = None
-    note: str | None = None
-    data_decorrenza: date | None = None
-    data_accettazione: date | None = None
-    poteri_attribuiti: str | None = None
-    limitazioni_poteri: str | None = None
-    stato_incarico: str | None = None
-    motivo_cessazione: str | None = None
-    tipo_incarico: str
-    criterio_scadenza: str | None = None
-    documento_riferimento_id: uuid.UUID | None = None
-    fonte_dato: str | None = None
-    numero_iscrizione_registro_revisori: str | None = None
-    data_iscrizione_registro_revisori: date | None = None
-    stato_iscrizione_registro: str | None = None
-    autorita_competente: str | None = None
-    ambito_validita: str | None = None
-    documento_qualifica_id: uuid.UUID | None = None
-    data_atto_nomina: date | None = None
-    data_prima_iscrizione: date | None = None
-    data_scadenza: date | None = None
-
-
-class RevisoreLegaleUpdate(_OrmModel):
-    tipo_soggetto: TipoSoggetto | None = None
-    persona_id: uuid.UUID | None = None
-    denominazione_societa_revisione: str | None = None
-    codice_fiscale_societa_revisione: str | None = None
-    data_assegnazione: date | None = None
-    data_cessazione: date | None = None
-    nomina_richiesta: bool | None = None
-    documento_nomina_id: uuid.UUID | None = None
-    interno_esterno: str | None = None
-    durata: str | None = None
-    assenza_cause_ostative: bool | None = None
-    assenza_condanne: bool | None = None
-    documento_aggiuntivo_id: uuid.UUID | None = None
-    note: str | None = None
-    data_decorrenza: date | None = None
-    data_accettazione: date | None = None
-    poteri_attribuiti: str | None = None
-    limitazioni_poteri: str | None = None
-    stato_incarico: str | None = None
-    motivo_cessazione: str | None = None
-    tipo_incarico: str | None = None
-    criterio_scadenza: str | None = None
-    documento_riferimento_id: uuid.UUID | None = None
-    fonte_dato: str | None = None
-    numero_iscrizione_registro_revisori: str | None = None
-    data_iscrizione_registro_revisori: date | None = None
-    stato_iscrizione_registro: str | None = None
-    autorita_competente: str | None = None
-    ambito_validita: str | None = None
-    documento_qualifica_id: uuid.UUID | None = None
-    data_atto_nomina: date | None = None
-    data_prima_iscrizione: date | None = None
-    data_scadenza: date | None = None
-
-
-class RevisoreLegaleRead(RevisoreLegaleCreate, _ReadMeta):
-    pass
-
-
-class DirettoreTecnicoSoaCreate(_OrmModel):
-    persona_id: uuid.UUID
-    soa_id: uuid.UUID | None = None
-    data_assegnazione: date | None = None
-    data_cessazione: date | None = None
-    nomina_richiesta: bool | None = None
-    documento_nomina_id: uuid.UUID | None = None
-    delega_presente: bool | None = None
-    interno_esterno: str | None = None
-    durata: str | None = None
-    titolo_studio_id: uuid.UUID | None = None
-    abilitazione_professionale: str | None = None
-    assenza_cause_ostative: bool | None = None
-    assenza_condanne: bool | None = None
-    documento_aggiuntivo_id: uuid.UUID | None = None
-    note: str | None = None
-    data_decorrenza: date | None = None
-    data_accettazione: date | None = None
-    poteri_attribuiti: str | None = None
-    limitazioni_poteri: str | None = None
-    stato_incarico: str | None = None
-    motivo_cessazione: str | None = None
-    requisito_accesso: str | None = None
-    tipo_incarico: str | None = None
-    criterio_scadenza: str | None = None
-    documento_riferimento_id: uuid.UUID | None = None
-    fonte_dato: str | None = None
-    titolo_professionale: str | None = None
-    tipologia_rapporto: str | None = None
-    settore_abilitazione: str | None = None
-    autorita_competente: str | None = None
-    ambito_validita: str | None = None
-    documento_qualifica_id: uuid.UUID | None = None
-    data_atto_nomina: date | None = None
-    data_prima_iscrizione: date | None = None
-    data_scadenza: date | None = None
-
-
-class DirettoreTecnicoSoaUpdate(DirettoreTecnicoSoaCreate):
-    persona_id: uuid.UUID | None = None  # type: ignore[assignment]
-
-
-class DirettoreTecnicoSoaRead(DirettoreTecnicoSoaCreate, _ReadMeta):
-    pass
-
-
-class AmministratoreDelegatoCreate(_OrmModel):
-    persona_id: uuid.UUID
-    data_assegnazione: date | None = None
-    data_cessazione: date | None = None
-    nomina_richiesta: bool | None = None
-    documento_nomina_id: uuid.UUID | None = None
-    delega_presente: bool | None = None
-    interno_esterno: str | None = None
-    durata: str | None = None
-    assenza_cause_ostative: bool | None = None
-    assenza_condanne: bool | None = None
-    documento_aggiuntivo_id: uuid.UUID | None = None
-    note: str | None = None
-    data_decorrenza: date | None = None
-    data_accettazione: date | None = None
-    poteri_delegati: str | None = None
-    limitazioni_poteri: str | None = None
-    legale_rappresentante: bool = False
-    modalita_firma: str | None = None
-    poteri_rappresentanza: str | None = None
-    limitazioni_rappresentanza: str | None = None
-    data_decorrenza_rappresentanza: date | None = None
-    data_scadenza_rappresentanza: date | None = None
-    documento_rappresentanza_id: uuid.UUID | None = None
-    note_rappresentanza: str | None = None
-    stato_incarico: str | None = None
-    motivo_cessazione: str | None = None
-    tipo_incarico: str | None = None
-    criterio_scadenza: str | None = None
-    documento_riferimento_id: uuid.UUID | None = None
-    fonte_dato: str | None = None
-    documento_qualifica_id: uuid.UUID | None = None
-    data_atto_nomina: date | None = None
-    data_prima_iscrizione: date | None = None
-    data_scadenza: date | None = None
-
-
-class AmministratoreDelegatoUpdate(_OrmModel):
-    persona_id: uuid.UUID | None = None
-    data_assegnazione: date | None = None
-    data_cessazione: date | None = None
-    nomina_richiesta: bool | None = None
-    documento_nomina_id: uuid.UUID | None = None
-    delega_presente: bool | None = None
-    interno_esterno: str | None = None
-    durata: str | None = None
-    assenza_cause_ostative: bool | None = None
-    assenza_condanne: bool | None = None
-    documento_aggiuntivo_id: uuid.UUID | None = None
-    note: str | None = None
-    data_decorrenza: date | None = None
-    data_accettazione: date | None = None
-    poteri_delegati: str | None = None
-    limitazioni_poteri: str | None = None
-    legale_rappresentante: bool | None = None
-    modalita_firma: str | None = None
-    poteri_rappresentanza: str | None = None
-    limitazioni_rappresentanza: str | None = None
-    data_decorrenza_rappresentanza: date | None = None
-    data_scadenza_rappresentanza: date | None = None
-    documento_rappresentanza_id: uuid.UUID | None = None
-    note_rappresentanza: str | None = None
-    stato_incarico: str | None = None
-    motivo_cessazione: str | None = None
-    tipo_incarico: str | None = None
-    criterio_scadenza: str | None = None
-    documento_riferimento_id: uuid.UUID | None = None
-    fonte_dato: str | None = None
-    documento_qualifica_id: uuid.UUID | None = None
-    data_atto_nomina: date | None = None
-    data_prima_iscrizione: date | None = None
-    data_scadenza: date | None = None
-
-
-class AmministratoreDelegatoRead(AmministratoreDelegatoCreate, _ReadMeta):
-    pass
-
-
-class ComponenteCdaCreate(_OrmModel):
-    persona_id: uuid.UUID
-    data_assegnazione: date | None = None
-    data_cessazione: date | None = None
-    nomina_richiesta: bool | None = None
-    documento_nomina_id: uuid.UUID | None = None
-    elezione_richiesta: bool | None = None
-    verbale_elezione_id: uuid.UUID | None = None
-    interno_esterno: str | None = None
-    durata: str | None = None
-    assenza_cause_ostative: bool | None = None
-    assenza_condanne: bool | None = None
-    documento_aggiuntivo_id: uuid.UUID | None = None
-    note: str | None = None
-    data_decorrenza: date | None = None
-    data_accettazione: date | None = None
-    poteri_attribuiti: str | None = None
-    limitazioni_poteri: str | None = None
-    legale_rappresentante: bool = False
-    modalita_firma: str | None = None
-    poteri_rappresentanza: str | None = None
-    limitazioni_rappresentanza: str | None = None
-    data_decorrenza_rappresentanza: date | None = None
-    data_scadenza_rappresentanza: date | None = None
-    documento_rappresentanza_id: uuid.UUID | None = None
-    note_rappresentanza: str | None = None
-    stato_incarico: str | None = None
-    motivo_cessazione: str | None = None
-    ruolo_nel_consiglio: str
-    criterio_scadenza: str | None = None
-    documento_riferimento_id: uuid.UUID | None = None
-    fonte_dato: str | None = None
-    documento_qualifica_id: uuid.UUID | None = None
-    data_atto_nomina: date | None = None
-    data_prima_iscrizione: date | None = None
-    data_scadenza: date | None = None
-    rappresentante_impresa: bool | None = None
-
-
-class ComponenteCdaUpdate(_OrmModel):
-    persona_id: uuid.UUID | None = None
-    data_assegnazione: date | None = None
-    data_cessazione: date | None = None
-    nomina_richiesta: bool | None = None
-    documento_nomina_id: uuid.UUID | None = None
-    elezione_richiesta: bool | None = None
-    verbale_elezione_id: uuid.UUID | None = None
-    interno_esterno: str | None = None
-    durata: str | None = None
-    assenza_cause_ostative: bool | None = None
-    assenza_condanne: bool | None = None
-    documento_aggiuntivo_id: uuid.UUID | None = None
-    note: str | None = None
-    data_decorrenza: date | None = None
-    data_accettazione: date | None = None
-    poteri_attribuiti: str | None = None
-    limitazioni_poteri: str | None = None
-    legale_rappresentante: bool | None = None
-    modalita_firma: str | None = None
-    poteri_rappresentanza: str | None = None
-    limitazioni_rappresentanza: str | None = None
-    data_decorrenza_rappresentanza: date | None = None
-    data_scadenza_rappresentanza: date | None = None
-    documento_rappresentanza_id: uuid.UUID | None = None
-    note_rappresentanza: str | None = None
-    stato_incarico: str | None = None
-    motivo_cessazione: str | None = None
-    ruolo_nel_consiglio: str | None = None
-    criterio_scadenza: str | None = None
-    documento_riferimento_id: uuid.UUID | None = None
-    fonte_dato: str | None = None
-    documento_qualifica_id: uuid.UUID | None = None
-    data_atto_nomina: date | None = None
-    data_prima_iscrizione: date | None = None
-    data_scadenza: date | None = None
-    rappresentante_impresa: bool | None = None
-
-
-class ComponenteCdaRead(ComponenteCdaCreate, _ReadMeta):
-    pass

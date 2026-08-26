@@ -9,6 +9,7 @@ import type { Sede } from "@/lib/types/anagrafica";
 
 import { createSede, updateSede, type FormState } from "./actions";
 import { SedeFormFields } from "./sede-form-fields";
+import { SediAttivitaField } from "./sedi-attivita-field";
 
 export function SedeDialog({ trigger, dati }: { trigger: ReactNode; dati?: Sede }) {
   const [open, setOpen] = useState(false);
@@ -29,6 +30,7 @@ export function SedeDialog({ trigger, dati }: { trigger: ReactNode; dati?: Sede 
         <form action={formAction} className="flex flex-col gap-4">
           <FormError message={state.error} />
           <SedeFormFields dati={dati} />
+          <SediAttivitaField dati={dati?.attivita ?? []} />
           <SubmitButton>Salva</SubmitButton>
         </form>
       </DialogContent>

@@ -43,6 +43,14 @@ export interface DurataSocietaEsercizi extends ConMetadati {
   scadenza_esercizi_successivi: string | null;
 }
 
+export interface SedeAttivita {
+  id: string;
+  descrizione_attivita: string;
+  data_inizio: string | null;
+  data_fine: string | null;
+  ruolo_importanza: string | null;
+}
+
 export interface Sede extends ConMetadati {
   tipo_sede: string;
   numero_unita_locale: string | null;
@@ -55,6 +63,14 @@ export interface Sede extends ConMetadati {
   provincia: string | null;
   frazione: string | null;
   nazione: string | null;
+  toponimo: string | null;
+  indirizzo_originale: string | null;
+  numero_rea_unita: string | null;
+  data_chiusura: string | null;
+  stato: string | null;
+  sigla_territoriale: string | null;
+  numero_progressivo: string | null;
+  attivita: SedeAttivita[];
 }
 
 export interface Contatto extends ConMetadati {
@@ -78,6 +94,7 @@ export interface CodiceAteco extends ConMetadati {
   origine_codice: string | null;
   fonte: string | null;
   codice_nace: string | null;
+  sede_id: string | null;
 }
 
 export interface AlboRuoloLicenza extends ConMetadati {
@@ -98,11 +115,19 @@ export interface AlboRuoloLicenza extends ConMetadati {
   data_cessazione: string | null;
   data_caricamento: string | null;
   fonte: string | null;
+  sede_id: string | null;
 }
 
 export interface SistemaAmministrazione {
   id: string;
   sistema_amministrazione: string;
+  numero_minimo_componenti: number | null;
+  numero_massimo_componenti: number | null;
+  regole_decisionali: string | null;
+  deleghe_previste: string | null;
+  regime_rappresentanza: string | null;
+  gestione_opposizione: string | null;
+  in_carica: boolean;
 }
 
 export interface AmministrazioneControllo extends ConMetadati {

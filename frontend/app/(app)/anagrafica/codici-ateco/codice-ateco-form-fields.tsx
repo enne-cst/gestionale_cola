@@ -1,7 +1,8 @@
 import { FormField } from "@/components/form-field";
-import type { CodiceAteco } from "@/lib/types/anagrafica";
+import { SedeSelectField } from "@/components/sede-select-field";
+import type { CodiceAteco, Sede } from "@/lib/types/anagrafica";
 
-export function CodiceAtecoFormFields({ dati }: { dati?: CodiceAteco }) {
+export function CodiceAtecoFormFields({ dati, sedi = [] }: { dati?: CodiceAteco; sedi?: Sede[] }) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <FormField label="Codice" name="codice" defaultValue={dati?.codice} required />
@@ -15,6 +16,7 @@ export function CodiceAtecoFormFields({ dati }: { dati?: CodiceAteco }) {
       />
       <FormField label="Origine codice" name="origine_codice" defaultValue={dati?.origine_codice} />
       <FormField label="Fonte" name="fonte" defaultValue={dati?.fonte} />
+      <SedeSelectField sedi={sedi} defaultValue={dati?.sede_id} />
     </div>
   );
 }

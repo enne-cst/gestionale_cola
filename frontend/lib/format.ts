@@ -14,6 +14,17 @@ export function formatDateTime(value?: string | null): string {
   return new Intl.DateTimeFormat("it-IT", { dateStyle: "short", timeStyle: "short" }).format(date);
 }
 
+/** Formattazione decimale italiana senza simbolo di valuta: usata per i
+ * campi "importo" del registro campo-per-campo, dove la valuta è un campo
+ * separato del gruppo e non è disponibile qui (§2.5 "separatori italiani in
+ * visualizzazione", senza assumere una valuta specifica). */
+export function formatDecimal(value?: string | null): string {
+  if (value === null || value === undefined || value === "") return "—";
+  const number = Number(value);
+  if (Number.isNaN(number)) return value;
+  return new Intl.NumberFormat("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(number);
+}
+
 export function formatCurrency(value?: string | null, currency = "EUR"): string {
   if (value === null || value === undefined || value === "") return "—";
   const number = Number(value);

@@ -5,12 +5,20 @@ import { useActionState, useEffect, useState, type ReactNode } from "react";
 import { FormError } from "@/components/form-error";
 import { SubmitButton } from "@/components/submit-button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import type { AlboRuoloLicenza } from "@/lib/types/anagrafica";
+import type { AlboRuoloLicenza, Sede } from "@/lib/types/anagrafica";
 
 import { createAlbo, updateAlbo, type FormState } from "./actions";
 import { AlboFormFields } from "./albo-form-fields";
 
-export function AlboDialog({ trigger, dati }: { trigger: ReactNode; dati?: AlboRuoloLicenza }) {
+export function AlboDialog({
+  trigger,
+  dati,
+  sedi = [],
+}: {
+  trigger: ReactNode;
+  dati?: AlboRuoloLicenza;
+  sedi?: Sede[];
+}) {
   const [open, setOpen] = useState(false);
   const action = dati ? updateAlbo.bind(null, dati.id) : createAlbo;
   const [state, formAction] = useActionState<FormState, FormData>(action, {});
@@ -28,7 +36,7 @@ export function AlboDialog({ trigger, dati }: { trigger: ReactNode; dati?: AlboR
         </DialogHeader>
         <form action={formAction} className="flex flex-col gap-4">
           <FormError message={state.error} />
-          <AlboFormFields dati={dati} />
+          <AlboFormFields dati={dati} sedi={sedi} />
           <SubmitButton>Salva</SubmitButton>
         </form>
       </DialogContent>

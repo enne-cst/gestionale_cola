@@ -16,6 +16,7 @@ function payloadFromFormData(formData: FormData) {
     origine_codice: textOrNull(formData.get("origine_codice")),
     fonte: textOrNull(formData.get("fonte")),
     codice_nace: textOrNull(formData.get("codice_nace")),
+    sede_id: textOrNull(formData.get("sede_id")),
   };
 }
 

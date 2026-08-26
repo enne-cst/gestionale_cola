@@ -1,32 +1,22 @@
 import { ArrowRightIcon, Building2, CheckCircle2Icon } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
 
 import { CollapsibleSection } from "@/components/collapsible-section";
 import { CompletenessRing } from "@/components/completeness-ring";
-import { DataRow } from "@/components/data-row";
 import { ExpandAllButton } from "@/components/expand-all-button";
 import { IconAvatar } from "@/components/icon-avatar";
-import { CompanyCard } from "@/components/registro/company-card";
-import { CorporateSection } from "@/components/registro/corporate-section";
-import { InformazioniSocietarieCard } from "@/components/registro/informazioni-societarie-card";
+import { CciaaMacroSection } from "@/components/registro/cciaa-macro-section";
+import { CciaaSectionCard, type CciaaSectionCardStato } from "@/components/registro/cciaa-section-card";
 import { QualityCard } from "@/components/registro/quality-card";
 import { RecentChangesCard } from "@/components/registro/recent-changes-card";
 import { WorkspaceProvider } from "@/components/registro/workspace-provider";
 import { WorkspaceShell } from "@/components/registro/workspace-shell";
-import { SectionListPreviewCard } from "@/components/section-list-preview-card";
-import { SectionPreviewCard } from "@/components/section-preview-card";
 import { SectionLinkCard } from "@/components/section-link-card";
 import { apiFetch } from "@/lib/api";
-import { getRegistroOverview } from "@/lib/actions/registro";
-import { CATEGORIA_ICONE, SEZIONE_ICONE } from "@/lib/anagrafica-icons";
-import {
-  categoriaSlug,
-  categorieVisibili,
-  SEZIONI_ANAGRAFICA,
-  sezioniPerCategoriaVisibili,
-} from "@/lib/anagrafica-sezioni";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { getIncarichi } from "@/lib/actions/personale";
+import { getRegistroOverview, getRiepilogoSezioni } from "@/lib/actions/registro";
+import { CATEGORIA_ICONE, CCIAA_CARD_ICONE, SEZIONE_ICONE } from "@/lib/anagrafica-icons";
+import { categoriaSlug, categorieVisibili, SEZIONI_ANAGRAFICA, sezioniPerCategoriaVisibili } from "@/lib/anagrafica-sezioni";
 import type { MeResponse } from "@/lib/types/auth";
 import type {
   AddettiComune,
@@ -44,6 +34,9 @@ import type {
   Sede,
   Soa,
 } from "@/lib/types/anagrafica";
+
+const RUOLI_AMMINISTRATORI = new Set(["AMMINISTRATORE", "AMMINISTRATORE_DELEGATO", "COMPONENTE_CDA"]);
+const RUOLI_SINDACI = new Set(["SINDACO", "REVISORE_LEGALE"]);
 
 export default async function AnagraficaOverviewPage() {
   const [me, overview] = await Promise.all([apiFetch<MeResponse>("/api/auth/me"), getRegistroOverview()]);
@@ -65,6 +58,8 @@ export default async function AnagraficaOverviewPage() {
     certificazioni,
     addettiVisura,
     addettiComune,
+    riepilogoSezioni,
+    incarichi,
   ] = await Promise.all([
     apiFetch<string[]>("/api/sezioni"),
     apiFetch<IdentificazioneCamerale | null>("/api/anagrafica/identificazione-camerale"),
@@ -81,6 +76,8 @@ export default async function AnagraficaOverviewPage() {
     apiFetch<Certificazione[]>("/api/anagrafica/certificazioni"),
     apiFetch<AddettiVisura[]>("/api/anagrafica/addetti-visura"),
     apiFetch<AddettiComune[]>("/api/anagrafica/addetti-comune"),
+    getRiepilogoSezioni(),
+    getIncarichi(),
   ]);
 
   const stato: Record<string, boolean> = {
@@ -112,192 +109,165 @@ export default async function AnagraficaOverviewPage() {
   const percentuale = Math.round((sezioniCompilate / sezioniBase.length) * 100);
   const sezioniDaCompletare = sezioniBase.filter((s) => !stato[s.slug]);
   const sezioniAbilitateSet = new Set(sezioniAbilitate);
-  const IdentificazioneCameraleIcon = SEZIONE_ICONE["identificazione-camerale"];
 
-  // "Informazioni societarie" (Identificazione camerale, Durata società ed
-  // esercizi, Attività esercitata, Capitale sociale) ha un trattamento
-  // grafico dedicato (vedi <CorporateSection> più sotto, calcato sul
-  // prototipo di riferimento): non passa da `cardBySlug`/`CollapsibleSection`
-  // come le altre categorie.
-  const cardBySlug: Record<string, ReactNode> = {
-    "iscrizioni-registro-imprese": (
-      <SectionListPreviewCard
-        icon={SEZIONE_ICONE["iscrizioni-registro-imprese"]}
-        title="Iscrizioni registro imprese"
-        href="/anagrafica/iscrizioni-registro-imprese"
-        items={iscrizioni}
-        emptyLabel="Nessuna iscrizione registrata."
-        renderItem={(iscrizione) => (
-          <span className="flex flex-col">
-            <span className="font-medium text-foreground">{iscrizione.tipo_iscrizione ?? "Iscrizione"}</span>
-            <span className="text-xs text-muted-foreground">{iscrizione.sezione ?? "—"}</span>
-          </span>
-        )}
-      />
-    ),
-    "codici-ateco": (
-      <SectionListPreviewCard
-        icon={SEZIONE_ICONE["codici-ateco"]}
-        title="Codici ATECO"
-        href="/anagrafica/codici-ateco"
-        items={codiciAteco}
-        emptyLabel="Nessun codice ATECO registrato."
-        renderItem={(codice) => (
-          <span className="flex flex-col">
-            <span className="font-medium text-foreground">{codice.codice}</span>
-            <span className="text-xs text-muted-foreground">{codice.descrizione ?? codice.ruolo_codice ?? "—"}</span>
-          </span>
-        )}
-      />
-    ),
-    "amministrazione-controllo": (
-      <SectionPreviewCard
-        icon={SEZIONE_ICONE["amministrazione-controllo"]}
-        title="Amministrazione e controllo"
-        compilata={stato["amministrazione-controllo"]}
-        href="/anagrafica/amministrazione-controllo"
-      >
-        {amministrazioneControllo ? (
-          <div className="grid grid-cols-2 gap-4">
-            <DataRow label="Organo in carica" value={amministrazioneControllo.organo_amministrativo_in_carica} />
-            <DataRow
-              label="Amministratori in carica"
-              value={amministrazioneControllo.numero_amministratori_in_carica?.toString() ?? null}
-            />
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">Nessun dato inserito ancora.</p>
-        )}
-      </SectionPreviewCard>
-    ),
-    "albi-ruoli-licenze": (
-      <SectionListPreviewCard
-        icon={SEZIONE_ICONE["albi-ruoli-licenze"]}
-        title="Albi, ruoli e licenze"
-        href="/anagrafica/albi-ruoli-licenze"
-        items={albi}
-        emptyLabel="Nessuna iscrizione registrata."
-        renderItem={(albo) => (
-          <span className="flex flex-col">
-            <span className="font-medium text-foreground">{albo.tipologia}</span>
-            <span className="text-xs text-muted-foreground">{albo.stato ?? "—"}</span>
-          </span>
-        )}
-      />
-    ),
-    soa: (
-      <SectionListPreviewCard
-        icon={SEZIONE_ICONE.soa}
-        title="Attestazioni SOA"
-        href="/anagrafica/soa"
-        items={soa}
-        emptyLabel="Nessuna attestazione SOA registrata."
-        renderItem={(attestazione) => (
-          <span className="flex flex-col">
-            <span className="font-medium text-foreground">{attestazione.numero_attestazione ?? "Attestazione"}</span>
-            <span className="text-xs text-muted-foreground">
-              {attestazione.categorie.map((c) => c.categoria).join(", ") || "—"}
-            </span>
-          </span>
-        )}
-      />
-    ),
-    certificazioni: (
-      <SectionListPreviewCard
-        icon={SEZIONE_ICONE.certificazioni}
-        title="Certificazioni possedute"
-        href="/anagrafica/certificazioni"
-        items={certificazioni}
-        emptyLabel="Nessuna certificazione registrata."
-        renderItem={(cert) => (
-          <span className="flex flex-col">
-            <span className="font-medium text-foreground">{cert.tipologia_certificazione ?? cert.sigla ?? "Certificazione"}</span>
-            <span className="text-xs text-muted-foreground">{cert.norma_riferimento ?? "—"}</span>
-          </span>
-        )}
-      />
-    ),
-    "addetti-visura": (
-      <SectionListPreviewCard
-        icon={SEZIONE_ICONE["addetti-visura"]}
-        title="Addetti da visura"
-        href="/anagrafica/addetti-visura"
-        items={addettiVisura}
-        emptyLabel="Nessuna rilevazione registrata."
-        renderItem={(rilevazione) => (
-          <span className="flex flex-col">
-            <span className="font-medium text-foreground">{rilevazione.anno_riferimento ?? "Rilevazione"}</span>
-            <span className="text-xs text-muted-foreground">{rilevazione.fonte ?? "—"}</span>
-          </span>
-        )}
-      />
-    ),
-    "addetti-comune": (
-      <SectionListPreviewCard
-        icon={SEZIONE_ICONE["addetti-comune"]}
-        title="Addetti per comune"
-        href="/anagrafica/addetti-comune"
-        items={addettiComune}
-        emptyLabel="Nessuna distribuzione registrata."
-        renderItem={(distribuzione) => (
-          <span className="flex flex-col">
-            <span className="font-medium text-foreground">{distribuzione.comune}</span>
-            <span className="text-xs text-muted-foreground">{distribuzione.provincia ?? "—"}</span>
-          </span>
-        )}
-      />
-    ),
-    sedi: (
-      <SectionListPreviewCard
-        icon={SEZIONE_ICONE.sedi}
-        title="Sedi"
-        href="/anagrafica/sedi"
-        items={sedi}
-        emptyLabel="Nessuna sede registrata."
-        renderItem={(sede) => (
-          <span className="flex flex-col">
-            <span className="font-medium text-foreground">{sede.denominazione_sede ?? sede.tipo_sede}</span>
-            <span className="text-xs text-muted-foreground">
-              {[sede.indirizzo, sede.comune].filter(Boolean).join(", ") || sede.tipo_sede}
-            </span>
-          </span>
-        )}
-      />
-    ),
-    contatti: (
-      <SectionListPreviewCard
-        icon={SEZIONE_ICONE.contatti}
-        title="Contatti e recapiti"
-        href="/anagrafica/contatti"
-        items={contatti}
-        emptyLabel="Nessun contatto registrato."
-        renderItem={(contatto) => (
-          <span className="flex flex-col">
-            <span className="font-medium text-foreground">{contatto.valore}</span>
-            <span className="text-xs text-muted-foreground">{contatto.tipo_contatto}</span>
-          </span>
-        )}
-      />
-    ),
-  };
+  // --- Conteggi delle 10 card "Dati CCIAA" (§6.3/§6.4 del protocollo) ---
+  // Solo le sezioni realmente a registro (identificazione-camerale,
+  // capitale-sociale, durata-societa-esercizi, amministrazione-controllo)
+  // hanno uno stato di verifica per campo: le altre card mostrano presenza
+  // reale ("N di N informazioni presenti"), mai pallini inventati (§18).
+  const riepilogoPerSezione = new Map(riepilogoSezioni.map((r) => [r.sectionKey, r]));
+  function sommaRegistro(sectionKeys: string[]) {
+    let verified = 0;
+    let pending = 0;
+    let revisionRequired = 0;
+    let totalApplicable = 0;
+    for (const key of sectionKeys) {
+      const r = riepilogoPerSezione.get(key);
+      if (!r) continue;
+      verified += r.verified;
+      pending += r.pending;
+      revisionRequired += r.revisionRequired;
+      totalApplicable += r.totalApplicable;
+    }
+    return { verified, pending, revisionRequired, totalApplicable };
+  }
+  function statoDaRegistro(agg: ReturnType<typeof sommaRegistro>): CciaaSectionCardStato {
+    return { confermate: agg.verified, daVerificare: agg.pending, daRevisionare: agg.revisionRequired };
+  }
+  // Soci/Amministratori/Sindaci non hanno un registro campo-per-campo, ma
+  // ogni incarico porta comunque una verifica reale del consulente
+  // (caratteristica A32 "Stato verifica consulente", obbligatoria per questi
+  // ruoli — vedi `cciaa-incarichi-caratteristiche.ts`): i pallini qui sotto
+  // aggregano quel dato esistente, non ne inventano uno nuovo (§18).
+  function statoDaIncarichi(righe: typeof incarichi): CciaaSectionCardStato | null {
+    if (righe.length === 0) return null;
+    let confermate = 0;
+    let daVerificare = 0;
+    let daRevisionare = 0;
+    for (const r of righe) {
+      const v = r.valori.A32;
+      if (v === "APPROVATO") confermate += 1;
+      else if (v === "IN_REVISIONE") daRevisionare += 1;
+      else daVerificare += 1;
+    }
+    return { confermate, daVerificare, daRevisionare };
+  }
 
-  const durataDettagli = durata
-    ? ([
-        ["Data termine società", formatDate(durata.data_termine_societa)],
-        ["Scadenza primo esercizio", formatDate(durata.scadenza_primo_esercizio)],
-      ] satisfies [string, ReactNode][])
-    : null;
-  const attivitaDettagli = attivita?.descrizione_attivita_esercitata
-    ? ([["Descrizione", attivita.descrizione_attivita_esercitata]] satisfies [string, ReactNode][])
-    : null;
-  const capitaleDettagli = capitale
-    ? ([
-        ["Capitale deliberato", formatCurrency(capitale.capitale_deliberato, capitale.valuta ?? "EUR")],
-        ["Capitale sottoscritto", formatCurrency(capitale.capitale_sottoscritto, capitale.valuta ?? "EUR")],
-        ["Capitale versato", formatCurrency(capitale.capitale_versato, capitale.valuta ?? "EUR")],
-        ["Valuta", capitale.valuta],
-      ] satisfies [string, ReactNode][])
-    : null;
+  const hasSedeLegale = sedi.some((s) => s.tipo_sede.toLowerCase().includes("legale"));
+  const hasSedeSecondaria = sedi.some((s) => !s.tipo_sede.toLowerCase().includes("legale"));
+  const hasDomicilioDigitale = contatti.some((c) => /pec|digitale/i.test(c.tipo_contatto));
+
+  const righeSoci = incarichi.filter((i) => i.ruolo.codice === "SOCIO");
+  const righeAmministratori = incarichi.filter((i) => RUOLI_AMMINISTRATORI.has(i.ruolo.codice));
+  const righeSindaci = incarichi.filter((i) => RUOLI_SINDACI.has(i.ruolo.codice));
+
+  const aggStatuto = sommaRegistro(["informazioni-societarie", "durata-societa-esercizi", "amministrazione-controllo"]);
+  const aggCapitale = sommaRegistro(["capitale-sociale"]);
+
+  const cciaaCards: {
+    key: string;
+    sectionKey: string;
+    titolo: string;
+    presenti: number;
+    totale: number;
+    stato: CciaaSectionCardStato | null;
+  }[] = [
+    {
+      key: "sintesi",
+      sectionKey: "sintesi",
+      titolo: "Dati della sintesi",
+      presenti: Number(Boolean(identificazione?.stato_attivita)),
+      totale: 1,
+      stato: null,
+    },
+    {
+      key: "sede",
+      sectionKey: "sede",
+      titolo: "Sede",
+      presenti: Number(hasSedeLegale) + Number(hasDomicilioDigitale),
+      totale: 2,
+      stato: null,
+    },
+    {
+      key: "statuto",
+      sectionKey: "statuto",
+      titolo: "Informazioni da statuto/atto costitutivo",
+      presenti: aggStatuto.verified + aggStatuto.pending + aggStatuto.revisionRequired + Number(stato["iscrizioni-registro-imprese"]),
+      totale: aggStatuto.totalApplicable + 1,
+      stato: statoDaRegistro(aggStatuto),
+    },
+    {
+      key: "capitale-sociale",
+      sectionKey: "capitale-sociale",
+      titolo: "Capitale sociale",
+      presenti: aggCapitale.verified + aggCapitale.pending + aggCapitale.revisionRequired,
+      totale: aggCapitale.totalApplicable,
+      stato: statoDaRegistro(aggCapitale),
+    },
+    {
+      key: "soci",
+      sectionKey: "soci",
+      titolo: "Soci e titolari di diritti su azioni e quote",
+      presenti: Number(righeSoci.length > 0),
+      totale: 1,
+      stato: statoDaIncarichi(righeSoci),
+    },
+    {
+      key: "amministratori",
+      sectionKey: "amministratori",
+      titolo: "Amministratori",
+      presenti: Number(righeAmministratori.length > 0),
+      totale: 1,
+      stato: statoDaIncarichi(righeAmministratori),
+    },
+    {
+      key: "sindaci",
+      sectionKey: "sindaci",
+      titolo: "Sindaci e membri degli organi di controllo",
+      presenti: Number(righeSindaci.length > 0),
+      totale: 1,
+      stato: statoDaIncarichi(righeSindaci),
+    },
+    {
+      key: "attivita-albi",
+      sectionKey: "attivita-albi",
+      titolo: "Attività, albi, ruoli e licenze",
+      presenti:
+        Number(stato["attivita-esercitata"]) +
+        Number(stato["codici-ateco"]) +
+        Number(stato["albi-ruoli-licenze"]) +
+        Number(stato.soa) +
+        Number(stato.certificazioni),
+      totale: 5,
+      stato: null,
+    },
+    {
+      key: "personale-occupazione",
+      sectionKey: "personale-occupazione",
+      titolo: "Personale e occupazione",
+      presenti: Number(stato["addetti-visura"]) + Number(stato["addetti-comune"]),
+      totale: 2,
+      stato: null,
+    },
+    {
+      key: "sedi-secondarie",
+      sectionKey: "sedi-secondarie",
+      titolo: "Sedi secondarie e unità locali",
+      presenti: Number(hasSedeSecondaria),
+      totale: 1,
+      stato: null,
+    },
+    {
+      key: "aggiornamento-impresa",
+      sectionKey: "aggiornamento-impresa",
+      titolo: "Aggiornamento impresa",
+      presenti: Number(Boolean(identificazione?.data_ultimo_protocollo)),
+      totale: 1,
+      stato: null,
+    },
+  ];
+  const cardCciaaCompletate = cciaaCards.filter((c) => c.totale > 0 && c.presenti >= c.totale).length;
+  const DatiCciaaIcon = CATEGORIA_ICONE["Dati CCIAA"];
 
   const contenuto = (
     <div className="flex flex-col gap-6">
@@ -358,36 +328,30 @@ export default async function AnagraficaOverviewPage() {
         <ExpandAllButton />
       </div>
 
-      <CorporateSection icon={<IdentificazioneCameraleIcon className="size-[22px]" />} title="Informazioni societarie">
-        <InformazioniSocietarieCard identificazione={identificazione} />
-        <CompanyCard
-          icon={SEZIONE_ICONE["durata-societa-esercizi"]}
-          title="Durata società ed esercizi"
-          stato={stato["durata-societa-esercizi"] ? "completato" : "incompleto"}
-          details={durataDettagli}
-          actionLabel={stato["durata-societa-esercizi"] ? "Visualizza dettagli" : "Compila sezione"}
-          href="/anagrafica/durata-societa-esercizi"
-        />
-        <CompanyCard
-          icon={SEZIONE_ICONE["attivita-esercitata"]}
-          title="Attività esercitata"
-          stato={stato["attivita-esercitata"] ? "completato" : "incompleto"}
-          details={attivitaDettagli}
-          actionLabel={stato["attivita-esercitata"] ? "Visualizza dettagli" : "Compila sezione"}
-          href="/anagrafica/attivita-esercitata"
-        />
-        <CompanyCard
-          icon={SEZIONE_ICONE["capitale-sociale"]}
-          title="Capitale sociale"
-          stato={stato["capitale-sociale"] ? "completato" : "incompleto"}
-          details={capitaleDettagli}
-          actionLabel={stato["capitale-sociale"] ? "Visualizza dettagli" : "Compila sezione"}
-          href="/anagrafica/capitale-sociale"
-        />
-      </CorporateSection>
+      <CciaaMacroSection
+        id="dati-cciaa"
+        icon={<DatiCciaaIcon className="size-[22px]" />}
+        title="Dati CCIAA"
+        badge={`${cardCciaaCompletate} di ${cciaaCards.length} sezioni completate`}
+      >
+        {cciaaCards.map((card) => {
+          const Icon = CCIAA_CARD_ICONE[card.key];
+          return (
+            <CciaaSectionCard
+              key={card.key}
+              icon={<Icon className="size-[18px]" />}
+              title={card.titolo}
+              presenti={card.presenti}
+              totale={card.totale}
+              stato={card.stato}
+              sectionKey={card.sectionKey}
+            />
+          );
+        })}
+      </CciaaMacroSection>
 
       {categorieVisibili(sezioniAbilitateSet)
-        .filter((categoria) => categoria.nome !== "Informazioni societarie")
+        .filter((categoria) => categoria.nome !== "Dati CCIAA")
         .map((categoria) => {
           const sezioni = sezioniPerCategoriaVisibili(categoria.nome, sezioniAbilitateSet);
           // Le sezioni ISO 9001 non hanno un dato "compilata/da compilare"
@@ -409,14 +373,12 @@ export default async function AnagraficaOverviewPage() {
             >
               {sezioni.map((sezione) => (
                 <div key={sezione.slug}>
-                  {cardBySlug[sezione.slug] ?? (
-                    <SectionLinkCard
-                      icon={SEZIONE_ICONE[sezione.slug]}
-                      title={sezione.titolo}
-                      subtitle="Vai alla sezione"
-                      href={`/anagrafica/${sezione.slug}`}
-                    />
-                  )}
+                  <SectionLinkCard
+                    icon={SEZIONE_ICONE[sezione.slug]}
+                    title={sezione.titolo}
+                    subtitle="Vai alla sezione"
+                    href={`/anagrafica/${sezione.slug}`}
+                  />
                 </div>
               ))}
             </CollapsibleSection>

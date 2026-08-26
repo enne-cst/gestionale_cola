@@ -26,6 +26,7 @@ function payloadFromFormData(formData: FormData) {
     data_cessazione: textOrNull(formData.get("data_cessazione")),
     data_caricamento: textOrNull(formData.get("data_caricamento")),
     fonte: textOrNull(formData.get("fonte")),
+    sede_id: textOrNull(formData.get("sede_id")),
   };
 }
 
