@@ -73,6 +73,7 @@ function ContenutoVista({ vistaKey }: { vistaKey: CciaaVistaKey }) {
               ruoliCodici={["SOCIO"]}
               etichettaVuoto="Nessun socio registrato."
               sectionKey="elenco-soci-estremi"
+              variante="soci"
             />
           </section>
         </>

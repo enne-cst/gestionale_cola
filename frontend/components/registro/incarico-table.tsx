@@ -10,7 +10,7 @@ import { IncaricoVerificationPopover } from "@/components/registro/incarico-veri
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useWorkspace } from "@/components/registro/workspace-provider";
 import { eliminaIncarico, getIncarichi, getRuoli } from "@/lib/actions/personale";
-import { formatDate } from "@/lib/format";
+import { formatCurrency, formatDate, formatDecimal } from "@/lib/format";
 import type { Incarico, RuoloSummary } from "@/lib/types/personale";
 
 /** "Nascita" del soggetto (§5.2 della specifica: luogo e data compilati
@@ -34,6 +34,15 @@ function primaData(incarico: Incarico, codici: string[]): string {
   return "—";
 }
 
+function valoreCaratteristica(incarico: Incarico, codice: string): string | null {
+  const valore = incarico.valori[codice];
+  return typeof valore === "string" && valore ? valore : null;
+}
+
+function formatPercentuale(valore: string | null): string {
+  return valore ? `${formatDecimal(valore)}%` : "—";
+}
+
 /** Tabella incorporata Soci/Amministratori/Sindaci (§4/§5/§6 della specifica
  * CCIAA): sopra il motore generico `per_incarichi` già esistente, filtrata
  * per i soli ruoli pertinenti alla card. Nessuna riga inventata: se il
@@ -45,6 +54,7 @@ export function IncaricoTable({
   ruoliCodici,
   etichettaVuoto,
   sectionKey,
+  variante,
 }: {
   titolo: string;
   icon: LucideIcon;
@@ -55,6 +65,12 @@ export function IncaricoTable({
   // `DataTableCard`). Omesso finché non è stato migrato anche il call site
   // (Amministratori/Sindaci, per ora invariati).
   sectionKey?: string;
+  // "soci": vista riepilogativa Correzione 02 (Persona/Ruolo/Data di
+  // nomina/Quota/Valore nominale/Versamento/Stato di carica/Verifica,
+  // colonna azioni solo in modifica) — nascita/cittadinanza/domicilio
+  // restano solo nel form completo (pulsante Modifica, in modalità
+  // modifica). Omesso per Amministratori/Sindaci: colonne invariate.
+  variante?: "soci";
 }) {
   const { ruolo, state } = useWorkspace();
   const consulente = ruolo === "CONSULENTE";
@@ -117,71 +133,143 @@ export function IncaricoTable({
         <EmptyTableMessage>{etichettaVuoto}</EmptyTableMessage>
       ) : (
         <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Persona</TableHead>
-              <TableHead className="text-center">Nascita</TableHead>
-              <TableHead className="text-center">Cittadinanza</TableHead>
-              <TableHead className="text-center">Domicilio</TableHead>
-              <TableHead className="text-center">Ruolo</TableHead>
-              <TableHead className="text-center">Data di nomina</TableHead>
-              <TableHead className="text-center">Stato carica</TableHead>
-              <TableHead className="text-center">Verifica</TableHead>
-              <TableHead className="w-24" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {incarichi.map((incarico) => {
-              const statoCarica = incarico.valori.A25;
-              const nomeIncarico = `${incarico.ruolo.denominazione} ${incarico.persona.cognome} ${incarico.persona.nome}`;
-              return (
-                <TableRow key={incarico.id}>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-medium text-foreground">
-                        {incarico.persona.cognome} {incarico.persona.nome}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{incarico.persona.codice_fiscale}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center">{nascita(incarico)}</TableCell>
-                  <TableCell className="text-center">{incarico.persona.nazionalita ?? "—"}</TableCell>
-                  <TableCell className="text-center">{incarico.persona.residenza ?? "—"}</TableCell>
-                  <TableCell className="text-center">{incarico.ruolo.denominazione}</TableCell>
-                  <TableCell className="text-center">{primaData(incarico, ["A49", "A01"])}</TableCell>
-                  <TableCell className="text-center">
-                    {typeof statoCarica === "string" && statoCarica ? statoCarica : "—"}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <div className="flex justify-center">
-                      <IncaricoVerificationPopover
-                        incarico={incarico}
-                        nomeIncarico={nomeIncarico}
-                        consulente={consulente}
-                        onDecided={carica}
-                        disabled={editingScheda === true}
-                      />
-                    </div>
-                  </TableCell>
-                  <TableCell className="flex justify-end gap-1">
-                    <IncaricoFormDialog
-                      ruoli={ruoli}
-                      incarico={incarico}
-                      onSaved={carica}
-                      trigger={
-                        <Button variant="ghost" size="icon" aria-label="Modifica">
-                          <PencilIcon className="size-4" />
-                        </Button>
-                      }
-                    />
-                    <Button variant="ghost" size="icon" aria-label="Elimina" onClick={() => onElimina(incarico)}>
-                      <Trash2Icon className="size-4" />
-                    </Button>
-                  </TableCell>
+          {variante === "soci" ? (
+            <>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Persona</TableHead>
+                  <TableHead className="text-center">Ruolo</TableHead>
+                  <TableHead className="text-center">Data di nomina</TableHead>
+                  <TableHead className="text-center">Quota</TableHead>
+                  <TableHead className="text-center">Valore nominale</TableHead>
+                  <TableHead className="text-center">Versamento</TableHead>
+                  <TableHead className="text-center">Stato di carica</TableHead>
+                  <TableHead className="text-center">Verifica</TableHead>
+                  {editingScheda && <TableHead className="w-24" />}
                 </TableRow>
-              );
-            })}
-          </TableBody>
+              </TableHeader>
+              <TableBody>
+                {incarichi.map((incarico) => {
+                  const statoCarica = valoreCaratteristica(incarico, "A25");
+                  const nomeIncarico = `${incarico.ruolo.denominazione} ${incarico.persona.cognome} ${incarico.persona.nome}`;
+                  return (
+                    <TableRow key={incarico.id}>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium text-foreground">
+                            {incarico.persona.cognome} {incarico.persona.nome}
+                          </span>
+                          <span className="text-xs text-muted-foreground">{incarico.persona.codice_fiscale}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">{incarico.ruolo.denominazione}</TableCell>
+                      <TableCell className="text-center">{primaData(incarico, ["A49", "A01"])}</TableCell>
+                      <TableCell className="text-center">{formatPercentuale(valoreCaratteristica(incarico, "A54"))}</TableCell>
+                      <TableCell className="text-center">{formatCurrency(valoreCaratteristica(incarico, "A53"))}</TableCell>
+                      <TableCell className="text-center">{formatCurrency(valoreCaratteristica(incarico, "A56"))}</TableCell>
+                      <TableCell className="text-center">{statoCarica ?? "—"}</TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center">
+                          <IncaricoVerificationPopover
+                            incarico={incarico}
+                            nomeIncarico={nomeIncarico}
+                            consulente={consulente}
+                            onDecided={carica}
+                            disabled={editingScheda === true}
+                          />
+                        </div>
+                      </TableCell>
+                      {editingScheda && (
+                        <TableCell className="flex justify-end gap-1">
+                          <IncaricoFormDialog
+                            ruoli={ruoli}
+                            incarico={incarico}
+                            onSaved={carica}
+                            trigger={
+                              <Button variant="ghost" size="icon" aria-label="Modifica">
+                                <PencilIcon className="size-4" />
+                              </Button>
+                            }
+                          />
+                          <Button variant="ghost" size="icon" aria-label="Elimina" onClick={() => onElimina(incarico)}>
+                            <Trash2Icon className="size-4" />
+                          </Button>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </>
+          ) : (
+            <>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Persona</TableHead>
+                  <TableHead className="text-center">Nascita</TableHead>
+                  <TableHead className="text-center">Cittadinanza</TableHead>
+                  <TableHead className="text-center">Domicilio</TableHead>
+                  <TableHead className="text-center">Ruolo</TableHead>
+                  <TableHead className="text-center">Data di nomina</TableHead>
+                  <TableHead className="text-center">Stato carica</TableHead>
+                  <TableHead className="text-center">Verifica</TableHead>
+                  <TableHead className="w-24" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {incarichi.map((incarico) => {
+                  const statoCarica = incarico.valori.A25;
+                  const nomeIncarico = `${incarico.ruolo.denominazione} ${incarico.persona.cognome} ${incarico.persona.nome}`;
+                  return (
+                    <TableRow key={incarico.id}>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium text-foreground">
+                            {incarico.persona.cognome} {incarico.persona.nome}
+                          </span>
+                          <span className="text-xs text-muted-foreground">{incarico.persona.codice_fiscale}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">{nascita(incarico)}</TableCell>
+                      <TableCell className="text-center">{incarico.persona.nazionalita ?? "—"}</TableCell>
+                      <TableCell className="text-center">{incarico.persona.residenza ?? "—"}</TableCell>
+                      <TableCell className="text-center">{incarico.ruolo.denominazione}</TableCell>
+                      <TableCell className="text-center">{primaData(incarico, ["A49", "A01"])}</TableCell>
+                      <TableCell className="text-center">
+                        {typeof statoCarica === "string" && statoCarica ? statoCarica : "—"}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center">
+                          <IncaricoVerificationPopover
+                            incarico={incarico}
+                            nomeIncarico={nomeIncarico}
+                            consulente={consulente}
+                            onDecided={carica}
+                            disabled={editingScheda === true}
+                          />
+                        </div>
+                      </TableCell>
+                      <TableCell className="flex justify-end gap-1">
+                        <IncaricoFormDialog
+                          ruoli={ruoli}
+                          incarico={incarico}
+                          onSaved={carica}
+                          trigger={
+                            <Button variant="ghost" size="icon" aria-label="Modifica">
+                              <PencilIcon className="size-4" />
+                            </Button>
+                          }
+                        />
+                        <Button variant="ghost" size="icon" aria-label="Elimina" onClick={() => onElimina(incarico)}>
+                          <Trash2Icon className="size-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </>
+          )}
         </Table>
       )}
     </DataTableCard>

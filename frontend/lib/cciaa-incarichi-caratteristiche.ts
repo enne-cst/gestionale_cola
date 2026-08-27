@@ -18,12 +18,17 @@
 // partecipazione, numero azioni/quote, quota del diritto in comproprietà,
 // titolarità individuale/congiunta, descrizione di vincoli ulteriori):
 // tutti i campi della specifica §4.4 sono ora rappresentabili.
+//
+// Migrazione 0037 (Cataloghi/010_semplifica_etichette_quota_soci.sql,
+// 27/08/2026) ha rimosso definitivamente A59 "Quota del diritto" dal
+// catalogo (facoltativa, mai compilata, giudicata superflua e ambigua
+// rispetto alla nuova etichetta "Quota" di A54) — non elencarla più qui.
 export const CARATTERISTICHE_VISIBILI_PER_RUOLO: Record<string, string[]> = {
   // §4.1/4.4: decorrenza ed eventuale cessazione della partecipazione,
   // tipologia/quota/percentuale/tipo di diritto/versamento/numero titoli/
-  // quota del diritto/titolarità/vincoli, nota. La verifica del consulente
-  // (ex A32) non è più qui: è un'azione sulla riga della tabella, non un
-  // campo del form (vedi IncaricoVerificationPopover/app/core/incarichi.py).
+  // titolarità/vincoli, nota. La verifica del consulente (ex A32) non è più
+  // qui: è un'azione sulla riga della tabella, non un campo del form (vedi
+  // IncaricoVerificationPopover/app/core/incarichi.py).
   SOCIO: [
     "A01",
     "A02",
@@ -34,7 +39,6 @@ export const CARATTERISTICHE_VISIBILI_PER_RUOLO: Record<string, string[]> = {
     "A55",
     "A56",
     "A58",
-    "A59",
     "A60",
     "A61",
     "A62",
