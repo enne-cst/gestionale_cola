@@ -142,10 +142,17 @@ class TestSezioniRegistrate:
         assert indice.chiavi == {"data_termine_societa", "scadenza_primo_esercizio", "scadenza_esercizi_successivi"}
 
     def test_catalogo_amministrazione_controllo(self):
-        # Correzione 05: aggiunti i campi della configurazione
-        # "Amministratore unico" (numero componenti calcolato, durata in
-        # carica a catalogo con i due condizionali, regime di
-        # rappresentanza), accanto ai quattro campi generici già esistenti.
+        # Correzione 05: campi della configurazione "Amministratore unico"
+        # (numero componenti calcolato, durata in carica a catalogo con i
+        # due condizionali, regime di rappresentanza). Correzione 06:
+        # "numero_amministratori_in_carica" rivendicato per "Numero
+        # componenti" del Consiglio di amministrazione (stesso campo,
+        # nessuna chiave nuova) più due campi propri (modalità delle
+        # decisioni, deleghe). Correzione 07: un campo proprio in più
+        # (modalità di esercizio dei poteri) per l'Amministrazione
+        # pluripersonale congiuntiva, "numero_amministratori_in_carica" e
+        # durata_carica_tipo/regime_rappresentanza riusati (nessuna chiave
+        # nuova per questi tre).
         indice = _indice(SEZIONE_AMMINISTRAZIONE_CONTROLLO)
         assert indice.chiavi == {
             "organo_amministrativo_in_carica",
@@ -156,6 +163,9 @@ class TestSezioniRegistrate:
             "regime_rappresentanza",
             "durata_carica_numero_esercizi",
             "durata_carica_data_scadenza",
+            "modalita_decisioni_consiglio",
+            "deleghe_consiglio",
+            "modalita_esercizio_poteri",
             "numero_amministratori_in_carica",
             "numero_sindaci_organi_controllo",
             "numero_titolari_cariche",
@@ -164,6 +174,11 @@ class TestSezioniRegistrate:
         # punto 4): esplicitamente derivato ed escluso dai campi scrivibili.
         assert "numero_componenti_organo" in indice.derivate
         assert "numero_componenti_organo" not in indice.scrivibili
+        # § Correzione 06 punto 4: "Numero componenti" del Consiglio deve
+        # accettare solo interi positivi (>= 1), a differenza degli altri
+        # campi numerici della sezione (>= 0 di default).
+        assert indice.minimi.get("numero_amministratori_in_carica") == 1
+        assert "numero_titolari_cariche" not in indice.minimi
 
     def test_catalogo_elenco_soci_estremi(self):
         indice = _indice(SEZIONE_ELENCO_SOCI_ESTREMI)
@@ -214,14 +229,16 @@ class TestSezioniRegistrate:
 
     def test_totale_applicabile_su_tutte_le_sezioni(self):
         # Stessa somma che `valuta_qualita`/`riepilogo_sezioni` usano per
-        # `totalApplicable` (22 + 4 + 3 + 11 + 5 + 12 + 12, il quarto per
-        # "amministrazione-controllo" dopo la correzione 05 (6 -> 11 campi,
-        # configurazione "Amministratore unico"), il penultimo per
-        # "elenco-soci-estremi" dopo la correzione 035, gli ultimi due per
-        # "sede"/"statuto", pilota su ana_sede_rev2/ana_statuto_rev2): un
-        # cambiamento qui e' un promemoria per aggiornare quel numero
-        # consapevolmente.
-        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 69
+        # `totalApplicable` (22 + 4 + 3 + 14 + 5 + 12 + 12, il quarto per
+        # "amministrazione-controllo": 6 campi originari, 11 dopo la
+        # correzione 05 ("Amministratore unico"), 13 dopo la correzione 06
+        # ("Consiglio di amministrazione", +2 campi propri), 14 dopo la
+        # correzione 07 ("Amministrazione pluripersonale congiuntiva", +1
+        # campo proprio), il penultimo per "elenco-soci-estremi" dopo la
+        # correzione 035, gli ultimi due per "sede"/"statuto", pilota su
+        # ana_sede_rev2/ana_statuto_rev2: un cambiamento qui e' un
+        # promemoria per aggiornare quel numero consapevolmente.
+        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 72
 
 
 class TestValidaCampo:

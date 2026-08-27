@@ -53,6 +53,17 @@ const SOTTOTITOLO_VISTA_CCIAA: Record<CciaaVistaKey, string> = {
   "aggiornamento-impresa": "Ultimo aggiornamento dei dati camerali",
 };
 
+// Titolo della tabella incarichi della card "Amministratori", per codice
+// del catalogo cat_organi_amministrativi (§ Correzione 05 punto 9,
+// Correzione 06 punto 11, Correzione 07 punto sul titolo dinamico): una
+// voce alla volta, mano a mano che ogni configurazione viene definita —
+// assente qui, resta il titolo generico "Amministratori" (vedi call site).
+const TITOLO_TABELLA_AMMINISTRATORI: Partial<Record<string, string>> = {
+  AMMINISTRATORE_UNICO: "Amministratore unico in carica",
+  CONSIGLIO_AMMINISTRAZIONE: "Componenti del consiglio di amministrazione",
+  AMMINISTRAZIONE_PLURIPERSONALE_CONGIUNTIVA: "Amministratori in carica",
+};
+
 function SediSecondarieTable({ sedi, recordIdsInPanoramica }: { sedi: Sede[]; recordIdsInPanoramica: string[] }) {
   const secondarie = sedi.filter((s) => !s.tipo_sede.toLowerCase().includes("legale"));
   return <SediTable sedi={secondarie} recordIdsInPanoramica={recordIdsInPanoramica} />;
@@ -101,11 +112,10 @@ function ContenutoVista({
           {organoAmministrativo && (
             <section className="py-2">
               <IncaricoTable
-                // § Correzione 05 punto 9: titolo dedicato solo per
-                // "Amministratore unico", per ogni altra scelta resta il
-                // titolo generico finché quella configurazione non è
-                // definita.
-                titolo={organoAmministrativo === "AMMINISTRATORE_UNICO" ? "Amministratore unico in carica" : "Amministratori"}
+                // § Correzione 05/06 punto 9/11: titolo dedicato solo per le
+                // configurazioni già definite, per ogni altra scelta resta
+                // il titolo generico finché quella configurazione non lo è.
+                titolo={TITOLO_TABELLA_AMMINISTRATORI[organoAmministrativo] ?? "Amministratori"}
                 icon={GavelIcon}
                 ruoliCodici={["AMMINISTRATORE", "AMMINISTRATORE_DELEGATO", "COMPONENTE_CDA"]}
                 etichettaVuoto="Nessun amministratore registrato."

@@ -42,7 +42,10 @@ from app.models.anagrafica import (
     AnaSede,
     AnaSedeRev2,
     AnaStatutoRev2,
+    CatDelegheConsiglio,
     CatDurataCarica,
+    CatModalitaDecisioniConsiglio,
+    CatModalitaEsercizioPoteri,
     CatOrganoAmministrativo,
     CatRegimeRappresentanza,
 )
@@ -114,6 +117,12 @@ class CampoDef:
     # prossime correzioni: qui si generalizza solo il meccanismo.
     dipende_da: str | None = None
     valori_dipendenza: frozenset[str] | None = None
+    # Solo per data_type "number": soglia minima ammessa, se diversa dal
+    # default 0 (non negativo). Es. "Numero componenti" del Consiglio di
+    # amministrazione deve essere un intero positivo (>= 1, § Correzione 06
+    # punto 4), a differenza di "Titolari di cariche" che resta >= 0 come
+    # tutti gli altri campi numerici (§ punto 10, "non negativi").
+    valore_minimo: int | None = None
 
 
 @dataclass(frozen=True)
@@ -168,6 +177,9 @@ class _IndiceCampi:
     chiavi: set[str]
     derivate: set[str]
     scrivibili: set[str]
+    # Solo le chiavi con una soglia diversa dal default (0); vedi
+    # `CampoDef.valore_minimo`.
+    minimi: dict[str, int]
 
 
 def _indice(sezione: SezioneRegistro) -> _IndiceCampi:
@@ -175,7 +187,10 @@ def _indice(sezione: SezioneRegistro) -> _IndiceCampi:
     tipo = {c.key: c.data_type for g in sezione.gruppi for c in g.campi}
     chiavi = set(label)
     derivate = {c.key for g in sezione.gruppi for c in g.campi if c.derived}
-    return _IndiceCampi(label=label, tipo=tipo, chiavi=chiavi, derivate=derivate, scrivibili=chiavi - derivate)
+    minimi = {c.key: c.valore_minimo for g in sezione.gruppi for c in g.campi if c.valore_minimo is not None}
+    return _IndiceCampi(
+        label=label, tipo=tipo, chiavi=chiavi, derivate=derivate, scrivibili=chiavi - derivate, minimi=minimi
+    )
 
 
 def is_empty(value: str | None) -> bool:
@@ -202,7 +217,8 @@ def valida_campo(sezione: SezioneRegistro, campo: str, valore: str | None, db: S
         return None
     assert valore is not None
 
-    tipo = _indice(sezione).tipo.get(campo)
+    indice = _indice(sezione)
+    tipo = indice.tipo.get(campo)
     if tipo == "catalogo":
         catalogo = sezione.campi_catalogo.get(campo)
         if catalogo is not None and db is not None:
@@ -235,10 +251,13 @@ def valida_campo(sezione: SezioneRegistro, campo: str, valore: str | None, db: S
             return "Importo non valido"
     elif tipo == "number":
         try:
-            if int(valore) < 0:
-                return "Il valore non può essere negativo"
+            numero = int(valore)
         except ValueError:
             return "Numero non valido"
+        else:
+            minimo = indice.minimi.get(campo, 0)
+            if numero < minimo:
+                return "Il valore non può essere negativo" if minimo <= 0 else f"Il valore deve essere almeno {minimo}"
     elif tipo == "valuta":
         if not _RE_VALUTA.fullmatch(valore):
             return "Usa il codice valuta ISO a 3 lettere maiuscole (es. EUR)"
@@ -1065,35 +1084,58 @@ SEZIONE_DURATA_SOCIETA_ESERCIZI = SezioneRegistro(
 # fatta), la sezione mostra esclusivamente quel campo.
 #
 # Correzione 05: prima configurazione definita, "Amministratore unico".
-# I quattro campi generici usati finora (durata testo libero, numero
-# minimo/in carica amministratori, numero sindaci) restano il comportamento
-# di ripiego per le configurazioni non ancora definite (Consiglio di
-# amministrazione, pluripersonale congiuntiva/disgiuntiva — `dipende_da`
-# ristretto a QUESTE tre con `valori_dipendenza`, § "non modificate le altre
-# configurazioni"), mentre "Amministratore unico" ha il proprio set: Numero
-# componenti (calcolato, sempre 1), Durata in carica (a catalogo, con i due
-# campi condizionali subito sotto), Regime di rappresentanza (a catalogo).
+# Correzione 06: seconda configurazione definita, "Consiglio di
+# amministrazione" — riusa gli stessi campi a catalogo "Durata in carica"/
+# "Regime di rappresentanza" della Correzione 05 (§ punto 15 "non
+# duplicare cataloghi già esistenti": estende `valori_dipendenza` a
+# includere anche CONSIGLIO_AMMINISTRAZIONE, senza toccare il
+# comportamento già in vigore per AMMINISTRATORE_UNICO) e "rivendica" per
+# sé, rietichettandolo "Numero componenti", il campo generico
+# `numero_amministratori_in_carica` (nessuna colonna nuova). I due campi
+# rimasti generici (durata testo libero, numero minimo amministratori,
+# numero sindaci) restano il comportamento di ripiego solo per le due
+# configurazioni ancora non definite (pluripersonale congiuntiva/
+# disgiuntiva — `_CONFIGURAZIONI_NON_DEFINITE`, non più anche per CDA).
 # "Titolari di cariche" resta condiviso da tutte le configurazioni (nessuna
-# `valori_dipendenza`), come già per gli altri quattro prima di questa
-# correzione. L'ordine dei campi qui sotto è quello che determina la
-# disposizione a due colonne nella griglia del frontend (righe da 2 campi
-# ciascuna, in ordine): per "Amministratore unico" i campi non pertinenti
-# vengono filtrati da `costruisci_sezione`, quindi i visibili restano
-# consecutivi nell'ordine voluto senza bisogno di logica di layout separata.
-# § Correzione 05 punto 12, per un futuro importer del riconoscimento CCIAA
+# `valori_dipendenza`). L'ordine dei campi qui sotto è quello che determina
+# la disposizione a due colonne nella griglia del frontend (righe da 2
+# campi ciascuna, in ordine): i campi non pertinenti alla scelta corrente
+# vengono filtrati (dal frontend, in modo reattivo, § Correzione 04/05
+# seguito), quindi i visibili restano consecutivi nell'ordine voluto senza
+# bisogno di logica di layout separata. Quando compare il campo
+# condizionale della durata, "Modalità delle decisioni"/"Deleghe" (e di
+# conseguenza "Titolari di cariche") scalano di una riga: stessa
+# conseguenza già accettata per "Amministratore unico" nella Correzione 05,
+# "subito sotto il menu della durata" resta comunque vero (stessa colonna).
+# § Correzione 05/06 punto sul riconoscimento CCIAA, per un futuro importer
 # (non ancora presente in questo codebase — nessuna pipeline di estrazione
 # esiste oggi, solo compilazione manuale dai form): quando un valore
-# estratto dalla visura andrà ricondotto a uno di questi cataloghi
-# (organi amministrativi, durate di carica, regimi di rappresentanza), una
+# estratto dalla visura andrà ricondotto a uno di questi cataloghi, una
 # corrispondenza incerta non deve selezionare una voce arbitraria — va
 # conservato il testo originale (in un campo separato, non ancora esistente)
-# e il campo va marcato "da verificare", mai auto-approvato.
-_ALTRE_CONFIGURAZIONI_ORGANO = frozenset({
-    "CONSIGLIO_AMMINISTRAZIONE",
-    "AMMINISTRAZIONE_PLURIPERSONALE_CONGIUNTIVA",
+# e il campo va marcato "da verificare", mai auto-approvato; il numero dei
+# componenti riconosciuti va confrontato con le persone estratte e le
+# differenze segnalate, mai risolte cancellando dati.
+# Correzione 07: "Amministrazione pluripersonale congiuntiva" è ora anche
+# lei una configurazione definita — esce da `_CONFIGURAZIONI_NON_DEFINITE`
+# (che resta il ripiego solo per la disgiuntiva, non ancora specificata) e
+# si aggiunge sia a `_ORGANI_CON_DURATA_E_RAPPRESENTANZA` (riusa
+# durata_carica_tipo/regime_rappresentanza di Amministratore unico/CDA) sia,
+# per "Numero componenti", allo stesso campo generico modificabile già
+# usato dal Consiglio di amministrazione (stesso comportamento, § spec:
+# "esattamente come nella configurazione Consiglio di amministrazione").
+_CONFIGURAZIONI_NON_DEFINITE = frozenset({
     "AMMINISTRAZIONE_PLURIPERSONALE_DISGIUNTIVA",
 })
 _AMMINISTRATORE_UNICO = frozenset({"AMMINISTRATORE_UNICO"})
+_CONSIGLIO_AMMINISTRAZIONE = frozenset({"CONSIGLIO_AMMINISTRAZIONE"})
+_AMMINISTRAZIONE_PLURIPERSONALE_CONGIUNTIVA = frozenset({"AMMINISTRAZIONE_PLURIPERSONALE_CONGIUNTIVA"})
+_ORGANI_CON_NUMERO_COMPONENTI_MODIFICABILE = (
+    _CONSIGLIO_AMMINISTRAZIONE | _AMMINISTRAZIONE_PLURIPERSONALE_CONGIUNTIVA
+)
+_ORGANI_CON_DURATA_E_RAPPRESENTANZA = (
+    _AMMINISTRATORE_UNICO | _CONSIGLIO_AMMINISTRAZIONE | _AMMINISTRAZIONE_PLURIPERSONALE_CONGIUNTIVA
+)
 
 SEZIONE_AMMINISTRAZIONE_CONTROLLO = SezioneRegistro(
     section_key="amministrazione-controllo",
@@ -1110,6 +1152,13 @@ SEZIONE_AMMINISTRAZIONE_CONTROLLO = SezioneRegistro(
         ),
         "durata_carica_tipo": CampoCatalogo(model=CatDurataCarica, colonna_fk="durata_carica_tipo_id"),
         "regime_rappresentanza": CampoCatalogo(model=CatRegimeRappresentanza, colonna_fk="regime_rappresentanza_id"),
+        "modalita_decisioni_consiglio": CampoCatalogo(
+            model=CatModalitaDecisioniConsiglio, colonna_fk="modalita_decisioni_consiglio_id"
+        ),
+        "deleghe_consiglio": CampoCatalogo(model=CatDelegheConsiglio, colonna_fk="deleghe_consiglio_id"),
+        "modalita_esercizio_poteri": CampoCatalogo(
+            model=CatModalitaEsercizioPoteri, colonna_fk="modalita_esercizio_poteri_id"
+        ),
     },
     gruppi=[
         GruppoDef(
@@ -1123,20 +1172,34 @@ SEZIONE_AMMINISTRAZIONE_CONTROLLO = SezioneRegistro(
                     dipende_da="organo_amministrativo_in_carica", valori_dipendenza=_AMMINISTRATORE_UNICO,
                 ),
                 CampoDef(
+                    # Correzione 06/07: stesso campo generico di prima, ora
+                    # "Numero componenti" del Consiglio di amministrazione e
+                    # (Correzione 07) dell'Amministrazione pluripersonale
+                    # congiuntiva — qui invece modificabile (intero
+                    # positivo, § punto 4), a differenza del derivato/
+                    # sempre-1 sopra per l'amministratore unico.
+                    "numero_amministratori_in_carica", "Numero componenti", "number",
+                    valore_minimo=1,
+                    dipende_da="organo_amministrativo_in_carica",
+                    valori_dipendenza=_ORGANI_CON_NUMERO_COMPONENTI_MODIFICABILE,
+                ),
+                CampoDef(
                     "durata_in_carica_organo", "Durata in carica dell'organo", "text",
-                    dipende_da="organo_amministrativo_in_carica", valori_dipendenza=_ALTRE_CONFIGURAZIONI_ORGANO,
+                    dipende_da="organo_amministrativo_in_carica", valori_dipendenza=_CONFIGURAZIONI_NON_DEFINITE,
                 ),
                 CampoDef(
                     "durata_carica_tipo", "Durata in carica", "catalogo",
-                    dipende_da="organo_amministrativo_in_carica", valori_dipendenza=_AMMINISTRATORE_UNICO,
+                    dipende_da="organo_amministrativo_in_carica",
+                    valori_dipendenza=_ORGANI_CON_DURATA_E_RAPPRESENTANZA,
                 ),
                 CampoDef(
                     "numero_minimo_amministratori", "Numero minimo amministratori", "number",
-                    dipende_da="organo_amministrativo_in_carica", valori_dipendenza=_ALTRE_CONFIGURAZIONI_ORGANO,
+                    dipende_da="organo_amministrativo_in_carica", valori_dipendenza=_CONFIGURAZIONI_NON_DEFINITE,
                 ),
                 CampoDef(
                     "regime_rappresentanza", "Regime di rappresentanza", "catalogo",
-                    dipende_da="organo_amministrativo_in_carica", valori_dipendenza=_AMMINISTRATORE_UNICO,
+                    dipende_da="organo_amministrativo_in_carica",
+                    valori_dipendenza=_ORGANI_CON_DURATA_E_RAPPRESENTANZA,
                 ),
                 CampoDef(
                     "durata_carica_numero_esercizi", "Numero di esercizi", "number",
@@ -1148,12 +1211,24 @@ SEZIONE_AMMINISTRAZIONE_CONTROLLO = SezioneRegistro(
                     valori_dipendenza=frozenset({"PER_NUMERO_ESERCIZI", "FINO_A_DATA"}),
                 ),
                 CampoDef(
-                    "numero_amministratori_in_carica", "Numero amministratori in carica", "number",
-                    dipende_da="organo_amministrativo_in_carica", valori_dipendenza=_ALTRE_CONFIGURAZIONI_ORGANO,
+                    "modalita_decisioni_consiglio", "Modalità delle decisioni del consiglio", "catalogo",
+                    dipende_da="organo_amministrativo_in_carica", valori_dipendenza=_CONSIGLIO_AMMINISTRAZIONE,
+                ),
+                CampoDef(
+                    "deleghe_consiglio", "Deleghe del consiglio", "catalogo",
+                    dipende_da="organo_amministrativo_in_carica", valori_dipendenza=_CONSIGLIO_AMMINISTRAZIONE,
+                ),
+                CampoDef(
+                    # Correzione 07: catalogo pensato per essere riusato
+                    # anche dalla successiva "Amministrazione pluripersonale
+                    # disgiuntiva" (basterà estendere valori_dipendenza).
+                    "modalita_esercizio_poteri", "Modalità di esercizio dei poteri", "catalogo",
+                    dipende_da="organo_amministrativo_in_carica",
+                    valori_dipendenza=_AMMINISTRAZIONE_PLURIPERSONALE_CONGIUNTIVA,
                 ),
                 CampoDef(
                     "numero_sindaci_organi_controllo", "Numero sindaci/organi di controllo", "number",
-                    dipende_da="organo_amministrativo_in_carica", valori_dipendenza=_ALTRE_CONFIGURAZIONI_ORGANO,
+                    dipende_da="organo_amministrativo_in_carica", valori_dipendenza=_CONFIGURAZIONI_NON_DEFINITE,
                 ),
                 CampoDef(
                     "numero_titolari_cariche", "Titolari di cariche", "number",

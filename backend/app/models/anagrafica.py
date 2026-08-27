@@ -288,6 +288,78 @@ class CatRegimeRappresentanza(Base):
 
 
 # ===========================================================================
+# Cataloghi - Modalità di decisione e deleghe del consiglio (Correzione 06)
+# ===========================================================================
+
+
+class CatModalitaDecisioniConsiglio(Base):
+    """Catalogo estendibile delle modalità con cui il consiglio di
+    amministrazione assume le proprie decisioni (campo "Modalità delle
+    decisioni del consiglio" della configurazione "Consiglio di
+    amministrazione")."""
+
+    __tablename__ = "cat_modalita_decisioni_consiglio"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatDelegheConsiglio(Base):
+    """Catalogo estendibile delle deleghe attribuibili dal consiglio di
+    amministrazione (campo "Deleghe del consiglio" della configurazione
+    "Consiglio di amministrazione")."""
+
+    __tablename__ = "cat_deleghe_consiglio"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+# ===========================================================================
+# Catalogo - Modalità di esercizio dei poteri (Correzione 07)
+# ===========================================================================
+
+
+class CatModalitaEsercizioPoteri(Base):
+    """Catalogo estendibile delle modalità di esercizio dei poteri tra più
+    amministratori (campo "Modalità di esercizio dei poteri" delle
+    configurazioni "Amministrazione pluripersonale congiuntiva"/
+    "disgiuntiva")."""
+
+    __tablename__ = "cat_modalita_esercizio_poteri"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+# ===========================================================================
 # 007 - Amministrazione e controllo (singleton) + sistemi di amministrazione
 # ===========================================================================
 
@@ -325,6 +397,26 @@ class AnaAmministrazioneControllo(Base):
     durata_carica_data_scadenza: Mapped[date | None] = mapped_column(Date)
     regime_rappresentanza_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("cat_regimi_rappresentanza.id")
+    )
+
+    # Correzione 06 (configurazione "Consiglio di amministrazione"): "Numero
+    # componenti" riusa `numero_amministratori_in_carica` sopra (nessuna
+    # colonna nuova, solo riassegnato lato registro_campi.py), "Durata in
+    # carica"/"Regime di rappresentanza" riusano le colonne della
+    # Correzione 05 sopra.
+    modalita_decisioni_consiglio_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_modalita_decisioni_consiglio.id")
+    )
+    deleghe_consiglio_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_deleghe_consiglio.id")
+    )
+
+    # Correzione 07 (configurazione "Amministrazione pluripersonale
+    # congiuntiva"): "Numero componenti"/"Durata in carica"/"Regime di
+    # rappresentanza" riusano le colonne già esistenti sopra (nessuna
+    # colonna nuova, solo riassegnate lato registro_campi.py).
+    modalita_esercizio_poteri_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_modalita_esercizio_poteri.id")
     )
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
