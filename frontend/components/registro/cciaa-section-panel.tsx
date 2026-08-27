@@ -87,6 +87,7 @@ function ContenutoVista({ vistaKey }: { vistaKey: CciaaVistaKey }) {
               icon={GavelIcon}
               ruoliCodici={["AMMINISTRATORE", "AMMINISTRATORE_DELEGATO", "COMPONENTE_CDA"]}
               etichettaVuoto="Nessun amministratore registrato."
+              sectionKey="amministrazione-controllo"
             />
           </section>
         </>
@@ -101,6 +102,7 @@ function ContenutoVista({ vistaKey }: { vistaKey: CciaaVistaKey }) {
               icon={ShieldCheckIcon}
               ruoliCodici={["SINDACO", "REVISORE_LEGALE"]}
               etichettaVuoto="Nessun sindaco o revisore registrato."
+              sectionKey="amministrazione-controllo"
             />
           </section>
         </>
