@@ -1,7 +1,8 @@
 "use client";
 
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { MapPinIcon, PencilIcon } from "lucide-react";
 
+import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DeleteButton } from "@/components/delete-button";
@@ -16,20 +17,13 @@ const SEZIONE_SLUG = "sedi";
 
 export function SediTable({ sedi, recordIdsInPanoramica }: { sedi: Sede[]; recordIdsInPanoramica: string[] }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <SedeDialog
-          trigger={
-            <Button>
-              <PlusIcon className="size-4" />
-              Nuova sede
-            </Button>
-          }
-        />
-      </div>
-
+    <DataTableCard
+      title="Sedi"
+      count={sedi.length}
+      addTrigger={<SedeDialog trigger={<AddRowButton icon={MapPinIcon} />} />}
+    >
       {sedi.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nessuna sede registrata.</p>
+        <EmptyTableMessage>Nessuna sede registrata.</EmptyTableMessage>
       ) : (
         <Table>
           <TableHeader>
@@ -75,6 +69,6 @@ export function SediTable({ sedi, recordIdsInPanoramica }: { sedi: Sede[]; recor
           </TableBody>
         </Table>
       )}
-    </div>
+    </DataTableCard>
   );
 }

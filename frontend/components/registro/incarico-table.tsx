@@ -1,8 +1,9 @@
 "use client";
 
-import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { PencilIcon, PlusIcon, Trash2Icon, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
+import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { Button } from "@/components/ui/button";
 import { IncaricoFormDialog } from "@/components/registro/incarico-form-dialog";
 import { IncaricoVerificationPopover } from "@/components/registro/incarico-verification-popover";
@@ -38,9 +39,26 @@ function primaData(incarico: Incarico, codici: string[]): string {
  * per i soli ruoli pertinenti alla card. Nessuna riga inventata: se il
  * ruolo non ha ancora incarichi registrati, la tabella è semplicemente
  * vuota, non un placeholder statico. */
-export function IncaricoTable({ ruoliCodici, etichettaVuoto }: { ruoliCodici: string[]; etichettaVuoto: string }) {
-  const { ruolo } = useWorkspace();
+export function IncaricoTable({
+  titolo,
+  icon,
+  ruoliCodici,
+  etichettaVuoto,
+  sectionKey,
+}: {
+  titolo: string;
+  icon: LucideIcon;
+  ruoliCodici: string[];
+  etichettaVuoto: string;
+  // Sezione a registro il cui banner "Modifica dati" governa la modalità
+  // modifica della card (la tabella non ne ha una propria — vedi
+  // `DataTableCard`). Omesso finché non è stato migrato anche il call site
+  // (Amministratori/Sindaci, per ora invariati).
+  sectionKey?: string;
+}) {
+  const { ruolo, state } = useWorkspace();
   const consulente = ruolo === "CONSULENTE";
+  const editingScheda = sectionKey ? (state.sections[sectionKey]?.editing ?? false) : undefined;
   const [ruoli, setRuoli] = useState<RuoloSummary[] | null>(null);
   const [incarichi, setIncarichi] = useState<Incarico[] | null>(null);
   const [errore, setErrore] = useState(false);
@@ -87,23 +105,16 @@ export function IncaricoTable({ ruoliCodici, etichettaVuoto }: { ruoliCodici: st
     );
   }
 
+  const Icon = icon;
+  const addTrigger = sectionKey ? (
+    <IncaricoFormDialog ruoli={ruoli} onSaved={carica} trigger={<AddRowButton icon={PlusIcon} label="Aggiungi" />} />
+  ) : (
+    <IncaricoFormDialog ruoli={ruoli} onSaved={carica} trigger={<AddRowButton icon={Icon} />} />
+  );
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <IncaricoFormDialog
-          ruoli={ruoli}
-          onSaved={carica}
-          trigger={
-            <Button type="button">
-              <PlusIcon className="size-4" />
-              Nuovo
-            </Button>
-          }
-        />
-      </div>
-
+    <DataTableCard title={titolo} count={incarichi.length} editing={editingScheda} addTrigger={addTrigger}>
       {incarichi.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{etichettaVuoto}</p>
+        <EmptyTableMessage>{etichettaVuoto}</EmptyTableMessage>
       ) : (
         <Table>
           <TableHeader>
@@ -168,6 +179,6 @@ export function IncaricoTable({ ruoliCodici, etichettaVuoto }: { ruoliCodici: st
           </TableBody>
         </Table>
       )}
-    </div>
+    </DataTableCard>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { PencilIcon, UsersIcon } from "lucide-react";
 
+import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DeleteButton } from "@/components/delete-button";
@@ -22,20 +23,13 @@ export function AddettiComuneTable({
   recordIdsInPanoramica: string[];
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <AddettiComuneDialog
-          trigger={
-            <Button>
-              <PlusIcon className="size-4" />
-              Nuova distribuzione
-            </Button>
-          }
-        />
-      </div>
-
+    <DataTableCard
+      title="Addetti per comune"
+      count={distribuzioni.length}
+      addTrigger={<AddettiComuneDialog trigger={<AddRowButton icon={UsersIcon} />} />}
+    >
       {distribuzioni.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nessuna distribuzione registrata.</p>
+        <EmptyTableMessage>Nessuna distribuzione registrata.</EmptyTableMessage>
       ) : (
         <Table>
           <TableHeader>
@@ -80,6 +74,6 @@ export function AddettiComuneTable({
           </TableBody>
         </Table>
       )}
-    </div>
+    </DataTableCard>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { ClipboardCheckIcon, PencilIcon } from "lucide-react";
 
+import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { DeleteButton } from "@/components/delete-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,20 +15,13 @@ import { ElementoDialog } from "./elemento-dialog";
 
 export function ComplianceTable({ dati }: { dati: ComplianceTrasparenza[] }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <ElementoDialog
-          trigger={
-            <Button>
-              <PlusIcon className="size-4" />
-              Nuovo elemento
-            </Button>
-          }
-        />
-      </div>
-
+    <DataTableCard
+      title="Compliance e trasparenza"
+      count={dati.length}
+      addTrigger={<ElementoDialog trigger={<AddRowButton icon={ClipboardCheckIcon} />} />}
+    >
       {dati.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nessun elemento registrato.</p>
+        <EmptyTableMessage>Nessun elemento registrato.</EmptyTableMessage>
       ) : (
         <Table>
           <TableHeader>
@@ -65,6 +59,6 @@ export function ComplianceTable({ dati }: { dati: ComplianceTrasparenza[] }) {
           </TableBody>
         </Table>
       )}
-    </div>
+    </DataTableCard>
   );
 }

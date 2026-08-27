@@ -1,7 +1,8 @@
 "use client";
 
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { PencilIcon, UsersIcon } from "lucide-react";
 
+import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { DeleteButton } from "@/components/delete-button";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -12,20 +13,13 @@ import { DatiGeneraliDialog } from "./dati-generali-dialog";
 
 export function DatiGeneraliTable({ dati }: { dati: DatiGenerali[] }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <DatiGeneraliDialog
-          trigger={
-            <Button>
-              <PlusIcon className="size-4" />
-              Nuova rilevazione
-            </Button>
-          }
-        />
-      </div>
-
+    <DataTableCard
+      title="Dati generali del personale"
+      count={dati.length}
+      addTrigger={<DatiGeneraliDialog trigger={<AddRowButton icon={UsersIcon} />} />}
+    >
       {dati.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nessuna rilevazione registrata.</p>
+        <EmptyTableMessage>Nessuna rilevazione registrata.</EmptyTableMessage>
       ) : (
         <Table>
           <TableHeader>
@@ -67,6 +61,6 @@ export function DatiGeneraliTable({ dati }: { dati: DatiGenerali[] }) {
           </TableBody>
         </Table>
       )}
-    </div>
+    </DataTableCard>
   );
 }

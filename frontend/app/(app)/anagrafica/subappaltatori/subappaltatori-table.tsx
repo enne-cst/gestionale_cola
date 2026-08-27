@@ -1,7 +1,8 @@
 "use client";
 
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { HardHatIcon, PencilIcon } from "lucide-react";
 
+import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { DeleteButton } from "@/components/delete-button";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,21 +15,13 @@ import { SubappaltatoreDialog } from "./subappaltatore-dialog";
 
 export function SubappaltatoriTable({ dati, stati }: { dati: Subappaltatore[]; stati: CatalogoVoce[] }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <SubappaltatoreDialog
-          stati={stati}
-          trigger={
-            <Button>
-              <PlusIcon className="size-4" />
-              Nuovo subappaltatore
-            </Button>
-          }
-        />
-      </div>
-
+    <DataTableCard
+      title="Subappaltatori"
+      count={dati.length}
+      addTrigger={<SubappaltatoreDialog stati={stati} trigger={<AddRowButton icon={HardHatIcon} />} />}
+    >
       {dati.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nessun subappaltatore registrato.</p>
+        <EmptyTableMessage>Nessun subappaltatore registrato.</EmptyTableMessage>
       ) : (
         <Table>
           <TableHeader>
@@ -67,6 +60,6 @@ export function SubappaltatoriTable({ dati, stati }: { dati: Subappaltatore[]; s
           </TableBody>
         </Table>
       )}
-    </div>
+    </DataTableCard>
   );
 }

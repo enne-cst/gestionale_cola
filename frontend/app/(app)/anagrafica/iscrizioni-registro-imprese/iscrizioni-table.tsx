@@ -1,7 +1,8 @@
 "use client";
 
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { PencilIcon, ScrollTextIcon } from "lucide-react";
 
+import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DeleteButton } from "@/components/delete-button";
@@ -23,20 +24,13 @@ export function IscrizioniTable({
   recordIdsInPanoramica: string[];
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <IscrizioneDialog
-          trigger={
-            <Button>
-              <PlusIcon className="size-4" />
-              Nuova iscrizione
-            </Button>
-          }
-        />
-      </div>
-
+    <DataTableCard
+      title="Iscrizioni registro imprese"
+      count={iscrizioni.length}
+      addTrigger={<IscrizioneDialog trigger={<AddRowButton icon={ScrollTextIcon} />} />}
+    >
       {iscrizioni.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nessuna iscrizione registrata.</p>
+        <EmptyTableMessage>Nessuna iscrizione registrata.</EmptyTableMessage>
       ) : (
         <Table>
           <TableHeader>
@@ -79,6 +73,6 @@ export function IscrizioniTable({
           </TableBody>
         </Table>
       )}
-    </div>
+    </DataTableCard>
   );
 }

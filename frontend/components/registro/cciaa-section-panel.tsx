@@ -2,6 +2,8 @@
 
 import type { ReactNode } from "react";
 
+import { GavelIcon, HandshakeIcon, ShieldCheckIcon } from "lucide-react";
+
 import { AlbiTable } from "@/app/(app)/anagrafica/albi-ruoli-licenze/albi-table";
 import { AddettiComuneTable } from "@/app/(app)/anagrafica/addetti-comune/addetti-comune-table";
 import { AddettiVisuraTable } from "@/app/(app)/anagrafica/addetti-visura/addetti-visura-table";
@@ -65,7 +67,13 @@ function ContenutoVista({ vistaKey }: { vistaKey: CciaaVistaKey }) {
         <>
           <SectionContent sectionKey="elenco-soci-estremi" embedded hideFooter />
           <section className="py-2">
-            <IncaricoTable ruoliCodici={["SOCIO"]} etichettaVuoto="Nessun socio registrato." />
+            <IncaricoTable
+              titolo="Soci"
+              icon={HandshakeIcon}
+              ruoliCodici={["SOCIO"]}
+              etichettaVuoto="Nessun socio registrato."
+              sectionKey="elenco-soci-estremi"
+            />
           </section>
         </>
       );
@@ -75,6 +83,8 @@ function ContenutoVista({ vistaKey }: { vistaKey: CciaaVistaKey }) {
           <SectionContent sectionKey="amministrazione-controllo" embedded hideFooter />
           <section className="py-2">
             <IncaricoTable
+              titolo="Amministratori"
+              icon={GavelIcon}
               ruoliCodici={["AMMINISTRATORE", "AMMINISTRATORE_DELEGATO", "COMPONENTE_CDA"]}
               etichettaVuoto="Nessun amministratore registrato."
             />
@@ -86,7 +96,12 @@ function ContenutoVista({ vistaKey }: { vistaKey: CciaaVistaKey }) {
         <>
           <SectionContent sectionKey="amministrazione-controllo" embedded hideFooter />
           <section className="py-2">
-            <IncaricoTable ruoliCodici={["SINDACO", "REVISORE_LEGALE"]} etichettaVuoto="Nessun sindaco o revisore registrato." />
+            <IncaricoTable
+              titolo="Sindaci e revisori"
+              icon={ShieldCheckIcon}
+              ruoliCodici={["SINDACO", "REVISORE_LEGALE"]}
+              etichettaVuoto="Nessun sindaco o revisore registrato."
+            />
           </section>
         </>
       );

@@ -1,7 +1,8 @@
 "use client";
 
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { PencilIcon, UsersIcon } from "lucide-react";
 
+import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DeleteButton } from "@/components/delete-button";
@@ -23,20 +24,13 @@ export function AddettiVisuraTable({
   recordIdsInPanoramica: string[];
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <AddettiVisuraDialog
-          trigger={
-            <Button>
-              <PlusIcon className="size-4" />
-              Nuova rilevazione
-            </Button>
-          }
-        />
-      </div>
-
+    <DataTableCard
+      title="Addetti da visura"
+      count={rilevazioni.length}
+      addTrigger={<AddettiVisuraDialog trigger={<AddRowButton icon={UsersIcon} />} />}
+    >
       {rilevazioni.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nessuna rilevazione registrata.</p>
+        <EmptyTableMessage>Nessuna rilevazione registrata.</EmptyTableMessage>
       ) : (
         <Table>
           <TableHeader>
@@ -81,6 +75,6 @@ export function AddettiVisuraTable({
           </TableBody>
         </Table>
       )}
-    </div>
+    </DataTableCard>
   );
 }

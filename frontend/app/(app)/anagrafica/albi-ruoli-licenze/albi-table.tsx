@@ -1,7 +1,8 @@
 "use client";
 
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { AwardIcon, PencilIcon } from "lucide-react";
 
+import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DeleteButton } from "@/components/delete-button";
@@ -25,21 +26,13 @@ export function AlbiTable({
   recordIdsInPanoramica: string[];
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <AlboDialog
-          sedi={sedi}
-          trigger={
-            <Button>
-              <PlusIcon className="size-4" />
-              Nuova iscrizione
-            </Button>
-          }
-        />
-      </div>
-
+    <DataTableCard
+      title="Albi, ruoli e licenze"
+      count={albi.length}
+      addTrigger={<AlboDialog sedi={sedi} trigger={<AddRowButton icon={AwardIcon} />} />}
+    >
       {albi.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nessuna iscrizione registrata.</p>
+        <EmptyTableMessage>Nessuna iscrizione registrata.</EmptyTableMessage>
       ) : (
         <Table>
           <TableHeader>
@@ -85,6 +78,6 @@ export function AlbiTable({
           </TableBody>
         </Table>
       )}
-    </div>
+    </DataTableCard>
   );
 }

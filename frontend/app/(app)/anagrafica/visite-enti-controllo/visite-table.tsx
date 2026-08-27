@@ -1,7 +1,8 @@
 "use client";
 
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { FileWarningIcon, PencilIcon } from "lucide-react";
 
+import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { DeleteButton } from "@/components/delete-button";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -13,20 +14,13 @@ import { VisitaDialog } from "./visita-dialog";
 
 export function VisiteTable({ dati }: { dati: VisitaEnteControllo[] }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <VisitaDialog
-          trigger={
-            <Button>
-              <PlusIcon className="size-4" />
-              Nuova visita
-            </Button>
-          }
-        />
-      </div>
-
+    <DataTableCard
+      title="Visite enti di controllo"
+      count={dati.length}
+      addTrigger={<VisitaDialog trigger={<AddRowButton icon={FileWarningIcon} />} />}
+    >
       {dati.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nessuna visita registrata.</p>
+        <EmptyTableMessage>Nessuna visita registrata.</EmptyTableMessage>
       ) : (
         <Table>
           <TableHeader>
@@ -62,6 +56,6 @@ export function VisiteTable({ dati }: { dati: VisitaEnteControllo[] }) {
           </TableBody>
         </Table>
       )}
-    </div>
+    </DataTableCard>
   );
 }

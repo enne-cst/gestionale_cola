@@ -1,7 +1,8 @@
 "use client";
 
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { HandCoinsIcon, PencilIcon } from "lucide-react";
 
+import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { DeleteButton } from "@/components/delete-button";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -12,20 +13,13 @@ import { IndicatoreDialog } from "./indicatore-dialog";
 
 export function IndicatoriTable({ dati }: { dati: IndicatoreEconomico[] }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <IndicatoreDialog
-          trigger={
-            <Button>
-              <PlusIcon className="size-4" />
-              Nuova rilevazione
-            </Button>
-          }
-        />
-      </div>
-
+    <DataTableCard
+      title="Indicatori economici"
+      count={dati.length}
+      addTrigger={<IndicatoreDialog trigger={<AddRowButton icon={HandCoinsIcon} />} />}
+    >
       {dati.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nessuna rilevazione registrata.</p>
+        <EmptyTableMessage>Nessuna rilevazione registrata.</EmptyTableMessage>
       ) : (
         <Table>
           <TableHeader>
@@ -63,6 +57,6 @@ export function IndicatoriTable({ dati }: { dati: IndicatoreEconomico[] }) {
           </TableBody>
         </Table>
       )}
-    </div>
+    </DataTableCard>
   );
 }

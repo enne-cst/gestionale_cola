@@ -1,7 +1,8 @@
 "use client";
 
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { GaugeIcon, PencilIcon } from "lucide-react";
 
+import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { DeleteButton } from "@/components/delete-button";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -12,20 +13,16 @@ import { RipartizioneOrganicoDialog } from "./ripartizione-organico-dialog";
 
 export function RipartizioneOrganicoTable({ dati }: { dati: RipartizioneOrganico[] }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <RipartizioneOrganicoDialog
-          trigger={
-            <Button>
-              <PlusIcon className="size-4" />
-              Nuova ripartizione
-            </Button>
-          }
-        />
-      </div>
-
+    <DataTableCard
+      title="Ripartizione organico"
+      count={dati.length}
+      addTrigger={<RipartizioneOrganicoDialog trigger={<AddRowButton icon={GaugeIcon} />} />}
+    >
       {dati.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nessuna ripartizione registrata. Serve prima una rilevazione in "Dati generali del personale" per lo stesso anno.</p>
+        <EmptyTableMessage>
+          Nessuna ripartizione registrata. Serve prima una rilevazione in &quot;Dati generali del personale&quot; per
+          lo stesso anno.
+        </EmptyTableMessage>
       ) : (
         <Table>
           <TableHeader>
@@ -72,6 +69,6 @@ export function RipartizioneOrganicoTable({ dati }: { dati: RipartizioneOrganico
           </TableBody>
         </Table>
       )}
-    </div>
+    </DataTableCard>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { PencilIcon, TruckIcon } from "lucide-react";
 
+import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { DeleteButton } from "@/components/delete-button";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -13,21 +14,13 @@ import { FornitoreDialog } from "./fornitore-dialog";
 
 export function FornitoriTable({ dati, stati }: { dati: FornitoreMateriali[]; stati: CatalogoVoce[] }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <FornitoreDialog
-          stati={stati}
-          trigger={
-            <Button>
-              <PlusIcon className="size-4" />
-              Nuovo fornitore
-            </Button>
-          }
-        />
-      </div>
-
+    <DataTableCard
+      title="Fornitori di materiali"
+      count={dati.length}
+      addTrigger={<FornitoreDialog stati={stati} trigger={<AddRowButton icon={TruckIcon} />} />}
+    >
       {dati.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nessun fornitore registrato.</p>
+        <EmptyTableMessage>Nessun fornitore registrato.</EmptyTableMessage>
       ) : (
         <Table>
           <TableHeader>
@@ -66,6 +59,6 @@ export function FornitoriTable({ dati, stati }: { dati: FornitoreMateriali[]; st
           </TableBody>
         </Table>
       )}
-    </div>
+    </DataTableCard>
   );
 }

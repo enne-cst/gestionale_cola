@@ -1,7 +1,8 @@
 "use client";
 
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { PencilIcon, ShieldCheckIcon } from "lucide-react";
 
+import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DeleteButton } from "@/components/delete-button";
@@ -22,20 +23,13 @@ export function CertificazioniTable({
   recordIdsInPanoramica: string[];
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <CertificazioneDialog
-          trigger={
-            <Button>
-              <PlusIcon className="size-4" />
-              Nuova certificazione
-            </Button>
-          }
-        />
-      </div>
-
+    <DataTableCard
+      title="Certificazioni possedute"
+      count={certificazioni.length}
+      addTrigger={<CertificazioneDialog trigger={<AddRowButton icon={ShieldCheckIcon} />} />}
+    >
       {certificazioni.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nessuna certificazione registrata.</p>
+        <EmptyTableMessage>Nessuna certificazione registrata.</EmptyTableMessage>
       ) : (
         <Table>
           <TableHeader>
@@ -80,6 +74,6 @@ export function CertificazioniTable({
           </TableBody>
         </Table>
       )}
-    </div>
+    </DataTableCard>
   );
 }

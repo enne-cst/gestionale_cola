@@ -1,7 +1,8 @@
 "use client";
 
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { PencilIcon, PhoneIcon } from "lucide-react";
 
+import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DeleteButton } from "@/components/delete-button";
@@ -23,20 +24,13 @@ export function ContattiTable({
   recordIdsInPanoramica: string[];
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <ContattoDialog
-          trigger={
-            <Button>
-              <PlusIcon className="size-4" />
-              Nuovo contatto
-            </Button>
-          }
-        />
-      </div>
-
+    <DataTableCard
+      title="Contatti e recapiti"
+      count={contatti.length}
+      addTrigger={<ContattoDialog trigger={<AddRowButton icon={PhoneIcon} />} />}
+    >
       {contatti.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nessun contatto registrato.</p>
+        <EmptyTableMessage>Nessun contatto registrato.</EmptyTableMessage>
       ) : (
         <Table>
           <TableHeader>
@@ -81,6 +75,6 @@ export function ContattiTable({
           </TableBody>
         </Table>
       )}
-    </div>
+    </DataTableCard>
   );
 }

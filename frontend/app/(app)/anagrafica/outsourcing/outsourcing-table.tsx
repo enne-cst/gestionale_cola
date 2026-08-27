@@ -1,7 +1,8 @@
 "use client";
 
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { HandshakeIcon, PencilIcon } from "lucide-react";
 
+import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { DeleteButton } from "@/components/delete-button";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,21 +15,13 @@ import { OutsourcingDialog } from "./outsourcing-dialog";
 
 export function OutsourcingTable({ dati, stati }: { dati: Outsourcing[]; stati: CatalogoVoce[] }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <OutsourcingDialog
-          stati={stati}
-          trigger={
-            <Button>
-              <PlusIcon className="size-4" />
-              Nuovo affidamento
-            </Button>
-          }
-        />
-      </div>
-
+    <DataTableCard
+      title="Outsourcing"
+      count={dati.length}
+      addTrigger={<OutsourcingDialog stati={stati} trigger={<AddRowButton icon={HandshakeIcon} />} />}
+    >
       {dati.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nessun affidamento registrato.</p>
+        <EmptyTableMessage>Nessun affidamento registrato.</EmptyTableMessage>
       ) : (
         <Table>
           <TableHeader>
@@ -67,6 +60,6 @@ export function OutsourcingTable({ dati, stati }: { dati: Outsourcing[]; stati: 
           </TableBody>
         </Table>
       )}
-    </div>
+    </DataTableCard>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { PencilIcon, TrendingUpIcon } from "lucide-react";
 
+import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { DeleteButton } from "@/components/delete-button";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -12,20 +13,13 @@ import { VariazioneDialog } from "./variazione-dialog";
 
 export function VariazioniTable({ dati }: { dati: VariazioneOrganico[] }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <VariazioneDialog
-          trigger={
-            <Button>
-              <PlusIcon className="size-4" />
-              Nuova rilevazione
-            </Button>
-          }
-        />
-      </div>
-
+    <DataTableCard
+      title="Variazioni organico"
+      count={dati.length}
+      addTrigger={<VariazioneDialog trigger={<AddRowButton icon={TrendingUpIcon} />} />}
+    >
       {dati.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nessuna rilevazione registrata.</p>
+        <EmptyTableMessage>Nessuna rilevazione registrata.</EmptyTableMessage>
       ) : (
         <Table>
           <TableHeader>
@@ -67,6 +61,6 @@ export function VariazioniTable({ dati }: { dati: VariazioneOrganico[] }) {
           </TableBody>
         </Table>
       )}
-    </div>
+    </DataTableCard>
   );
 }

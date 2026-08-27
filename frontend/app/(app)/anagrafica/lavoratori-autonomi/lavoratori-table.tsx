@@ -1,7 +1,8 @@
 "use client";
 
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { PencilIcon, UserCogIcon } from "lucide-react";
 
+import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { DeleteButton } from "@/components/delete-button";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -13,21 +14,13 @@ import { LavoratoreDialog } from "./lavoratore-dialog";
 
 export function LavoratoriTable({ dati, stati }: { dati: LavoratoreAutonomo[]; stati: CatalogoVoce[] }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <LavoratoreDialog
-          stati={stati}
-          trigger={
-            <Button>
-              <PlusIcon className="size-4" />
-              Nuovo lavoratore autonomo
-            </Button>
-          }
-        />
-      </div>
-
+    <DataTableCard
+      title="Lavoratori autonomi"
+      count={dati.length}
+      addTrigger={<LavoratoreDialog stati={stati} trigger={<AddRowButton icon={UserCogIcon} />} />}
+    >
       {dati.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nessun lavoratore autonomo registrato.</p>
+        <EmptyTableMessage>Nessun lavoratore autonomo registrato.</EmptyTableMessage>
       ) : (
         <Table>
           <TableHeader>
@@ -64,6 +57,6 @@ export function LavoratoriTable({ dati, stati }: { dati: LavoratoreAutonomo[]; s
           </TableBody>
         </Table>
       )}
-    </div>
+    </DataTableCard>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { NetworkIcon, PencilIcon } from "lucide-react";
 
+import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { DeleteButton } from "@/components/delete-button";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -13,20 +14,13 @@ import { ContrattoDialog } from "./contratto-dialog";
 
 export function ContrattiTable({ dati }: { dati: ContrattoRete[] }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <ContrattoDialog
-          trigger={
-            <Button>
-              <PlusIcon className="size-4" />
-              Nuovo contratto di rete
-            </Button>
-          }
-        />
-      </div>
-
+    <DataTableCard
+      title="Contratti di rete"
+      count={dati.length}
+      addTrigger={<ContrattoDialog trigger={<AddRowButton icon={NetworkIcon} />} />}
+    >
       {dati.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nessun contratto di rete registrato.</p>
+        <EmptyTableMessage>Nessun contratto di rete registrato.</EmptyTableMessage>
       ) : (
         <Table>
           <TableHeader>
@@ -62,6 +56,6 @@ export function ContrattiTable({ dati }: { dati: ContrattoRete[] }) {
           </TableBody>
         </Table>
       )}
-    </div>
+    </DataTableCard>
   );
 }

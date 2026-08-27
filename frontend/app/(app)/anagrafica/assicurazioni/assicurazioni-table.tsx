@@ -1,7 +1,8 @@
 "use client";
 
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { PencilIcon, ShieldIcon } from "lucide-react";
 
+import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { DeleteButton } from "@/components/delete-button";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -22,22 +23,15 @@ export function AssicurazioniTable({
   frequenze: CatalogoVoce[];
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <AssicurazioneDialog
-          stati={stati}
-          frequenze={frequenze}
-          trigger={
-            <Button>
-              <PlusIcon className="size-4" />
-              Nuova polizza
-            </Button>
-          }
-        />
-      </div>
-
+    <DataTableCard
+      title="Polizze assicurative"
+      count={dati.length}
+      addTrigger={
+        <AssicurazioneDialog stati={stati} frequenze={frequenze} trigger={<AddRowButton icon={ShieldIcon} />} />
+      }
+    >
       {dati.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nessuna polizza registrata.</p>
+        <EmptyTableMessage>Nessuna polizza registrata.</EmptyTableMessage>
       ) : (
         <Table>
           <TableHeader>
@@ -79,6 +73,6 @@ export function AssicurazioniTable({
           </TableBody>
         </Table>
       )}
-    </div>
+    </DataTableCard>
   );
 }

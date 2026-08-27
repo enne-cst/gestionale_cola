@@ -1,7 +1,8 @@
 "use client";
 
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { BadgeCheckIcon, PencilIcon } from "lucide-react";
 
+import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DeleteButton } from "@/components/delete-button";
@@ -24,21 +25,13 @@ export function CodiciAtecoTable({
   recordIdsInPanoramica: string[];
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <CodiceAtecoDialog
-          sedi={sedi}
-          trigger={
-            <Button>
-              <PlusIcon className="size-4" />
-              Nuovo codice
-            </Button>
-          }
-        />
-      </div>
-
+    <DataTableCard
+      title="Codici ATECO"
+      count={codici.length}
+      addTrigger={<CodiceAtecoDialog sedi={sedi} trigger={<AddRowButton icon={BadgeCheckIcon} />} />}
+    >
       {codici.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nessun codice ATECO registrato.</p>
+        <EmptyTableMessage>Nessun codice ATECO registrato.</EmptyTableMessage>
       ) : (
         <Table>
           <TableHeader>
@@ -84,6 +77,6 @@ export function CodiciAtecoTable({
           </TableBody>
         </Table>
       )}
-    </div>
+    </DataTableCard>
   );
 }

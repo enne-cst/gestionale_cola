@@ -1,7 +1,8 @@
 "use client";
 
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { PencilIcon, PiggyBankIcon } from "lucide-react";
 
+import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { DeleteButton } from "@/components/delete-button";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -20,21 +21,15 @@ export function FondiTable({
   statiIscrizione: CatalogoVoce[];
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <FondoDialog
-          statiIscrizione={statiIscrizione}
-          trigger={
-            <Button>
-              <PlusIcon className="size-4" />
-              Nuova iscrizione
-            </Button>
-          }
-        />
-      </div>
-
+    <DataTableCard
+      title="Fondi interprofessionali"
+      count={fondi.length}
+      addTrigger={
+        <FondoDialog statiIscrizione={statiIscrizione} trigger={<AddRowButton icon={PiggyBankIcon} />} />
+      }
+    >
       {fondi.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nessuna iscrizione registrata.</p>
+        <EmptyTableMessage>Nessuna iscrizione registrata.</EmptyTableMessage>
       ) : (
         <Table>
           <TableHeader>
@@ -71,6 +66,6 @@ export function FondiTable({
           </TableBody>
         </Table>
       )}
-    </div>
+    </DataTableCard>
   );
 }

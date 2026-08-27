@@ -1,7 +1,8 @@
 "use client";
 
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { PencilIcon, ScaleIcon } from "lucide-react";
 
+import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { DeleteButton } from "@/components/delete-button";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,21 +15,13 @@ import { ProcedimentoDialog } from "./procedimento-dialog";
 
 export function ProcedimentiTable({ dati, stati }: { dati: ProcedimentoLegale[]; stati: CatalogoVoce[] }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <ProcedimentoDialog
-          stati={stati}
-          trigger={
-            <Button>
-              <PlusIcon className="size-4" />
-              Nuovo procedimento
-            </Button>
-          }
-        />
-      </div>
-
+    <DataTableCard
+      title="Procedimenti legali"
+      count={dati.length}
+      addTrigger={<ProcedimentoDialog stati={stati} trigger={<AddRowButton icon={ScaleIcon} />} />}
+    >
       {dati.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nessun procedimento registrato.</p>
+        <EmptyTableMessage>Nessun procedimento registrato.</EmptyTableMessage>
       ) : (
         <Table>
           <TableHeader>
@@ -67,6 +60,6 @@ export function ProcedimentiTable({ dati, stati }: { dati: ProcedimentoLegale[];
           </TableBody>
         </Table>
       )}
-    </div>
+    </DataTableCard>
   );
 }
