@@ -8,6 +8,39 @@ import { StatoPill } from "@/components/registro/stato-pill";
 import { useWorkspace } from "@/components/registro/workspace-provider";
 import { SOTTOTITOLO_SEZIONE_REGISTRO, TITOLO_SEZIONE_REGISTRO } from "@/lib/registro-sezioni-meta";
 import { cn } from "@/lib/utils";
+import type { FieldState } from "@/lib/types/registro";
+
+/** Sottoinsieme di `campi` applicabile ai `valori` correnti (§ Correzione
+ * 04/05: `dependsOn`/`dependsOnValues`), risolto in modo transitivo — un
+ * campo il cui "genitore" non è a sua volta applicabile resta nascosto
+ * anche se il SUO valore diretto soddisferebbe la condizione (es. se
+ * l'organo cambia, i campi condizionali alla durata scompaiono insieme al
+ * campo durata, non solo quando la durata stessa viene svuotata). Usata
+ * sia in sola lettura (con i valori salvati) sia in modifica (con la
+ * bozza corrente): stessa regola, valutata contro valori diversi, per
+ * ottenere comparsa/scomparsa istantanea durante la selezione. */
+function campiApplicabili(campi: FieldState[], valori: Record<string, string | null | undefined>): FieldState[] {
+  const perChiave = new Map(campi.map((c) => [c.key, c]));
+  const cache = new Map<string, boolean>();
+  function applicabile(chiave: string): boolean {
+    const nota = cache.get(chiave);
+    if (nota !== undefined) return nota;
+    const campo = perChiave.get(chiave);
+    if (!campo?.dependsOn) {
+      cache.set(chiave, true);
+      return true;
+    }
+    if (!applicabile(campo.dependsOn)) {
+      cache.set(chiave, false);
+      return false;
+    }
+    const valoreControllo = valori[campo.dependsOn];
+    const esito = Boolean(valoreControllo) && (!campo.dependsOnValues || campo.dependsOnValues.includes(valoreControllo!));
+    cache.set(chiave, esito);
+    return esito;
+  }
+  return campi.filter((c) => applicabile(c.key));
+}
 
 function LoadingSkeleton() {
   return (
@@ -192,7 +225,16 @@ export function SectionContent({
 
       <div className={embedded ? "" : "az-scroll-thin flex-1 overflow-y-auto px-[30px] pb-6"}>
         {section.groups.map((group) => {
-          const tuttiNascosti = group.fields.length > 0 && group.fields.every((f) => !f.visibleToCompany);
+          // Applicabilità valutata due volte con la STESSA regola
+          // (`campiApplicabili`), contro valori diversi: quelli salvati per
+          // la vista di sola lettura (e per l'occhietto "nascondi tutta la
+          // sezione", che opera sui campi realmente mostrati), la bozza
+          // corrente per la modifica — cosi' un campo compare/scompare
+          // subito mentre si sceglie, senza aspettare il salvataggio.
+          const valoriVista = Object.fromEntries(group.fields.map((f) => [f.key, f.value]));
+          const campiVisibili = campiApplicabili(group.fields, valoriVista);
+          const campiModificabili = campiApplicabili(group.fields, entry.draft ?? {});
+          const tuttiNascosti = campiVisibili.length > 0 && campiVisibili.every((f) => !f.visibleToCompany);
           return (
             <section key={group.key} className={cn("border-b border-[var(--az-border)] py-6", modificando && "border-0 py-[22px]")}>
               <h3 className="mb-6 flex items-center gap-3 text-[15px] font-bold text-[var(--az-ink)]">
@@ -200,7 +242,7 @@ export function SectionContent({
                 {consulente && !modificando && (
                   <button
                     type="button"
-                    onClick={() => toggleGroupVisibility(sectionKey, group.fields.map((f) => f.key), tuttiNascosti)}
+                    onClick={() => toggleGroupVisibility(sectionKey, campiVisibili.map((f) => f.key), tuttiNascosti)}
                     aria-label={`${tuttiNascosti ? "Mostra" : "Nascondi"} la sezione ${group.title} all'azienda`}
                     title={tuttiNascosti ? "Mostra tutta la sezione" : "Nascondi tutta la sezione"}
                     className="ml-0.5 grid size-[26px] shrink-0 place-items-center rounded-[6px] text-[var(--az-blue)] hover:bg-[#edf4ff]"
@@ -221,7 +263,7 @@ export function SectionContent({
               </h3>
               {modificando ? (
                 <div className="grid grid-cols-1 gap-x-5 gap-y-[15px] sm:grid-cols-2">
-                  {group.fields.map((field) => (
+                  {campiModificabili.map((field) => (
                     <FieldRow
                       key={field.key}
                       sectionKey={sectionKey}
@@ -236,7 +278,7 @@ export function SectionContent({
                 </div>
               ) : (
                 <dl className="grid grid-cols-1 gap-x-[54px] gap-y-6 sm:grid-cols-2">
-                  {group.fields.map((field) => (
+                  {campiVisibili.map((field) => (
                     <FieldRow key={field.key} sectionKey={sectionKey} field={field} mode="VIEW" />
                   ))}
                 </dl>

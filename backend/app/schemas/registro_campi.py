@@ -53,6 +53,17 @@ class FieldStateRead(BaseModel):
     # None quando la sorgente non ha una pagina/route propria da linkare.
     sourceLabel: str | None = None
     sourceHref: str | None = None
+    # Meccanismo di visibilità condizionata (§ Correzione 04/05): chiave del
+    # campo di cui questo campo è "figlio" (None = sempre applicabile) ed
+    # eventuali codici ammessi per il suo valore. Esposti così, invece di
+    # limitarsi a omettere dalla risposta i campi non applicabili, perché il
+    # frontend possa mostrarli/nasconderli istantaneamente mentre l'utente
+    # sceglie, senza aspettare un salvataggio — la regola resta comunque
+    # definita qui, il frontend la applica soltanto (§CLAUDE.md "tutta la
+    # logica di business sta nel backend": qui è la sola fonte della
+    # regola, il client la valuta contro i valori correnti, non la inventa).
+    dependsOn: str | None = None
+    dependsOnValues: list[str] | None = None
     # Solo per campi derivati calcolati automaticamente (non "si modifica
     # altrove"): nota fissa mostrata al posto del messaggio "Si modifica
     # ..." quando sourceLabel non è impostato (es. "Determinato dall'organo

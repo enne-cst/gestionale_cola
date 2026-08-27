@@ -460,13 +460,15 @@ def costruisci_sezione(
         valori_gruppo = {c.key: _valore_campo(db, ctx, sezione, row, c.key) for c in gruppo.campi}
         campi_letti: list[FieldStateRead] = []
         for campo in gruppo.campi:
-            if campo.dipende_da is not None:
-                valore_controllo = valori_gruppo.get(campo.dipende_da)
-                if is_empty(valore_controllo):
-                    continue  # § Correzione 04: nessuna scelta ancora fatta, campo non applicabile.
-                if campo.valori_dipendenza is not None and valore_controllo not in campo.valori_dipendenza:
-                    continue  # campo pertinente solo per altre scelte del catalogo.
-
+            # § Correzione 04/05 seguito: il filtro "campo non applicabile
+            # perché dipende da un'altra scelta" non esclude più il campo
+            # dalla risposta — resta esposto con `dependsOn`/
+            # `dependsOnValues`, cosi' il frontend puo' mostrarlo/
+            # nasconderlo istantaneamente durante la modifica (prima della
+            # scelta corrente), non solo dopo un salvataggio. L'unico filtro
+            # che continua a escludere righe qui e' l'occhietto
+            # (visibile_azienda), un vincolo di accesso reale, non di
+            # presentazione.
             valore = valori_gruppo[campo.key]
             stato_riga = stati.get(campo.key)
             visibile = stato_riga.visibile_azienda if stato_riga else True
@@ -528,6 +530,8 @@ def costruisci_sezione(
                 sourceLabel=campo.source_label if campo.derived else None,
                 sourceHref=campo.source_href if campo.derived else None,
                 derivedNote=campo.derived_note if campo.derived else None,
+                dependsOn=campo.dipende_da,
+                dependsOnValues=sorted(campo.valori_dipendenza) if campo.valori_dipendenza is not None else None,
             )
             campi_letti.append(campo_letto)
         gruppi.append(SectionGroupRead(key=gruppo.key, title=gruppo.title, fields=campi_letti))
@@ -1140,7 +1144,8 @@ SEZIONE_AMMINISTRAZIONE_CONTROLLO = SezioneRegistro(
                 ),
                 CampoDef(
                     "durata_carica_data_scadenza", "Data di scadenza della carica", "date",
-                    dipende_da="durata_carica_tipo", valori_dipendenza=frozenset({"FINO_A_DATA"}),
+                    dipende_da="durata_carica_tipo",
+                    valori_dipendenza=frozenset({"PER_NUMERO_ESERCIZI", "FINO_A_DATA"}),
                 ),
                 CampoDef(
                     "numero_amministratori_in_carica", "Numero amministratori in carica", "number",

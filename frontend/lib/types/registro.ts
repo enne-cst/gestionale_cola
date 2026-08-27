@@ -40,6 +40,15 @@ export type FieldState = {
   // altrove"): nota fissa mostrata al posto del messaggio "Si modifica ..."
   // quando sourceLabel è null (es. "Determinato dall'organo scelto").
   derivedNote: string | null;
+  // Visibilità condizionata (§ Correzione 04/05): null = sempre applicabile.
+  // Altrimenti questo campo è applicabile solo quando il campo
+  // `dependsOn` (stessa sezione) ha un valore non vuoto — e, se
+  // `dependsOnValues` è a sua volta impostato, solo quando quel valore è
+  // uno dei codici indicati. La regola arriva dal backend (unica fonte),
+  // il frontend la applica soltanto per decidere cosa mostrare, anche
+  // prima di un salvataggio.
+  dependsOn: string | null;
+  dependsOnValues: string[] | null;
 };
 
 export type SectionGroup = {

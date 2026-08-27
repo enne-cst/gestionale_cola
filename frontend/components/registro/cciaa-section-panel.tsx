@@ -193,7 +193,8 @@ export function CciaaSectionPanel({
 }) {
   const footerSectionKey = VISTA_FOOTER_SECTION_KEY[vistaKey];
   const { state } = useWorkspace();
-  const sezionePrincipale = footerSectionKey ? state.sections[footerSectionKey]?.server : undefined;
+  const entryPrincipale = footerSectionKey ? state.sections[footerSectionKey] : undefined;
+  const sezionePrincipale = entryPrincipale?.server;
   // Quando il blocco embedded principale del pannello ha un solo gruppo
   // omonimo (Estremi dell'elenco soci in "soci", Amministrazione e
   // controllo in "amministratori"/"sindaci"), il suo header viene
@@ -209,10 +210,15 @@ export function CciaaSectionPanel({
   // Solo per "amministratori"/"sindaci" (unico caso con footerSectionKey
   // "amministrazione-controllo"): valore corrente del campo principale
   // della sezione, per nascondere anche la tabella degli incarichi finché
-  // non è stata fatta una scelta (vedi `ContenutoVista`).
-  const organoAmministrativo =
-    sezionePrincipale?.groups.flatMap((g) => g.fields).find((f) => f.key === "organo_amministrativo_in_carica")
-      ?.value ?? null;
+  // non è stata fatta una scelta (vedi `ContenutoVista`) — e per il titolo
+  // dedicato "Amministratore unico in carica" (§ Correzione 05 punto 9).
+  // In modifica legge la bozza (non il salvato): stessa reattività
+  // istantanea già applicata ai campi della sezione, la tabella non deve
+  // restare un passo indietro rispetto a loro finché non si salva.
+  const organoAmministrativo = entryPrincipale?.editing
+    ? (entryPrincipale.draft?.organo_amministrativo_in_carica ?? null)
+    : (sezionePrincipale?.groups.flatMap((g) => g.fields).find((f) => f.key === "organo_amministrativo_in_carica")
+        ?.value ?? null);
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="flex items-start justify-between gap-4 border-b border-[#edf1f7] px-[30px] py-6">
