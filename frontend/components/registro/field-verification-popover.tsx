@@ -60,7 +60,18 @@ export function FieldStatusButton({
  * stato e può aprire la nota, ma senza campo modificabile né azioni — le
  * serve soprattutto per capire cosa correggere quando un campo è "da
  * revisionare". */
-export function FieldVerificationPopover({ sectionKey, field }: { sectionKey: string; field: FieldState }) {
+export function FieldVerificationPopover({
+  sectionKey,
+  field,
+  disabled = false,
+}: {
+  sectionKey: string;
+  field: FieldState;
+  // true mentre la scheda è in modalità modifica: lo stato di verifica non
+  // è selezionabile finché non si esce dalla modifica (Annulla/Salva), sia
+  // per i campi editabili sia per quelli derivati mostrati in sola lettura.
+  disabled?: boolean;
+}) {
   const { submitReview, ruolo } = useWorkspace();
   const consulente = ruolo === "CONSULENTE";
   const [open, setOpen] = useState(false);
@@ -116,12 +127,14 @@ export function FieldVerificationPopover({ sectionKey, field }: { sectionKey: st
         : `Verifica ${field.label}`;
 
   return (
-    <Popover open={open} onOpenChange={apri} modal>
+    <Popover open={!disabled && open} onOpenChange={disabled ? undefined : apri} modal>
       <PopoverTrigger asChild>
         <button
           type="button"
+          disabled={disabled}
           aria-haspopup="dialog"
-          aria-label={`${field.label}: ${meta.etichetta}. ${consulente ? "Apri gestione verifica" : "Visualizza stato e nota"}`}
+          aria-label={`${field.label}: ${meta.etichetta}.${disabled ? "" : ` ${consulente ? "Apri gestione verifica" : "Visualizza stato e nota"}`}`}
+          className={disabled ? "cursor-default opacity-70" : undefined}
         >
           <FieldStatusButton status={status} label={field.label} />
         </button>

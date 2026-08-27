@@ -22,12 +22,16 @@ export function IncaricoVerificationPopover({
   nomeIncarico,
   consulente,
   onDecided,
+  disabled = false,
 }: {
   incarico: Incarico;
   // "il socio Sadiku Xhevit", "l'amministratore Rossi Mario"...
   nomeIncarico: string;
   consulente: boolean;
   onDecided: () => void;
+  // true mentre la scheda che ospita la tabella è in modalità modifica —
+  // stesso trattamento di `FieldVerificationPopover` per i campi normali.
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [nota, setNota] = useState(incarico.revisionNote ?? "");
@@ -77,12 +81,14 @@ export function IncaricoVerificationPopover({
         : `Verifica ${nomeIncarico}`;
 
   return (
-    <Popover open={open} onOpenChange={apri} modal>
+    <Popover open={!disabled && open} onOpenChange={disabled ? undefined : apri} modal>
       <PopoverTrigger asChild>
         <button
           type="button"
+          disabled={disabled}
           aria-haspopup="dialog"
-          aria-label={`${nomeIncarico}: ${etichettaStato}. ${consulente ? "Apri gestione verifica" : "Visualizza stato e nota"}`}
+          aria-label={`${nomeIncarico}: ${etichettaStato}.${disabled ? "" : ` ${consulente ? "Apri gestione verifica" : "Visualizza stato e nota"}`}`}
+          className={disabled ? "cursor-default opacity-70" : undefined}
         >
           <FieldStatusButton status={status} label={nomeIncarico} />
         </button>

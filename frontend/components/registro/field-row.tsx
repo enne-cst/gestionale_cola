@@ -60,7 +60,9 @@ export function FieldRow({
         </dt>
         <dd className="mt-[9px] flex min-h-5 items-center gap-[9px]">
           <span className="min-w-0 text-sm font-bold break-words text-[var(--az-ink)]">{formattaValore(field)}</span>
-          {field.verificationStatus && <FieldVerificationPopover sectionKey={sectionKey} field={field} />}
+          {field.verificationStatus && (
+            <FieldVerificationPopover sectionKey={sectionKey} field={field} disabled={mode === "EDIT"} />
+          )}
         </dd>
         {derivatoInModifica && field.sourceLabel && (
           <p className="mt-1.5 text-xs text-[var(--az-muted)]">
@@ -90,7 +92,9 @@ export function FieldRow({
             {consulente && (
               <VisibilityToggle label={field.label} visible={field.visibleToCompany} onToggle={() => toggleVisibility(sectionKey, field.key, !field.visibleToCompany)} />
             )}
-            {field.verificationStatus && <FieldVerificationPopover sectionKey={sectionKey} field={field} />}
+            {field.verificationStatus && (
+            <FieldVerificationPopover sectionKey={sectionKey} field={field} disabled={mode === "EDIT"} />
+          )}
           </span>
         )}
       </div>

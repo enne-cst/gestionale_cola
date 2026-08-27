@@ -120,13 +120,13 @@ export function IncaricoTable({
           <TableHeader>
             <TableRow>
               <TableHead>Persona</TableHead>
-              <TableHead>Nascita</TableHead>
-              <TableHead>Cittadinanza</TableHead>
-              <TableHead>Domicilio</TableHead>
-              <TableHead>Ruolo</TableHead>
-              <TableHead>Data di nomina</TableHead>
-              <TableHead>Stato carica</TableHead>
-              <TableHead>Verifica</TableHead>
+              <TableHead className="text-center">Nascita</TableHead>
+              <TableHead className="text-center">Cittadinanza</TableHead>
+              <TableHead className="text-center">Domicilio</TableHead>
+              <TableHead className="text-center">Ruolo</TableHead>
+              <TableHead className="text-center">Data di nomina</TableHead>
+              <TableHead className="text-center">Stato carica</TableHead>
+              <TableHead className="text-center">Verifica</TableHead>
               <TableHead className="w-24" />
             </TableRow>
           </TableHeader>
@@ -144,19 +144,24 @@ export function IncaricoTable({
                       <span className="text-xs text-muted-foreground">{incarico.persona.codice_fiscale}</span>
                     </div>
                   </TableCell>
-                  <TableCell>{nascita(incarico)}</TableCell>
-                  <TableCell>{incarico.persona.nazionalita ?? "—"}</TableCell>
-                  <TableCell>{incarico.persona.residenza ?? "—"}</TableCell>
-                  <TableCell>{incarico.ruolo.denominazione}</TableCell>
-                  <TableCell>{primaData(incarico, ["A49", "A01"])}</TableCell>
-                  <TableCell>{typeof statoCarica === "string" && statoCarica ? statoCarica : "—"}</TableCell>
-                  <TableCell>
-                    <IncaricoVerificationPopover
-                      incarico={incarico}
-                      nomeIncarico={nomeIncarico}
-                      consulente={consulente}
-                      onDecided={carica}
-                    />
+                  <TableCell className="text-center">{nascita(incarico)}</TableCell>
+                  <TableCell className="text-center">{incarico.persona.nazionalita ?? "—"}</TableCell>
+                  <TableCell className="text-center">{incarico.persona.residenza ?? "—"}</TableCell>
+                  <TableCell className="text-center">{incarico.ruolo.denominazione}</TableCell>
+                  <TableCell className="text-center">{primaData(incarico, ["A49", "A01"])}</TableCell>
+                  <TableCell className="text-center">
+                    {typeof statoCarica === "string" && statoCarica ? statoCarica : "—"}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex justify-center">
+                      <IncaricoVerificationPopover
+                        incarico={incarico}
+                        nomeIncarico={nomeIncarico}
+                        consulente={consulente}
+                        onDecided={carica}
+                        disabled={editingScheda === true}
+                      />
+                    </div>
                   </TableCell>
                   <TableCell className="flex justify-end gap-1">
                     <IncaricoFormDialog
