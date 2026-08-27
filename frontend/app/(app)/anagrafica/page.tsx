@@ -22,7 +22,6 @@ import type {
   AddettiComune,
   AddettiVisura,
   AlboRuoloLicenza,
-  AmministrazioneControllo,
   AttivitaEsercitata,
   CapitaleSociale,
   Certificazione,
@@ -52,7 +51,6 @@ export default async function AnagraficaOverviewPage() {
     contatti,
     iscrizioni,
     codiciAteco,
-    amministrazioneControllo,
     albi,
     soa,
     certificazioni,
@@ -70,7 +68,6 @@ export default async function AnagraficaOverviewPage() {
     apiFetch<Contatto[]>("/api/anagrafica/contatti"),
     apiFetch<IscrizioneRegistroImprese[]>("/api/anagrafica/iscrizioni-registro-imprese"),
     apiFetch<CodiceAteco[]>("/api/anagrafica/codici-ateco"),
-    apiFetch<AmministrazioneControllo | null>("/api/anagrafica/amministrazione-controllo"),
     apiFetch<AlboRuoloLicenza[]>("/api/anagrafica/albi-ruoli-licenze"),
     apiFetch<Soa[]>("/api/anagrafica/soa"),
     apiFetch<Certificazione[]>("/api/anagrafica/certificazioni"),
@@ -79,6 +76,13 @@ export default async function AnagraficaOverviewPage() {
     getRiepilogoSezioni(),
     getIncarichi(),
   ]);
+
+  // Costruita qui (non più sotto, § commento originale) perché serve già
+  // per calcolare la completezza di "amministrazione-controllo": quel
+  // campo vive solo nel registro campo-per-campo (Correzione 04), non più
+  // in una fetch dedicata.
+  const riepilogoPerSezione = new Map(riepilogoSezioni.map((r) => [r.sectionKey, r]));
+  const riepilogoAmministrazioneControllo = riepilogoPerSezione.get("amministrazione-controllo");
 
   const stato: Record<string, boolean> = {
     "identificazione-camerale": Boolean(identificazione?.ragione_sociale),
@@ -93,7 +97,13 @@ export default async function AnagraficaOverviewPage() {
     contatti: contatti.length > 0,
     "iscrizioni-registro-imprese": iscrizioni.length > 0,
     "codici-ateco": codiciAteco.length > 0,
-    "amministrazione-controllo": Boolean(amministrazioneControllo?.organo_amministrativo_in_carica),
+    "amministrazione-controllo": Boolean(
+      riepilogoAmministrazioneControllo &&
+        riepilogoAmministrazioneControllo.verified +
+          riepilogoAmministrazioneControllo.pending +
+          riepilogoAmministrazioneControllo.revisionRequired >
+          0,
+    ),
     "albi-ruoli-licenze": albi.length > 0,
     soa: soa.length > 0,
     certificazioni: certificazioni.length > 0,
@@ -115,7 +125,6 @@ export default async function AnagraficaOverviewPage() {
   // capitale-sociale, durata-societa-esercizi, amministrazione-controllo)
   // hanno uno stato di verifica per campo: le altre card mostrano presenza
   // reale ("N di N informazioni presenti"), mai pallini inventati (§18).
-  const riepilogoPerSezione = new Map(riepilogoSezioni.map((r) => [r.sectionKey, r]));
   function sommaRegistro(sectionKeys: string[]) {
     let verified = 0;
     let pending = 0;

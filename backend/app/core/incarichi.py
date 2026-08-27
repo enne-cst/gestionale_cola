@@ -35,7 +35,8 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import AziendaContext
 from app.core.registro_campi import STATO_API_TO_DB, STATO_DB_TO_API, registra_audit
-from app.models.personale import CatCaratteristicaIncarico, PerIncarico, PerIncaricoValore, RelRuoloCaratteristica
+from app.models.anagrafica import AnaAmministrazioneControllo, CatOrganoAmministrativo
+from app.models.personale import CatCaratteristicaIncarico, CatRuolo, PerIncarico, PerIncaricoValore, RelRuoloCaratteristica
 from app.models.sistema import SysRegistroStatoCampi, SysUtente
 from app.schemas.registro_campi import VerificationStatus
 
@@ -187,6 +188,61 @@ def leggi_valori(db: Session, incarico_id: UUID) -> dict[str, Any]:
         colonna = _TIPO_COLONNA[caratteristica.tipo_dato]
         out[caratteristica.codice] = getattr(valore_riga, colonna)
     return out
+
+
+# ===========================================================================
+# Amministratore unico: al più un incarico attivo alla volta (Correzione 05)
+# ===========================================================================
+#
+# "Attivo"/"in carica" qui significa "senza data di cessazione" (A02), non
+# lo stato testuale A25 (catalogo libero senza `valori_ammessi` imposti a
+# livello di dominio, quindi non abbastanza affidabile da usare come unica
+# fonte per bloccare un salvataggio).
+RUOLI_AMMINISTRATORI_ORGANO = frozenset({"AMMINISTRATORE", "AMMINISTRATORE_DELEGATO", "COMPONENTE_CDA"})
+
+
+def verifica_amministratore_unico_disponibile(db: Session, azienda_id: UUID, ruolo_codice: str) -> None:
+    """§ Correzione 05 punto 10: quando l'organo amministrativo in carica è
+    "Amministratore unico", il pulsante "Aggiungi riga" non deve consentire
+    il salvataggio di un secondo amministratore ancora attivo — la
+    sostituzione (cessazione/storicizzazione del precedente) è una
+    funzionalità futura, non implementata qui: per ora si blocca con un
+    errore invece di sovrascrivere silenziosamente (§ vincoli punto 13).
+
+    No-op per ogni ruolo diverso da quelli amministrativi e per ogni organo
+    diverso da "Amministratore unico" (compreso "non disponibile")."""
+    if ruolo_codice not in RUOLI_AMMINISTRATORI_ORGANO:
+        return
+
+    amministrazione = db.scalars(
+        select(AnaAmministrazioneControllo).where(AnaAmministrazioneControllo.azienda_id == azienda_id)
+    ).first()
+    if amministrazione is None or amministrazione.organo_amministrativo_id is None:
+        return
+    organo = db.get(CatOrganoAmministrativo, amministrazione.organo_amministrativo_id)
+    if organo is None or organo.codice != "AMMINISTRATORE_UNICO":
+        return
+
+    sotto_query_cessati = (
+        select(PerIncaricoValore.incarico_id)
+        .join(CatCaratteristicaIncarico, CatCaratteristicaIncarico.id == PerIncaricoValore.caratteristica_id)
+        .where(CatCaratteristicaIncarico.codice == "A02", PerIncaricoValore.valore_data.is_not(None))
+    )
+    esiste_attivo = db.scalars(
+        select(PerIncarico.id)
+        .join(CatRuolo, CatRuolo.id == PerIncarico.ruolo_id)
+        .where(
+            PerIncarico.azienda_id == azienda_id,
+            CatRuolo.codice.in_(RUOLI_AMMINISTRATORI_ORGANO),
+            PerIncarico.id.not_in(sotto_query_cessati),
+        )
+        .limit(1)
+    ).first()
+    if esiste_attivo is not None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "È già presente un amministratore unico in carica: per sostituirlo, cessare prima l'incarico esistente.",
+        )
 
 
 # ===========================================================================

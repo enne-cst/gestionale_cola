@@ -31,13 +31,11 @@ export function AmministrazioneControlloForm({
       <FormError message={state.error} />
       {state.success && <p className="text-sm text-muted-foreground">Salvato.</p>}
 
+      <p className="text-sm text-muted-foreground">
+        L&apos;organo amministrativo in carica si modifica dalla card &quot;Amministratori&quot; dei Dati CCIAA.
+      </p>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <PinnableFormField
-          label="Organo amministrativo in carica"
-          name="organo_amministrativo_in_carica"
-          defaultValue={dati?.organo_amministrativo_in_carica}
-          {...pin("organo_amministrativo_in_carica")}
-        />
         <PinnableFormField
           label="Durata in carica dell'organo"
           name="durata_in_carica_organo"

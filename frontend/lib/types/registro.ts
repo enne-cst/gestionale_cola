@@ -5,11 +5,20 @@
 export type VerificationStatus = "PENDING_VERIFICATION" | "VERIFIED" | "REVISION_REQUIRED";
 export type CompletionStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETE";
 
+export type FieldOption = {
+  code: string;
+  label: string;
+};
+
 export type FieldState = {
   key: string;
   label: string;
   value: string | null;
   dataType: string;
+  // Solo per dataType "catalogo": opzioni attive del catalogo che sostiene
+  // il campo, nell'ordine in cui vanno mostrate nel menu a tendina. Mai
+  // scritte a mano nel frontend (vedi backend/app/core/registro_campi.py).
+  options: FieldOption[] | null;
   // false solo per il campo derivato "Sede legale" (nessuna colonna propria,
   // valore letto dal modulo Sedi): la sezione lo mostra ma non lo accetta in
   // scrittura da qui (vedi backend/app/core/registro_campi.py).
@@ -27,6 +36,10 @@ export type FieldState = {
   // quando la sorgente non ha una pagina propria da linkare.
   sourceLabel: string | null;
   sourceHref: string | null;
+  // Solo per campi derivati calcolati automaticamente (non "si modifica
+  // altrove"): nota fissa mostrata al posto del messaggio "Si modifica ..."
+  // quando sourceLabel è null (es. "Determinato dall'organo scelto").
+  derivedNote: string | null;
 };
 
 export type SectionGroup = {

@@ -29,6 +29,7 @@ from app.core.incarichi import (
     leggi_stato_verifica_incarico,
     leggi_valori,
     valida_e_salva_valori,
+    verifica_amministratore_unico_disponibile,
 )
 from app.core.moduli import require_modulo
 from app.core.registro_campi import require_consulente_ctx
@@ -185,6 +186,7 @@ def create_incarico(
     ruolo = db.get(CatRuolo, payload.ruolo_id)
     if ruolo is None or not ruolo.attivo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ruolo non trovato")
+    verifica_amministratore_unico_disponibile(db, ctx.azienda_id, ruolo.codice)
 
     incarico = PerIncarico(
         azienda_id=ctx.azienda_id, persona_id=payload.persona_id, ruolo_id=payload.ruolo_id, note=payload.note

@@ -58,7 +58,18 @@ function SediSecondarieTable({ sedi, recordIdsInPanoramica }: { sedi: Sede[]; re
   return <SediTable sedi={secondarie} recordIdsInPanoramica={recordIdsInPanoramica} />;
 }
 
-function ContenutoVista({ vistaKey }: { vistaKey: CciaaVistaKey }) {
+function ContenutoVista({
+  vistaKey,
+  organoAmministrativo,
+}: {
+  vistaKey: CciaaVistaKey;
+  // Valore corrente di "Organo amministrativo in carica" (§ Correzione 04
+  // seguito): finché è "Non disponibile" (null), le card "Amministratori"
+  // e "Sindaci" non mostrano nemmeno la tabella degli incarichi — nessuna
+  // scelta fatta significa nessun'altra informazione applicabile, non solo
+  // i campi della sezione (quelli già filtrati dal backend).
+  organoAmministrativo?: string | null;
+}) {
   switch (vistaKey) {
     case "sintesi":
       return <SintesiPanel />;
@@ -81,31 +92,50 @@ function ContenutoVista({ vistaKey }: { vistaKey: CciaaVistaKey }) {
     case "amministratori":
       return (
         <>
-          <SectionContent sectionKey="amministrazione-controllo" embedded hideFooter />
-          <section className="py-2">
-            <IncaricoTable
-              titolo="Amministratori"
-              icon={GavelIcon}
-              ruoliCodici={["AMMINISTRATORE", "AMMINISTRATORE_DELEGATO", "COMPONENTE_CDA"]}
-              etichettaVuoto="Nessun amministratore registrato."
-              sectionKey="amministrazione-controllo"
-            />
-          </section>
+          <SectionContent
+            sectionKey="amministrazione-controllo"
+            embedded
+            hideFooter
+            groupTitleOverrides={{ "amministrazione-controllo": "Amministrazione" }}
+          />
+          {organoAmministrativo && (
+            <section className="py-2">
+              <IncaricoTable
+                // § Correzione 05 punto 9: titolo dedicato solo per
+                // "Amministratore unico", per ogni altra scelta resta il
+                // titolo generico finché quella configurazione non è
+                // definita.
+                titolo={organoAmministrativo === "AMMINISTRATORE_UNICO" ? "Amministratore unico in carica" : "Amministratori"}
+                icon={GavelIcon}
+                ruoliCodici={["AMMINISTRATORE", "AMMINISTRATORE_DELEGATO", "COMPONENTE_CDA"]}
+                etichettaVuoto="Nessun amministratore registrato."
+                sectionKey="amministrazione-controllo"
+                addRowLabel="Aggiungi riga"
+              />
+            </section>
+          )}
         </>
       );
     case "sindaci":
       return (
         <>
-          <SectionContent sectionKey="amministrazione-controllo" embedded hideFooter />
-          <section className="py-2">
-            <IncaricoTable
-              titolo="Sindaci e revisori"
-              icon={ShieldCheckIcon}
-              ruoliCodici={["SINDACO", "REVISORE_LEGALE"]}
-              etichettaVuoto="Nessun sindaco o revisore registrato."
-              sectionKey="amministrazione-controllo"
-            />
-          </section>
+          <SectionContent
+            sectionKey="amministrazione-controllo"
+            embedded
+            hideFooter
+            groupTitleOverrides={{ "amministrazione-controllo": "Organi di controllo" }}
+          />
+          {organoAmministrativo && (
+            <section className="py-2">
+              <IncaricoTable
+                titolo="Sindaci e revisori"
+                icon={ShieldCheckIcon}
+                ruoliCodici={["SINDACO", "REVISORE_LEGALE"]}
+                etichettaVuoto="Nessun sindaco o revisore registrato."
+                sectionKey="amministrazione-controllo"
+              />
+            </section>
+          )}
         </>
       );
     case "attivita-albi":
@@ -176,6 +206,13 @@ export function CciaaSectionPanel({
     sezionePrincipale.groups[0].title === sezionePrincipale.title
       ? sezionePrincipale.completionStatus
       : null;
+  // Solo per "amministratori"/"sindaci" (unico caso con footerSectionKey
+  // "amministrazione-controllo"): valore corrente del campo principale
+  // della sezione, per nascondere anche la tabella degli incarichi finché
+  // non è stata fatta una scelta (vedi `ContenutoVista`).
+  const organoAmministrativo =
+    sezionePrincipale?.groups.flatMap((g) => g.fields).find((f) => f.key === "organo_amministrativo_in_carica")
+      ?.value ?? null;
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="flex items-start justify-between gap-4 border-b border-[#edf1f7] px-[30px] py-6">
@@ -201,7 +238,7 @@ export function CciaaSectionPanel({
         </div>
       </div>
       <div className="az-scroll-thin flex-1 overflow-y-auto px-[30px] pb-6">
-        <ContenutoVista vistaKey={vistaKey} />
+        <ContenutoVista vistaKey={vistaKey} organoAmministrativo={organoAmministrativo} />
       </div>
       {footerSectionKey && <SectionFooter sectionKey={footerSectionKey} />}
     </div>

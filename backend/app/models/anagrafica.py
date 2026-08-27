@@ -19,7 +19,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, SmallInteger, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -215,6 +215,79 @@ class AnaCapitaleSociale(Base):
 
 
 # ===========================================================================
+# Catalogo - Organi amministrativi (Correzione 04)
+# ===========================================================================
+
+
+class CatOrganoAmministrativo(Base):
+    """Catalogo estendibile degli organi amministrativi selezionabili nel
+    campo "Organo amministrativo in carica" (sezione Amministrazione e
+    controllo): Amministratore unico, Consiglio di amministrazione,
+    Amministrazione pluripersonale congiuntiva/disgiuntiva."""
+
+    __tablename__ = "cat_organi_amministrativi"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+# ===========================================================================
+# Cataloghi - Durate di carica e regimi di rappresentanza (Correzione 05)
+# ===========================================================================
+
+
+class CatDurataCarica(Base):
+    """Catalogo estendibile delle modalità di durata della carica (campo
+    "Durata in carica" della configurazione "Amministratore unico"): a
+    tempo indeterminato, fino a revoca, per un numero di esercizi, fino a
+    una data stabilita."""
+
+    __tablename__ = "cat_durate_carica"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatRegimeRappresentanza(Base):
+    """Catalogo estendibile dei regimi di rappresentanza (campo "Regime di
+    rappresentanza" della configurazione "Amministratore unico"). La
+    compatibilità con ciascun organo amministrativo è modellata da
+    `rel_organi_amministrativi_regimi_rappresentanza`, non da questo
+    modello (nessuna relazione qui, per non introdurre dipendenze non
+    ancora servite: il campo del frontend non filtra ancora le opzioni per
+    organo, vedi migrazione 014)."""
+
+    __tablename__ = "cat_regimi_rappresentanza"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+# ===========================================================================
 # 007 - Amministrazione e controllo (singleton) + sistemi di amministrazione
 # ===========================================================================
 
@@ -226,7 +299,12 @@ class AnaAmministrazioneControllo(Base):
     id: Mapped[uuid.UUID] = _id_col()
     azienda_id: Mapped[uuid.UUID] = _azienda_fk()
 
-    organo_amministrativo_in_carica: Mapped[str | None] = mapped_column(String(255))
+    # Correzione 04: chiave esterna al catalogo cat_organi_amministrativi,
+    # mai la denominazione come testo libero (§ campo principale, mostrato
+    # per primo, della sezione "Amministratori").
+    organo_amministrativo_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_organi_amministrativi.id")
+    )
 
     numero_minimo_amministratori: Mapped[int | None] = mapped_column(Integer)
     numero_amministratori_in_carica: Mapped[int | None] = mapped_column(Integer)
@@ -235,6 +313,19 @@ class AnaAmministrazioneControllo(Base):
 
     numero_sindaci_organi_controllo: Mapped[int | None] = mapped_column(Integer)
     numero_titolari_cariche: Mapped[int | None] = mapped_column(Integer)
+
+    # Correzione 05 (configurazione "Amministratore unico"): "Numero
+    # componenti" non ha una colonna propria, vale sempre 1 per definizione
+    # (calcolato, mai un inserimento manuale — vedi campi_derivati in
+    # `app/core/registro_campi.py`).
+    durata_carica_tipo_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_durate_carica.id")
+    )
+    durata_carica_numero_esercizi: Mapped[int | None] = mapped_column(Integer)
+    durata_carica_data_scadenza: Mapped[date | None] = mapped_column(Date)
+    regime_rappresentanza_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_regimi_rappresentanza.id")
+    )
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

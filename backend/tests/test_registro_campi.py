@@ -7,6 +7,8 @@ Postgres reale e non è coperta qui: vedi il piano di verifica manuale nel
 report di consegna.
 """
 
+from uuid import uuid4
+
 from app.core.registro_campi import (
     SEZIONE_AMMINISTRAZIONE_CONTROLLO,
     SEZIONE_CAPITALE_SOCIALE,
@@ -140,15 +142,28 @@ class TestSezioniRegistrate:
         assert indice.chiavi == {"data_termine_societa", "scadenza_primo_esercizio", "scadenza_esercizi_successivi"}
 
     def test_catalogo_amministrazione_controllo(self):
+        # Correzione 05: aggiunti i campi della configurazione
+        # "Amministratore unico" (numero componenti calcolato, durata in
+        # carica a catalogo con i due condizionali, regime di
+        # rappresentanza), accanto ai quattro campi generici già esistenti.
         indice = _indice(SEZIONE_AMMINISTRAZIONE_CONTROLLO)
         assert indice.chiavi == {
             "organo_amministrativo_in_carica",
+            "numero_componenti_organo",
             "durata_in_carica_organo",
+            "durata_carica_tipo",
             "numero_minimo_amministratori",
+            "regime_rappresentanza",
+            "durata_carica_numero_esercizi",
+            "durata_carica_data_scadenza",
             "numero_amministratori_in_carica",
             "numero_sindaci_organi_controllo",
             "numero_titolari_cariche",
         }
+        # "Numero componenti" è calcolato (mai un inserimento manuale, §
+        # punto 4): esplicitamente derivato ed escluso dai campi scrivibili.
+        assert "numero_componenti_organo" in indice.derivate
+        assert "numero_componenti_organo" not in indice.scrivibili
 
     def test_catalogo_elenco_soci_estremi(self):
         indice = _indice(SEZIONE_ELENCO_SOCI_ESTREMI)
@@ -199,12 +214,14 @@ class TestSezioniRegistrate:
 
     def test_totale_applicabile_su_tutte_le_sezioni(self):
         # Stessa somma che `valuta_qualita`/`riepilogo_sezioni` usano per
-        # `totalApplicable` (22 + 4 + 3 + 6 + 5 + 12 + 12, il penultimo per
+        # `totalApplicable` (22 + 4 + 3 + 11 + 5 + 12 + 12, il quarto per
+        # "amministrazione-controllo" dopo la correzione 05 (6 -> 11 campi,
+        # configurazione "Amministratore unico"), il penultimo per
         # "elenco-soci-estremi" dopo la correzione 035, gli ultimi due per
         # "sede"/"statuto", pilota su ana_sede_rev2/ana_statuto_rev2): un
         # cambiamento qui e' un promemoria per aggiornare quel numero
         # consapevolmente.
-        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 64
+        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 69
 
 
 class TestValidaCampo:
@@ -291,8 +308,11 @@ class TestStatoCompletamento:
         assert stato_completamento(SEZIONE_DURATA_SOCIETA_ESERCIZI, row) == "COMPLETE"
 
     def test_amministrazione_controllo_usa_organo_come_campo_guida(self):
-        completa = AnaAmministrazioneControllo(organo_amministrativo_in_carica="Amministratore unico")
+        # Correzione 04: "organo_amministrativo_in_carica" è ora un campo a
+        # catalogo, la colonna di dominio è la chiave esterna
+        # `organo_amministrativo_id` (mai la denominazione come testo).
+        completa = AnaAmministrazioneControllo(organo_amministrativo_id=uuid4())
         assert stato_completamento(SEZIONE_AMMINISTRAZIONE_CONTROLLO, completa) == "COMPLETE"
 
-        in_corso = AnaAmministrazioneControllo(organo_amministrativo_in_carica=None, numero_amministratori_in_carica=1)
+        in_corso = AnaAmministrazioneControllo(organo_amministrativo_id=None, numero_amministratori_in_carica=1)
         assert stato_completamento(SEZIONE_AMMINISTRAZIONE_CONTROLLO, in_corso) == "IN_PROGRESS"

@@ -107,7 +107,7 @@ def salva_sezione(
     elif if_match is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, "I dati sono stati modificati nel frattempo: ricaricare la sezione")
 
-    errori = {campo: msg for campo, msg in ((c, valida_campo(sezione, c, v)) for c, v in payload.fields.items()) if msg}
+    errori = {campo: msg for campo, msg in ((c, valida_campo(sezione, c, v, db)) for c, v in payload.fields.items()) if msg}
     if errori:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,

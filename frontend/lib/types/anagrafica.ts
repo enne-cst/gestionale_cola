@@ -131,7 +131,10 @@ export interface SistemaAmministrazione {
 }
 
 export interface AmministrazioneControllo extends ConMetadati {
-  organo_amministrativo_in_carica: string | null;
+  // "Organo amministrativo in carica" non è più qui (Correzione 04): è il
+  // campo principale della sezione "Amministratori" del registro
+  // campo-per-campo (vedi FieldState in lib/types/registro.ts), sostenuto
+  // dal catalogo cat_organi_amministrativi. Si modifica solo da lì.
   numero_minimo_amministratori: number | null;
   numero_amministratori_in_carica: number | null;
   durata_in_carica_organo: string | null;

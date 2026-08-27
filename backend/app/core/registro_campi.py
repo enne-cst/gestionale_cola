@@ -42,11 +42,15 @@ from app.models.anagrafica import (
     AnaSede,
     AnaSedeRev2,
     AnaStatutoRev2,
+    CatDurataCarica,
+    CatOrganoAmministrativo,
+    CatRegimeRappresentanza,
 )
 from app.models.personale import CatRuolo, PerIncarico
 from app.models.sistema import SysRegistroAudit, SysRegistroStatoCampi, SysUtente
 from app.schemas.registro_campi import (
     CompletionStatus,
+    FieldOptionRead,
     FieldStateRead,
     QualitySummaryRead,
     RecentChangeRead,
@@ -90,6 +94,26 @@ class CampoDef:
     # non hanno una route dedicata da linkare.
     source_label: str | None = None
     source_href: str | None = None
+    # Solo per campi derivati che NON sono "si modifica altrove" (nessuna
+    # sezione sorgente da linkare): una nota fissa da mostrare al posto del
+    # messaggio "Si modifica ...", per campi calcolati automaticamente dal
+    # backend (es. "Numero componenti" della configurazione "Amministratore
+    # unico", sempre 1 per definizione — § Correzione 05). Mutuamente
+    # alternativo a `source_label`: se entrambi sono impostati, il frontend
+    # mostra solo `derived_note`.
+    derived_note: str | None = None
+    # Meccanismo generale di visibilità condizionata (Correzione 04 seguito:
+    # "la scelta in 'Organo amministrativo in carica' determina i campi
+    # successivamente mostrati"): se impostato, questo campo compare nella
+    # sezione solo quando il campo `dipende_da` (stessa sezione) ha un
+    # valore non vuoto — e, se `valori_dipendenza` è a sua volta impostato,
+    # solo quando quel valore è uno dei codici indicati (es. un campo
+    # mostrato solo per "Consiglio di amministrazione"). None/None su
+    # entrambi = campo sempre visibile, comportamento invariato. Le regole
+    # per le singole scelte del catalogo arriveranno una alla volta nelle
+    # prossime correzioni: qui si generalizza solo il meccanismo.
+    dipende_da: str | None = None
+    valori_dipendenza: frozenset[str] | None = None
 
 
 @dataclass(frozen=True)
@@ -100,6 +124,23 @@ class GruppoDef:
 
 
 CampoDerivatoLoader = Callable[[Session, UUID], "str | None"]
+
+
+@dataclass(frozen=True)
+class CampoCatalogo:
+    """Descrive un campo a scelta singola il cui valore esposto/accettato
+    dall'API è il `codice` stabile di una riga di un catalogo dedicato (§
+    Correzione 04: "il frontend regola la visualizzazione usando il codice
+    stabile, non la denominazione"), mentre la colonna di dominio sul model
+    della sezione è una chiave esterna all'id di quella riga — mai la
+    denominazione come testo libero. Meccanismo generale, riusabile da
+    qualunque futuro campo a registro sostenuto da un catalogo con più di
+    2-3 valori (qui: "Organo amministrativo in carica" ->
+    `cat_organi_amministrativi`), a differenza dei campi `derived` (che non
+    sono mai scrivibili): un campo a catalogo resta scrivibile via PATCH."""
+
+    model: type
+    colonna_fk: str
 
 
 @dataclass(frozen=True)
@@ -117,6 +158,7 @@ class SezioneRegistro:
     # `page.tsx` per queste sezioni.
     campo_completamento: str | None = None
     campi_derivati: dict[str, CampoDerivatoLoader] = field(default_factory=dict)
+    campi_catalogo: dict[str, CampoCatalogo] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -148,16 +190,30 @@ def _normalizza(valore: str | None) -> str | None:
     return None if trimmed == "" else trimmed
 
 
-def valida_campo(sezione: SezioneRegistro, campo: str, valore: str | None) -> str | None:
+def valida_campo(sezione: SezioneRegistro, campo: str, valore: str | None, db: Session | None = None) -> str | None:
     """Restituisce il messaggio di errore per un valore non vuoto e non
     valido, altrimenti None. Nessuna validazione `required` (§9.2): un
-    valore vuoto non genera mai errore."""
+    valore vuoto non genera mai errore.
+
+    `db` è opzionale (solo i campi a catalogo lo richiedono, per verificare
+    che il codice inviato esista davvero): assente, resta la stessa funzione
+    pura senza dipendenza da database usata dai test unitari."""
     if is_empty(valore):
         return None
     assert valore is not None
 
     tipo = _indice(sezione).tipo.get(campo)
-    if campo == "partita_iva":
+    if tipo == "catalogo":
+        catalogo = sezione.campi_catalogo.get(campo)
+        if catalogo is not None and db is not None:
+            esiste = db.scalar(
+                select(func.count())
+                .select_from(catalogo.model)
+                .where(catalogo.model.codice == valore, catalogo.model.attivo.is_(True))
+            )
+            if not esiste:
+                return "Valore non valido"
+    elif campo == "partita_iva":
         if not re.fullmatch(r"\d{11}", valore):
             return "La Partita IVA deve contenere 11 cifre"
     elif campo == "codice_fiscale":
@@ -276,15 +332,62 @@ def _capitale_rappresentato_di(db: Session, azienda_id: UUID) -> str | None:
     return str(capitale.capitale_sottoscritto)
 
 
+def _numero_componenti_amministratore_unico(db: Session, azienda_id: UUID) -> str | None:
+    """"Numero componenti" della configurazione "Amministratore unico" (§
+    Correzione 05): nessuna colonna propria, vale sempre 1 per definizione
+    (un amministratore unico è per l'appunto uno solo) — una costante, non
+    un inserimento manuale. Il campo è comunque visibile solo quando
+    "Organo amministrativo in carica" è "Amministratore unico" (`dipende_da`
+    sul CampoDef), quindi non serve verificarlo di nuovo qui."""
+    return "1"
+
+
+def _opzioni_catalogo(db: Session, catalogo: CampoCatalogo) -> list[FieldOptionRead]:
+    """Opzioni attive del catalogo, nell'ordine di visualizzazione
+    configurato: il menu a tendina del frontend le usa cosi' come sono,
+    senza valori scritti a mano lato client (§ Correzione 04)."""
+    righe = db.scalars(
+        select(catalogo.model).where(catalogo.model.attivo.is_(True)).order_by(catalogo.model.ordine_visualizzazione)
+    ).all()
+    return [FieldOptionRead(code=r.codice, label=r.denominazione) for r in righe]
+
+
+def _valore_catalogo_di(db: Session, catalogo: CampoCatalogo, row: object | None) -> str | None:
+    """Codice stabile del catalogo puntato dalla chiave esterna sul record
+    di dominio (§ Correzione 04): mai la denominazione, cosi' il frontend
+    puo' confrontare/instradare sul codice invece che sul testo mostrato."""
+    if row is None:
+        return None
+    riga_id = getattr(row, catalogo.colonna_fk)
+    if riga_id is None:
+        return None
+    riga = db.get(catalogo.model, riga_id)
+    return riga.codice if riga is not None else None
+
+
 def _valore_campo(db: Session, ctx: AziendaContext, sezione: SezioneRegistro, row: object | None, campo: str) -> str | None:
     """Valore attuale di un campo del catalogo, qualunque sia la sua origine
-    (colonna di dominio o derivato): usato ovunque serva leggere "il valore
-    attuale" a prescindere da dove sia fisicamente memorizzato (verifica,
-    visibilita')."""
+    (colonna di dominio, derivata o a catalogo): usato ovunque serva leggere
+    "il valore attuale" a prescindere da dove sia fisicamente memorizzato
+    (verifica, visibilita')."""
     loader = sezione.campi_derivati.get(campo)
     if loader is not None:
         return loader(db, ctx.azienda_id)
+    catalogo = sezione.campi_catalogo.get(campo)
+    if catalogo is not None:
+        return _valore_catalogo_di(db, catalogo, row)
     return _valore_dal_record(row, campo)
+
+
+def _campo_compilato(sezione: SezioneRegistro, row: object, campo: str) -> bool:
+    """Come `_valore_dal_record`, ma senza bisogno di `db`: per i campi a
+    catalogo (§ Correzione 04) basta sapere se la chiave esterna e'
+    valorizzata, non serve risolvere il codice (usato solo da
+    `stato_completamento`, che non ha una sessione)."""
+    catalogo = sezione.campi_catalogo.get(campo)
+    if catalogo is not None:
+        return getattr(row, catalogo.colonna_fk) is not None
+    return not is_empty(_valore_dal_record(row, campo))
 
 
 def stato_completamento(sezione: SezioneRegistro, row: object | None) -> CompletionStatus:
@@ -295,9 +398,9 @@ def stato_completamento(sezione: SezioneRegistro, row: object | None) -> Complet
     if row is None:
         return "NOT_STARTED"
     scrivibili = _indice(sezione).scrivibili
-    qualcosa_compilato = any(not is_empty(_valore_dal_record(row, c)) for c in scrivibili)
+    qualcosa_compilato = any(_campo_compilato(sezione, row, c) for c in scrivibili)
     if sezione.campo_completamento is not None:
-        if not is_empty(_valore_dal_record(row, sezione.campo_completamento)):
+        if _campo_compilato(sezione, row, sezione.campo_completamento):
             return "COMPLETE"
         return "IN_PROGRESS" if qualcosa_compilato else "NOT_STARTED"
     # Nessun campo guida unico (es. capitale sociale): completa se almeno un
@@ -349,9 +452,22 @@ def costruisci_sezione(
 
     gruppi: list[SectionGroupRead] = []
     for gruppo in sezione.gruppi:
+        # Valori dell'intero gruppo pre-calcolati una volta sola: servono
+        # sia per il campo corrente sia per valutare `dipende_da` di un
+        # altro campo dello stesso gruppo, qualunque sia l'ordine di
+        # dichiarazione (es. "organo_amministrativo_in_carica" e' il primo,
+        # ma la regola non deve assumerlo).
+        valori_gruppo = {c.key: _valore_campo(db, ctx, sezione, row, c.key) for c in gruppo.campi}
         campi_letti: list[FieldStateRead] = []
         for campo in gruppo.campi:
-            valore = _valore_campo(db, ctx, sezione, row, campo.key)
+            if campo.dipende_da is not None:
+                valore_controllo = valori_gruppo.get(campo.dipende_da)
+                if is_empty(valore_controllo):
+                    continue  # § Correzione 04: nessuna scelta ancora fatta, campo non applicabile.
+                if campo.valori_dipendenza is not None and valore_controllo not in campo.valori_dipendenza:
+                    continue  # campo pertinente solo per altre scelte del catalogo.
+
+            valore = valori_gruppo[campo.key]
             stato_riga = stati.get(campo.key)
             visibile = stato_riga.visibile_azienda if stato_riga else True
 
@@ -389,6 +505,9 @@ def costruisci_sezione(
                 else None
             )
 
+            catalogo = sezione.campi_catalogo.get(campo.key)
+            opzioni = _opzioni_catalogo(db, catalogo) if catalogo is not None else None
+
             campo_letto = FieldStateRead(
                 key=campo.key,
                 label=campo.label,
@@ -405,8 +524,10 @@ def costruisci_sezione(
                 updatedAt=getattr(row, "updated_at", None).isoformat() if row is not None else None,
                 verifiedAt=verificato_il,
                 verifiedBy=verificato_da_nome,
+                options=opzioni,
                 sourceLabel=campo.source_label if campo.derived else None,
                 sourceHref=campo.source_href if campo.derived else None,
+                derivedNote=campo.derived_note if campo.derived else None,
             )
             campi_letti.append(campo_letto)
         gruppi.append(SectionGroupRead(key=gruppo.key, title=gruppo.title, fields=campi_letti))
@@ -464,7 +585,7 @@ def applica_modifiche_sezione(
         if campo not in indice.scrivibili:
             continue  # fuori catalogo, oppure campo derivato (non scrivibile qui, §16.1/§29.1)
         nuovo = _normalizza(nuovo_raw)
-        attuale = _valore_dal_record(row, campo)
+        attuale = _valore_campo(db, ctx, sezione, row, campo)
         if nuovo == attuale:
             continue
 
@@ -477,6 +598,22 @@ def applica_modifiche_sezione(
             setattr(row, campo, int(nuovo) if nuovo is not None else None)
         elif tipo == "boolean":
             setattr(row, campo, (nuovo == "true") if nuovo is not None else None)
+        elif tipo == "catalogo":
+            catalogo = sezione.campi_catalogo[campo]
+            if nuovo is None:
+                setattr(row, catalogo.colonna_fk, None)
+            else:
+                # Il codice e' gia' stato verificato da `valida_campo` (con
+                # `db`) prima di arrivare qui: se manca comunque, il record
+                # a catalogo e' stato disattivato/rimosso tra la validazione
+                # e questo salvataggio, un errore da far emergere e non da
+                # ignorare silenziosamente.
+                riga_catalogo = db.scalars(
+                    select(catalogo.model).where(catalogo.model.codice == nuovo, catalogo.model.attivo.is_(True))
+                ).first()
+                if riga_catalogo is None:
+                    raise ValueError(f"Valore di catalogo non valido per {campo}: {nuovo!r}")
+                setattr(row, catalogo.colonna_fk, riga_catalogo.id)
         else:
             setattr(row, campo, nuovo)
 
@@ -908,23 +1045,115 @@ SEZIONE_DURATA_SOCIETA_ESERCIZI = SezioneRegistro(
 # nominativo vive in `per_incarichi`, fuori dal registro). Campo guida:
 # `organo_amministrativo_in_carica`, stessa convenzione già usata da
 # `page.tsx` per questa sezione.
+#
+# Correzione 04: e' anche il campo principale della sezione "Amministratori"
+# (mostrato per primo, § sopra "campi[0]"), a scelta singola sostenuta dal
+# catalogo `cat_organi_amministrativi` (piu' di 3 valori: niente opzioni
+# scritte a mano nel frontend, §CLAUDE.md "Configurazione prima della
+# programmazione"). La colonna di dominio è `organo_amministrativo_id`
+# (chiave esterna, mai la denominazione come testo): `campi_catalogo` sotto
+# instrada in lettura/scrittura sul `codice` stabile del catalogo — vedi
+# `CampoCatalogo`. Il meccanismo di visualizzazione condizionale dei campi
+# successivi in base alla scelta (Amministratore unico / Consiglio di
+# amministrazione / pluripersonale congiuntiva o disgiuntiva) sarà definito
+# nelle correzioni successive, una modalità alla volta: per ora, finché
+# "Organo amministrativo in carica" è "Non disponibile" (nessuna scelta
+# fatta), la sezione mostra esclusivamente quel campo.
+#
+# Correzione 05: prima configurazione definita, "Amministratore unico".
+# I quattro campi generici usati finora (durata testo libero, numero
+# minimo/in carica amministratori, numero sindaci) restano il comportamento
+# di ripiego per le configurazioni non ancora definite (Consiglio di
+# amministrazione, pluripersonale congiuntiva/disgiuntiva — `dipende_da`
+# ristretto a QUESTE tre con `valori_dipendenza`, § "non modificate le altre
+# configurazioni"), mentre "Amministratore unico" ha il proprio set: Numero
+# componenti (calcolato, sempre 1), Durata in carica (a catalogo, con i due
+# campi condizionali subito sotto), Regime di rappresentanza (a catalogo).
+# "Titolari di cariche" resta condiviso da tutte le configurazioni (nessuna
+# `valori_dipendenza`), come già per gli altri quattro prima di questa
+# correzione. L'ordine dei campi qui sotto è quello che determina la
+# disposizione a due colonne nella griglia del frontend (righe da 2 campi
+# ciascuna, in ordine): per "Amministratore unico" i campi non pertinenti
+# vengono filtrati da `costruisci_sezione`, quindi i visibili restano
+# consecutivi nell'ordine voluto senza bisogno di logica di layout separata.
+# § Correzione 05 punto 12, per un futuro importer del riconoscimento CCIAA
+# (non ancora presente in questo codebase — nessuna pipeline di estrazione
+# esiste oggi, solo compilazione manuale dai form): quando un valore
+# estratto dalla visura andrà ricondotto a uno di questi cataloghi
+# (organi amministrativi, durate di carica, regimi di rappresentanza), una
+# corrispondenza incerta non deve selezionare una voce arbitraria — va
+# conservato il testo originale (in un campo separato, non ancora esistente)
+# e il campo va marcato "da verificare", mai auto-approvato.
+_ALTRE_CONFIGURAZIONI_ORGANO = frozenset({
+    "CONSIGLIO_AMMINISTRAZIONE",
+    "AMMINISTRAZIONE_PLURIPERSONALE_CONGIUNTIVA",
+    "AMMINISTRAZIONE_PLURIPERSONALE_DISGIUNTIVA",
+})
+_AMMINISTRATORE_UNICO = frozenset({"AMMINISTRATORE_UNICO"})
+
 SEZIONE_AMMINISTRAZIONE_CONTROLLO = SezioneRegistro(
     section_key="amministrazione-controllo",
     sezione_codice="ANAGRAFICA_AZIENDALE.AMMINISTRAZIONE_CONTROLLO",
     title="Amministrazione e controllo",
     model=AnaAmministrazioneControllo,
     campo_completamento="organo_amministrativo_in_carica",
+    campi_derivati={
+        "numero_componenti_organo": _numero_componenti_amministratore_unico,
+    },
+    campi_catalogo={
+        "organo_amministrativo_in_carica": CampoCatalogo(
+            model=CatOrganoAmministrativo, colonna_fk="organo_amministrativo_id"
+        ),
+        "durata_carica_tipo": CampoCatalogo(model=CatDurataCarica, colonna_fk="durata_carica_tipo_id"),
+        "regime_rappresentanza": CampoCatalogo(model=CatRegimeRappresentanza, colonna_fk="regime_rappresentanza_id"),
+    },
     gruppi=[
         GruppoDef(
             key="amministrazione-controllo",
             title="Amministrazione e controllo",
             campi=[
-                CampoDef("organo_amministrativo_in_carica", "Organo amministrativo in carica", "text"),
-                CampoDef("durata_in_carica_organo", "Durata in carica dell'organo", "text"),
-                CampoDef("numero_minimo_amministratori", "Numero minimo amministratori", "number"),
-                CampoDef("numero_amministratori_in_carica", "Numero amministratori in carica", "number"),
-                CampoDef("numero_sindaci_organi_controllo", "Numero sindaci/organi di controllo", "number"),
-                CampoDef("numero_titolari_cariche", "Numero titolari di cariche", "number"),
+                CampoDef("organo_amministrativo_in_carica", "Organo amministrativo in carica", "catalogo"),
+                CampoDef(
+                    "numero_componenti_organo", "Numero componenti", "number",
+                    derived=True, derived_note="Determinato dall'organo scelto",
+                    dipende_da="organo_amministrativo_in_carica", valori_dipendenza=_AMMINISTRATORE_UNICO,
+                ),
+                CampoDef(
+                    "durata_in_carica_organo", "Durata in carica dell'organo", "text",
+                    dipende_da="organo_amministrativo_in_carica", valori_dipendenza=_ALTRE_CONFIGURAZIONI_ORGANO,
+                ),
+                CampoDef(
+                    "durata_carica_tipo", "Durata in carica", "catalogo",
+                    dipende_da="organo_amministrativo_in_carica", valori_dipendenza=_AMMINISTRATORE_UNICO,
+                ),
+                CampoDef(
+                    "numero_minimo_amministratori", "Numero minimo amministratori", "number",
+                    dipende_da="organo_amministrativo_in_carica", valori_dipendenza=_ALTRE_CONFIGURAZIONI_ORGANO,
+                ),
+                CampoDef(
+                    "regime_rappresentanza", "Regime di rappresentanza", "catalogo",
+                    dipende_da="organo_amministrativo_in_carica", valori_dipendenza=_AMMINISTRATORE_UNICO,
+                ),
+                CampoDef(
+                    "durata_carica_numero_esercizi", "Numero di esercizi", "number",
+                    dipende_da="durata_carica_tipo", valori_dipendenza=frozenset({"PER_NUMERO_ESERCIZI"}),
+                ),
+                CampoDef(
+                    "durata_carica_data_scadenza", "Data di scadenza della carica", "date",
+                    dipende_da="durata_carica_tipo", valori_dipendenza=frozenset({"FINO_A_DATA"}),
+                ),
+                CampoDef(
+                    "numero_amministratori_in_carica", "Numero amministratori in carica", "number",
+                    dipende_da="organo_amministrativo_in_carica", valori_dipendenza=_ALTRE_CONFIGURAZIONI_ORGANO,
+                ),
+                CampoDef(
+                    "numero_sindaci_organi_controllo", "Numero sindaci/organi di controllo", "number",
+                    dipende_da="organo_amministrativo_in_carica", valori_dipendenza=_ALTRE_CONFIGURAZIONI_ORGANO,
+                ),
+                CampoDef(
+                    "numero_titolari_cariche", "Titolari di cariche", "number",
+                    dipende_da="organo_amministrativo_in_carica",
+                ),
             ],
         ),
     ],

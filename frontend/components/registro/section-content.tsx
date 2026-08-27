@@ -72,6 +72,7 @@ export function SectionContent({
   onClose,
   embedded = false,
   hideFooter = false,
+  groupTitleOverrides,
 }: {
   sectionKey: string;
   headerActions?: ReactNode;
@@ -87,6 +88,12 @@ export function SectionContent({
   // Amministratori/Sindaci): banner di modifica e legenda vanno in fondo
   // alla pagina, non tra i campi e la tabella (vedi CciaaSectionPanel).
   hideFooter?: boolean;
+  // Testo alternativo, solo di visualizzazione, per il titolo di un gruppo
+  // (chiave = `group.key`). Non tocca i dati né la sezione condivisa: serve
+  // quando lo stesso gruppo compare in più card composite con un'etichetta
+  // diversa da quella per cui è correttamente titolato altrove (vedi
+  // "amministratori" in CciaaSectionPanel, che non deve toccare "sindaci").
+  groupTitleOverrides?: Partial<Record<string, string>>;
 }) {
   const { state, ruolo, ensureLoaded, reload, updateField, toggleGroupVisibility } = useWorkspace();
   const entry = state.sections[sectionKey];
@@ -189,7 +196,7 @@ export function SectionContent({
           return (
             <section key={group.key} className={cn("border-b border-[var(--az-border)] py-6", modificando && "border-0 py-[22px]")}>
               <h3 className="mb-6 flex items-center gap-3 text-[15px] font-bold text-[var(--az-ink)]">
-                <span>{group.title}</span>
+                <span>{groupTitleOverrides?.[group.key] ?? group.title}</span>
                 {consulente && !modificando && (
                   <button
                     type="button"

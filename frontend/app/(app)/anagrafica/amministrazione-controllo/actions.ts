@@ -18,7 +18,6 @@ export async function upsertAmministrazioneControllo(
     .map((sistema_amministrazione) => ({ sistema_amministrazione }));
 
   const payload = {
-    organo_amministrativo_in_carica: textOrNull(formData.get("organo_amministrativo_in_carica")),
     numero_minimo_amministratori: numberOrNull(formData.get("numero_minimo_amministratori")),
     numero_amministratori_in_carica: numberOrNull(formData.get("numero_amministratori_in_carica")),
     durata_in_carica_organo: textOrNull(formData.get("durata_in_carica_organo")),

@@ -55,6 +55,7 @@ export function IncaricoTable({
   etichettaVuoto,
   sectionKey,
   variante,
+  addRowLabel = "Aggiungi",
 }: {
   titolo: string;
   icon: LucideIcon;
@@ -71,6 +72,10 @@ export function IncaricoTable({
   // restano solo nel form completo (pulsante Modifica, in modalità
   // modifica). Omesso per Amministratori/Sindaci: colonne invariate.
   variante?: "soci";
+  // Testo del pulsante di inserimento riga, solo per il ramo con
+  // `sectionKey` (§ Correzione 05 punto 10: "Aggiungi riga" per la card
+  // Amministratori). Default invariato per gli altri chiamanti (Soci).
+  addRowLabel?: string;
 }) {
   const { ruolo, state } = useWorkspace();
   const consulente = ruolo === "CONSULENTE";
@@ -123,7 +128,7 @@ export function IncaricoTable({
 
   const Icon = icon;
   const addTrigger = sectionKey ? (
-    <IncaricoFormDialog ruoli={ruoli} onSaved={carica} trigger={<AddRowButton icon={PlusIcon} label="Aggiungi" />} />
+    <IncaricoFormDialog ruoli={ruoli} onSaved={carica} trigger={<AddRowButton icon={PlusIcon} label={addRowLabel} />} />
   ) : (
     <IncaricoFormDialog ruoli={ruoli} onSaved={carica} trigger={<AddRowButton icon={Icon} />} />
   );

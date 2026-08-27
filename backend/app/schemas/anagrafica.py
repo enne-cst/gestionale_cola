@@ -178,7 +178,11 @@ class SistemaAmministrazioneRead(_OrmModel):
 
 
 class AmministrazioneControlloUpsert(_OrmModel):
-    organo_amministrativo_in_carica: str | None = None
+    # "Organo amministrativo in carica" non è più qui (Correzione 04): è
+    # ora il campo principale della sezione "Amministratori" del registro
+    # campo-per-campo (`app/core/registro_campi.py`), sostenuto dal
+    # catalogo cat_organi_amministrativi tramite chiave esterna, mai testo
+    # libero. Si modifica solo da lì.
     numero_minimo_amministratori: int | None = None
     numero_amministratori_in_carica: int | None = None
     durata_in_carica_organo: str | None = None
@@ -191,7 +195,6 @@ class AmministrazioneControlloUpsert(_OrmModel):
 
 
 class AmministrazioneControlloRead(_ReadMeta):
-    organo_amministrativo_in_carica: str | None = None
     numero_minimo_amministratori: int | None = None
     numero_amministratori_in_carica: int | None = None
     durata_in_carica_organo: str | None = None

@@ -15,7 +15,13 @@ export default async function AmministrazioneControlloPage() {
     getVociPanoramica(MODULO_ANAGRAFICA),
   ]);
 
-  const compilata = Boolean(dati?.organo_amministrativo_in_carica);
+  const compilata = Boolean(
+    dati?.durata_in_carica_organo ||
+      dati?.numero_minimo_amministratori ||
+      dati?.numero_amministratori_in_carica ||
+      dati?.numero_sindaci_organi_controllo ||
+      dati?.numero_titolari_cariche,
+  );
 
   return (
     <div className="flex flex-col gap-6">
