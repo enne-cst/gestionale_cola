@@ -360,6 +360,34 @@ class CatModalitaEsercizioPoteri(Base):
 
 
 # ===========================================================================
+# Catalogo - Gestione dell'opposizione (Correzione 08)
+# ===========================================================================
+
+
+class CatGestioneOpposizione(Base):
+    """Catalogo estendibile delle modalità di gestione dell'opposizione tra
+    amministratori (campo "Gestione dell'opposizione" della configurazione
+    "Amministrazione pluripersonale disgiuntiva"). Solo due opzioni oggi,
+    ma trattato come catalogo per esplicita richiesta dell'utente (§
+    Correzione 08): rappresenta una classificazione aziendale destinata a
+    evolversi, non va scritto direttamente nel frontend."""
+
+    __tablename__ = "cat_gestione_opposizione"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+# ===========================================================================
 # 007 - Amministrazione e controllo (singleton) + sistemi di amministrazione
 # ===========================================================================
 
@@ -417,6 +445,16 @@ class AnaAmministrazioneControllo(Base):
     # colonna nuova, solo riassegnate lato registro_campi.py).
     modalita_esercizio_poteri_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("cat_modalita_esercizio_poteri.id")
+    )
+
+    # Correzione 08 (configurazione "Amministrazione pluripersonale
+    # disgiuntiva"): "Numero componenti", "Durata in carica"/"Regime di
+    # rappresentanza" e "Modalità di esercizio dei poteri" riusano le
+    # colonne già esistenti sopra (nessuna colonna nuova, solo riassegnate
+    # lato registro_campi.py). Solo "Gestione dell'opposizione" è propria di
+    # questo organo.
+    gestione_opposizione_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_gestione_opposizione.id")
     )
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

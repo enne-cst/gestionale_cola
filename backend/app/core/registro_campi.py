@@ -44,6 +44,7 @@ from app.models.anagrafica import (
     AnaStatutoRev2,
     CatDelegheConsiglio,
     CatDurataCarica,
+    CatGestioneOpposizione,
     CatModalitaDecisioniConsiglio,
     CatModalitaEsercizioPoteri,
     CatOrganoAmministrativo,
@@ -1124,17 +1125,42 @@ SEZIONE_DURATA_SOCIETA_ESERCIZI = SezioneRegistro(
 # per "Numero componenti", allo stesso campo generico modificabile già
 # usato dal Consiglio di amministrazione (stesso comportamento, § spec:
 # "esattamente come nella configurazione Consiglio di amministrazione").
-_CONFIGURAZIONI_NON_DEFINITE = frozenset({
-    "AMMINISTRAZIONE_PLURIPERSONALE_DISGIUNTIVA",
-})
+# Correzione 08: "Amministrazione pluripersonale disgiuntiva" è l'ultima
+# configurazione dell'organo amministrativo a essere definita —
+# `_CONFIGURAZIONI_NON_DEFINITE` resta come costante ma è ora vuota: i tre
+# campi che vi facevano ancora riferimento (`durata_in_carica_organo`,
+# `numero_minimo_amministratori`, `numero_sindaci_organi_controllo`)
+# diventano quindi permanentemente non applicabili per "Amministratori" (mai
+# rimossi: `numero_sindaci_organi_controllo` è segnalato nella mappatura
+# CCIAA come da riprendere per la futura sezione "Sindaci", che condivide
+# questa stessa `SezioneRegistro` — vedi nota di
+# `cciaa-sezioni-rev2-progresso`). Si aggiunge a `_ORGANI_CON_DURATA_E_
+# RAPPRESENTANZA` (riusa durata_carica_tipo/regime_rappresentanza) e a
+# `_ORGANI_CON_NUMERO_COMPONENTI_MODIFICABILE` (stesso comportamento del
+# Consiglio/pluripersonale congiuntiva); "Modalità di esercizio dei poteri"
+# riusa lo stesso catalogo/campo della congiuntiva (già pensato per questo
+# riuso, § migrazione 018); "Gestione dell'opposizione" è invece propria di
+# questo organo, nuovo catalogo `cat_gestione_opposizione` pur avendo solo
+# due opzioni (§ Correzione 08, regola esplicita dell'utente: un catalogo
+# anche per classificazioni a poche voci ma destinate a evolversi).
+_CONFIGURAZIONI_NON_DEFINITE: frozenset[str] = frozenset()
 _AMMINISTRATORE_UNICO = frozenset({"AMMINISTRATORE_UNICO"})
 _CONSIGLIO_AMMINISTRAZIONE = frozenset({"CONSIGLIO_AMMINISTRAZIONE"})
 _AMMINISTRAZIONE_PLURIPERSONALE_CONGIUNTIVA = frozenset({"AMMINISTRAZIONE_PLURIPERSONALE_CONGIUNTIVA"})
+_AMMINISTRAZIONE_PLURIPERSONALE_DISGIUNTIVA = frozenset({"AMMINISTRAZIONE_PLURIPERSONALE_DISGIUNTIVA"})
 _ORGANI_CON_NUMERO_COMPONENTI_MODIFICABILE = (
-    _CONSIGLIO_AMMINISTRAZIONE | _AMMINISTRAZIONE_PLURIPERSONALE_CONGIUNTIVA
+    _CONSIGLIO_AMMINISTRAZIONE
+    | _AMMINISTRAZIONE_PLURIPERSONALE_CONGIUNTIVA
+    | _AMMINISTRAZIONE_PLURIPERSONALE_DISGIUNTIVA
 )
 _ORGANI_CON_DURATA_E_RAPPRESENTANZA = (
-    _AMMINISTRATORE_UNICO | _CONSIGLIO_AMMINISTRAZIONE | _AMMINISTRAZIONE_PLURIPERSONALE_CONGIUNTIVA
+    _AMMINISTRATORE_UNICO
+    | _CONSIGLIO_AMMINISTRAZIONE
+    | _AMMINISTRAZIONE_PLURIPERSONALE_CONGIUNTIVA
+    | _AMMINISTRAZIONE_PLURIPERSONALE_DISGIUNTIVA
+)
+_ORGANI_PLURIPERSONALI = (
+    _AMMINISTRAZIONE_PLURIPERSONALE_CONGIUNTIVA | _AMMINISTRAZIONE_PLURIPERSONALE_DISGIUNTIVA
 )
 
 SEZIONE_AMMINISTRAZIONE_CONTROLLO = SezioneRegistro(
@@ -1158,6 +1184,9 @@ SEZIONE_AMMINISTRAZIONE_CONTROLLO = SezioneRegistro(
         "deleghe_consiglio": CampoCatalogo(model=CatDelegheConsiglio, colonna_fk="deleghe_consiglio_id"),
         "modalita_esercizio_poteri": CampoCatalogo(
             model=CatModalitaEsercizioPoteri, colonna_fk="modalita_esercizio_poteri_id"
+        ),
+        "gestione_opposizione": CampoCatalogo(
+            model=CatGestioneOpposizione, colonna_fk="gestione_opposizione_id"
         ),
     },
     gruppi=[
@@ -1219,12 +1248,19 @@ SEZIONE_AMMINISTRAZIONE_CONTROLLO = SezioneRegistro(
                     dipende_da="organo_amministrativo_in_carica", valori_dipendenza=_CONSIGLIO_AMMINISTRAZIONE,
                 ),
                 CampoDef(
-                    # Correzione 07: catalogo pensato per essere riusato
-                    # anche dalla successiva "Amministrazione pluripersonale
-                    # disgiuntiva" (basterà estendere valori_dipendenza).
+                    # Correzione 07/08: stesso catalogo/campo per entrambe
+                    # le forme pluripersonali (congiuntiva e disgiuntiva),
+                    # come previsto fin dalla migrazione 018.
                     "modalita_esercizio_poteri", "Modalità di esercizio dei poteri", "catalogo",
                     dipende_da="organo_amministrativo_in_carica",
-                    valori_dipendenza=_AMMINISTRAZIONE_PLURIPERSONALE_CONGIUNTIVA,
+                    valori_dipendenza=_ORGANI_PLURIPERSONALI,
+                ),
+                CampoDef(
+                    # Correzione 08: propria della sola "Amministrazione
+                    # pluripersonale disgiuntiva".
+                    "gestione_opposizione", "Gestione dell'opposizione", "catalogo",
+                    dipende_da="organo_amministrativo_in_carica",
+                    valori_dipendenza=_AMMINISTRAZIONE_PLURIPERSONALE_DISGIUNTIVA,
                 ),
                 CampoDef(
                     "numero_sindaci_organi_controllo", "Numero sindaci/organi di controllo", "number",

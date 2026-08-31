@@ -55,13 +55,15 @@ const SOTTOTITOLO_VISTA_CCIAA: Record<CciaaVistaKey, string> = {
 
 // Titolo della tabella incarichi della card "Amministratori", per codice
 // del catalogo cat_organi_amministrativi (§ Correzione 05 punto 9,
-// Correzione 06 punto 11, Correzione 07 punto sul titolo dinamico): una
-// voce alla volta, mano a mano che ogni configurazione viene definita —
-// assente qui, resta il titolo generico "Amministratori" (vedi call site).
+// Correzione 06 punto 11, Correzione 07/08 punto sul titolo dinamico): con
+// la Correzione 08 tutte e quattro le configurazioni dell'organo sono
+// definite, quindi il fallback "Amministratori" sotto non è più
+// raggiungibile in pratica — lasciato comunque come rete di sicurezza.
 const TITOLO_TABELLA_AMMINISTRATORI: Partial<Record<string, string>> = {
   AMMINISTRATORE_UNICO: "Amministratore unico in carica",
   CONSIGLIO_AMMINISTRAZIONE: "Componenti del consiglio di amministrazione",
   AMMINISTRAZIONE_PLURIPERSONALE_CONGIUNTIVA: "Amministratori in carica",
+  AMMINISTRAZIONE_PLURIPERSONALE_DISGIUNTIVA: "Amministratori in carica",
 };
 
 function SediSecondarieTable({ sedi, recordIdsInPanoramica }: { sedi: Sede[]; recordIdsInPanoramica: string[] }) {

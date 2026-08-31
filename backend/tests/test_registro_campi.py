@@ -152,7 +152,12 @@ class TestSezioniRegistrate:
         # (modalità di esercizio dei poteri) per l'Amministrazione
         # pluripersonale congiuntiva, "numero_amministratori_in_carica" e
         # durata_carica_tipo/regime_rappresentanza riusati (nessuna chiave
-        # nuova per questi tre).
+        # nuova per questi tre). Correzione 08: ultima configurazione
+        # dell'organo, "Amministrazione pluripersonale disgiuntiva" — riusa
+        # "numero_amministratori_in_carica", durata_carica_tipo/
+        # regime_rappresentanza e "modalita_esercizio_poteri" (nessuna
+        # chiave nuova per questi quattro), un solo campo proprio in più
+        # (gestione dell'opposizione).
         indice = _indice(SEZIONE_AMMINISTRAZIONE_CONTROLLO)
         assert indice.chiavi == {
             "organo_amministrativo_in_carica",
@@ -166,6 +171,7 @@ class TestSezioniRegistrate:
             "modalita_decisioni_consiglio",
             "deleghe_consiglio",
             "modalita_esercizio_poteri",
+            "gestione_opposizione",
             "numero_amministratori_in_carica",
             "numero_sindaci_organi_controllo",
             "numero_titolari_cariche",
@@ -229,16 +235,19 @@ class TestSezioniRegistrate:
 
     def test_totale_applicabile_su_tutte_le_sezioni(self):
         # Stessa somma che `valuta_qualita`/`riepilogo_sezioni` usano per
-        # `totalApplicable` (22 + 4 + 3 + 14 + 5 + 12 + 12, il quarto per
+        # `totalApplicable` (22 + 4 + 3 + 15 + 5 + 12 + 12, il quarto per
         # "amministrazione-controllo": 6 campi originari, 11 dopo la
         # correzione 05 ("Amministratore unico"), 13 dopo la correzione 06
         # ("Consiglio di amministrazione", +2 campi propri), 14 dopo la
         # correzione 07 ("Amministrazione pluripersonale congiuntiva", +1
-        # campo proprio), il penultimo per "elenco-soci-estremi" dopo la
-        # correzione 035, gli ultimi due per "sede"/"statuto", pilota su
-        # ana_sede_rev2/ana_statuto_rev2: un cambiamento qui e' un
-        # promemoria per aggiornare quel numero consapevolmente.
-        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 72
+        # campo proprio), 15 dopo la correzione 08 ("Amministrazione
+        # pluripersonale disgiuntiva", +1 campo proprio, ultima
+        # configurazione dell'organo), il penultimo per
+        # "elenco-soci-estremi" dopo la correzione 035, gli ultimi due per
+        # "sede"/"statuto", pilota su ana_sede_rev2/ana_statuto_rev2: un
+        # cambiamento qui e' un promemoria per aggiornare quel numero
+        # consapevolmente.
+        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 73
 
 
 class TestValidaCampo:
