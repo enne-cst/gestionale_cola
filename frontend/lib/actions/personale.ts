@@ -31,18 +31,45 @@ export async function getIncarichi(ruoloCodice?: string): Promise<Incarico[]> {
   return apiFetch<Incarico[]>(`/api/personale/incarichi${query}`);
 }
 
-export type EsitoIncarico = { esito: "ok"; incarico: Incarico } | { esito: "errore"; messaggio: string };
+export type EsitoIncarico =
+  | { esito: "ok"; incarico: Incarico }
+  | { esito: "conferma_sostituzione_sindaco_unico"; messaggio: string }
+  | { esito: "errore"; messaggio: string };
 
 function messaggioGenerico(detail: unknown): string {
   return typeof detail === "string" ? detail : "Errore imprevisto. Riprova.";
 }
 
-export async function creaIncarico(payload: IncaricoPayload): Promise<EsitoIncarico> {
-  const result = await apiFetchResult<Incarico>("/api/personale/incarichi", {
+/** `opts.confermaSostituzioneSindacoUnico` (§ Correzione 13): solo per un
+ * incarico di ruolo SINDACO quando l'assetto di controllo in carica è
+ * "Sindaco unico" e ne esiste già uno attivo — il backend segnala il
+ * conflitto con un 409 a shape dedicata (`esito`
+ * "conferma_sostituzione_sindaco_unico"), l'utente conferma nel dialogo
+ * dedicato e questo secondo tentativo lo comunica al backend, che cessa il
+ * precedente e crea il nuovo incarico nella stessa transazione. Ignorato
+ * per ogni altro ruolo. */
+export async function creaIncarico(
+  payload: IncaricoPayload,
+  opts?: { confermaSostituzioneSindacoUnico?: boolean },
+): Promise<EsitoIncarico> {
+  const query = opts?.confermaSostituzioneSindacoUnico ? "?confirm_sostituzione_sindaco_unico=true" : "";
+  const result = await apiFetchResult<Incarico>(`/api/personale/incarichi${query}`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
   if (result.ok) return { esito: "ok", incarico: result.data };
+  if (
+    result.status === 409 &&
+    result.detail !== null &&
+    typeof result.detail === "object" &&
+    !Array.isArray(result.detail) &&
+    (result.detail as { code?: string }).code === "SOSTITUZIONE_SINDACO_UNICO_RICHIESTA"
+  ) {
+    return {
+      esito: "conferma_sostituzione_sindaco_unico",
+      messaggio: (result.detail as { message: string }).message,
+    };
+  }
   return { esito: "errore", messaggio: messaggioGenerico(result.detail) };
 }
 

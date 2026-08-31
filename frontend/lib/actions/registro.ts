@@ -26,18 +26,29 @@ export type EsitoSalvaSezione =
   | { esito: "ok"; sezione: Section }
   | { esito: "validazione"; errori: Record<string, string> }
   | { esito: "conflitto"; sezione: Section }
+  | { esito: "conferma_cessazione_organo_controllo"; messaggio: string; count: number }
   | { esito: "errore"; messaggio: string };
 
 /** Salvataggio a batch della sezione (§15.3): `version` e' il valore letto
  * dall'ultimo GET, inviato come If-Match per la concorrenza ottimistica
  * (§15.6). `null` solo per la primissima compilazione, quando la sezione
- * non ha ancora un record salvato. */
+ * non ha ancora un record salvato.
+ *
+ * `opts.confermaCessazioneOrganoControllo` (§ Correzione 12): solo per la
+ * sezione "organi-controllo", quando il backend ha già segnalato (esito
+ * "conferma_cessazione_organo_controllo") che il passaggio a "Nessun
+ * organo di controllo o revisore" cesserebbe sindaci/revisori ancora
+ * attivi — l'utente ha confermato nel dialogo dedicato, questo secondo
+ * tentativo lo comunica al backend, che cessa gli incarichi nella stessa
+ * transazione del salvataggio. Ignorato da ogni altra sezione. */
 export async function salvaSezioneRegistro(
   sectionKey: string,
   version: string | null,
   campi: Record<string, string | null>,
+  opts?: { confermaCessazioneOrganoControllo?: boolean },
 ): Promise<EsitoSalvaSezione> {
-  const result = await apiFetchResult<Section>(`/api/anagrafica/registro/sections/${sectionKey}`, {
+  const query = opts?.confermaCessazioneOrganoControllo ? "?confirm_cessazione_organo_controllo=true" : "";
+  const result = await apiFetchResult<Section>(`/api/anagrafica/registro/sections/${sectionKey}${query}`, {
     method: "PATCH",
     headers: version ? { "If-Match": version } : undefined,
     body: JSON.stringify({ fields: campi }),
@@ -52,6 +63,17 @@ export async function salvaSezioneRegistro(
       if (typeof campo === "string" && issue.msg) errori[campo] = issue.msg;
     }
     return { esito: "validazione", errori };
+  }
+
+  if (
+    result.status === 409 &&
+    result.detail !== null &&
+    typeof result.detail === "object" &&
+    !Array.isArray(result.detail) &&
+    (result.detail as { code?: string }).code === "CESSAZIONE_ORGANO_CONTROLLO_RICHIESTA"
+  ) {
+    const detail = result.detail as { message: string; count: number };
+    return { esito: "conferma_cessazione_organo_controllo", messaggio: detail.message, count: detail.count };
   }
 
   if (result.status === 409) {

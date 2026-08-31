@@ -32,6 +32,33 @@ type ConfirmState = {
   onSaved: () => void;
 } | null;
 
+// § Correzione 12: dialogo dedicato, distinto da `ConfirmState` sopra (che
+// significa "modifiche non salvate, esci comunque?", un'azione di
+// abbandono). Qui il significato è opposto — "procedere cesserebbe dei
+// dati esistenti, confermi?" — e la conseguenza di confermare non è
+// scartare la bozza ma ripetere lo stesso salvataggio con il flag di
+// conferma, mai riusare la stessa struttura per due semantiche diverse.
+type CessazioneOrganoControlloState = {
+  sectionKey: string;
+  messaggio: string;
+  count: number;
+  saving: boolean;
+  error: string | null;
+} | null;
+
+// Richiesta esplicita dell'utente (31/08/2026): a differenza del principio
+// generale "il cambio di configurazione non elimina dati" (§ Correzione
+// 11/12, i valori restano nelle colonne nascoste), il passaggio a "Nessun
+// organo di controllo o revisore" deve invece CANCELLARE per davvero le
+// informazioni della configurazione precedente — ma solo dopo una conferma
+// esplicita, chiesta subito al momento della scelta nel menu (non solo al
+// salvataggio, a differenza di `CessazioneOrganoControlloState` sopra che
+// riguarda gli incarichi, non i campi). Nessun round-trip al backend qui:
+// è una mutazione della sola bozza, "Annulla" non deve annullare nulla
+// perché il cambiamento non è ancora stato applicato quando compare il
+// dialogo (si applica solo alla conferma, vedi `confermaCancellazioneConfigurazione`).
+type CancellazioneConfigurazioneState = { sectionKey: string } | null;
+
 type State = {
   mode: WorkspaceMode;
   openSectionKey: string | null;
@@ -40,6 +67,8 @@ type State = {
   sections: Record<string, SectionEntry>;
   overview: RegistryOverview;
   confirm: ConfirmState;
+  cessazioneOrganoControllo: CessazioneOrganoControlloState;
+  cancellazioneConfigurazione: CancellazioneConfigurazioneState;
 };
 
 function sectionValues(section: Section): Record<string, string | null> {
@@ -78,6 +107,7 @@ type Action =
   | { type: "SECTION_LOAD_ERROR"; sectionKey: string; message: string }
   | { type: "ENTER_EDIT"; sectionKey: string }
   | { type: "UPDATE_FIELD"; sectionKey: string; field: string; value: string | null }
+  | { type: "BULK_UPDATE_FIELDS"; sectionKey: string; values: Record<string, string | null> }
   | { type: "DISCARD_DRAFT"; sectionKey: string }
   | { type: "SAVE_START"; sectionKey: string }
   | { type: "SAVE_SUCCESS"; sectionKey: string; section: Section }
@@ -89,7 +119,13 @@ type Action =
   | { type: "REQUEST_CONFIRM"; confirm: NonNullable<ConfirmState> }
   | { type: "CANCEL_CONFIRM" }
   | { type: "CONFIRM_SAVE_START" }
-  | { type: "CONFIRM_SAVE_ERROR"; message: string };
+  | { type: "CONFIRM_SAVE_ERROR"; message: string }
+  | { type: "REQUEST_CESSAZIONE_CONFIRM"; cessazione: NonNullable<CessazioneOrganoControlloState> }
+  | { type: "CANCEL_CESSAZIONE_CONFIRM" }
+  | { type: "CESSAZIONE_CONFIRM_START" }
+  | { type: "CESSAZIONE_CONFIRM_ERROR"; message: string }
+  | { type: "REQUEST_CANCELLAZIONE_CONFIGURAZIONE_CONFIRM"; sectionKey: string }
+  | { type: "CANCEL_CANCELLAZIONE_CONFIGURAZIONE_CONFIRM" };
 
 function withSection(state: State, sectionKey: string, patch: Partial<SectionEntry>): State {
   const attuale = state.sections[sectionKey] ?? nuovaSectionEntry();
@@ -142,6 +178,15 @@ function reducer(state: State, action: Action): State {
         fieldErrors: Object.fromEntries(Object.entries(entry.fieldErrors).filter(([k]) => k !== action.field)),
       });
     }
+    case "BULK_UPDATE_FIELDS": {
+      const entry = state.sections[action.sectionKey];
+      if (!entry?.draft) return state;
+      const chiaviAggiornate = new Set(Object.keys(action.values));
+      return withSection(state, action.sectionKey, {
+        draft: { ...entry.draft, ...action.values },
+        fieldErrors: Object.fromEntries(Object.entries(entry.fieldErrors).filter(([k]) => !chiaviAggiornate.has(k))),
+      });
+    }
     case "DISCARD_DRAFT":
       return withSection(state, action.sectionKey, { editing: false, draft: null, fieldErrors: {}, saving: false });
     case "SAVE_START":
@@ -176,6 +221,22 @@ function reducer(state: State, action: Action): State {
       return state.confirm ? { ...state, confirm: { ...state.confirm, saving: true, error: null } } : state;
     case "CONFIRM_SAVE_ERROR":
       return state.confirm ? { ...state, confirm: { ...state.confirm, saving: false, error: action.message } } : state;
+    case "REQUEST_CESSAZIONE_CONFIRM":
+      return { ...state, cessazioneOrganoControllo: action.cessazione };
+    case "CANCEL_CESSAZIONE_CONFIRM":
+      return { ...state, cessazioneOrganoControllo: null };
+    case "CESSAZIONE_CONFIRM_START":
+      return state.cessazioneOrganoControllo
+        ? { ...state, cessazioneOrganoControllo: { ...state.cessazioneOrganoControllo, saving: true, error: null } }
+        : state;
+    case "CESSAZIONE_CONFIRM_ERROR":
+      return state.cessazioneOrganoControllo
+        ? { ...state, cessazioneOrganoControllo: { ...state.cessazioneOrganoControllo, saving: false, error: action.message } }
+        : state;
+    case "REQUEST_CANCELLAZIONE_CONFIGURAZIONE_CONFIRM":
+      return { ...state, cancellazioneConfigurazione: { sectionKey: action.sectionKey } };
+    case "CANCEL_CANCELLAZIONE_CONFIGURAZIONE_CONFIRM":
+      return { ...state, cancellazioneConfigurazione: null };
     default:
       return state;
   }
@@ -195,7 +256,7 @@ type WorkspaceApi = {
   enterEdit: (sectionKey: string) => void;
   updateField: (sectionKey: string, field: string, value: string | null) => void;
   requestDiscard: (sectionKey: string) => void;
-  save: (sectionKey: string) => Promise<boolean>;
+  save: (sectionKey: string, opts?: { confermaCessazioneOrganoControllo?: boolean }) => Promise<boolean>;
   toggleVisibility: (sectionKey: string, fieldKey: string, visible: boolean) => void;
   toggleGroupVisibility: (sectionKey: string, fieldKeys: string[], visible: boolean) => void;
   submitReview: (
@@ -208,6 +269,10 @@ type WorkspaceApi = {
   cancelConfirm: () => void;
   confirmSaveAndExit: () => void;
   confirmDiscardAndExit: () => void;
+  cancelCessazioneOrganoControllo: () => void;
+  confermaCessazioneOrganoControllo: () => void;
+  cancelCancellazioneConfigurazione: () => void;
+  confermaCancellazioneConfigurazione: () => void;
 };
 
 const WorkspaceContext = createContext<WorkspaceApi | null>(null);
@@ -229,6 +294,8 @@ export function WorkspaceProvider({
     sections: {},
     overview: overviewIniziale,
     confirm: null,
+    cessazioneOrganoControllo: null,
+    cancellazioneConfigurazione: null,
   });
 
   // Evita richieste duplicate quando piu' componenti montano nello stesso
@@ -318,12 +385,68 @@ export function WorkspaceProvider({
     [state.sections],
   );
 
+  // § Richiesta esplicita dell'utente (31/08/2026): il passaggio della
+  // sezione "organi-controllo" a "Nessun organo di controllo o revisore"
+  // deve chiedere conferma SUBITO, al momento della scelta nel menu (non
+  // solo al salvataggio) e — a differenza del principio generale "il
+  // cambio di configurazione non elimina dati" (§ Correzione 11/12) —
+  // deve poi cancellare per davvero le informazioni della configurazione
+  // precedente. Intercettato qui, il punto in cui passano TUTTI i cambi
+  // di campo qualunque sia il componente che li genera (stesso livello del
+  // già presente `if section_key == "organi-controllo"` lato backend in
+  // `salva_sezione`): se non c'è nulla da perdere (bozza già vuota per
+  // tutti gli altri campi scrivibili) il cambio si applica direttamente,
+  // senza disturbare l'utente con una conferma inutile.
+  const updateField = useCallback(
+    (sectionKey: string, field: string, value: string | null) => {
+      if (sectionKey === "organi-controllo" && field === "assetto_controllo_in_carica" && value === "NESSUN_ORGANO_CONTROLLO") {
+        const entry = state.sections[sectionKey];
+        const draft = entry?.draft;
+        if (draft && normalizza(draft[field]) !== value) {
+          const altroCampoValorizzato = entry?.server?.groups
+            .flatMap((g) => g.fields)
+            .some((f) => f.editable && f.key !== field && normalizza(draft[f.key]) !== null);
+          if (altroCampoValorizzato) {
+            dispatch({ type: "REQUEST_CANCELLAZIONE_CONFIGURAZIONE_CONFIRM", sectionKey });
+            return;
+          }
+        }
+      }
+      dispatch({ type: "UPDATE_FIELD", sectionKey, field, value });
+    },
+    [state.sections],
+  );
+
+  // Applica il cambio di assetto e cancella nella bozza tutti gli altri
+  // campi scrivibili della sezione — la cancellazione diventa definitiva
+  // solo al successivo "Salva modifiche" (stesso percorso di un qualunque
+  // altro campo modificato, nessun salvataggio nascosto qui: la richiesta
+  // era "prima di farlo... mi deve chiedere", la conferma è già avvenuta
+  // qui, il salvataggio resta un'azione distinta e visibile).
+  const confermaCancellazioneConfigurazione = useCallback(() => {
+    if (!state.cancellazioneConfigurazione) return;
+    const { sectionKey } = state.cancellazioneConfigurazione;
+    const entry = state.sections[sectionKey];
+    if (entry?.draft && entry.server) {
+      const valori: Record<string, string | null> = { assetto_controllo_in_carica: "NESSUN_ORGANO_CONTROLLO" };
+      for (const f of entry.server.groups.flatMap((g) => g.fields)) {
+        if (f.editable && f.key !== "assetto_controllo_in_carica") valori[f.key] = null;
+      }
+      dispatch({ type: "BULK_UPDATE_FIELDS", sectionKey, values: valori });
+    }
+    dispatch({ type: "CANCEL_CANCELLAZIONE_CONFIGURAZIONE_CONFIRM" });
+  }, [state.cancellazioneConfigurazione, state.sections]);
+
+  const cancelCancellazioneConfigurazione = useCallback(() => {
+    dispatch({ type: "CANCEL_CANCELLAZIONE_CONFIGURAZIONE_CONFIRM" });
+  }, []);
+
   const save = useCallback(
-    async (sectionKey: string): Promise<boolean> => {
+    async (sectionKey: string, opts?: { confermaCessazioneOrganoControllo?: boolean }): Promise<boolean> => {
       const entry = state.sections[sectionKey];
       if (!entry?.draft) return false;
       dispatch({ type: "SAVE_START", sectionKey });
-      const esito = await salvaSezioneRegistro(sectionKey, entry.server?.version ?? null, entry.draft);
+      const esito = await salvaSezioneRegistro(sectionKey, entry.server?.version ?? null, entry.draft, opts);
       if (esito.esito === "ok") {
         dispatch({ type: "SAVE_SUCCESS", sectionKey, section: esito.sezione });
         rinfrescaOverview();
@@ -335,6 +458,17 @@ export function WorkspaceProvider({
       }
       if (esito.esito === "conflitto") {
         dispatch({ type: "SAVE_CONFLICT", sectionKey, section: esito.sezione });
+        return false;
+      }
+      if (esito.esito === "conferma_cessazione_organo_controllo") {
+        // § Correzione 12: non un errore — resta "saving" spento (l'utente
+        // deve decidere nel dialogo dedicato, non vede lo spinner del
+        // pulsante "Salva modifiche" restare acceso).
+        dispatch({ type: "SAVE_ERROR", sectionKey, message: "" });
+        dispatch({
+          type: "REQUEST_CESSAZIONE_CONFIRM",
+          cessazione: { sectionKey, messaggio: esito.messaggio, count: esito.count, saving: false, error: null },
+        });
         return false;
       }
       dispatch({ type: "SAVE_ERROR", sectionKey, message: esito.messaggio });
@@ -452,6 +586,24 @@ export function WorkspaceProvider({
     });
   }, [state.confirm, save]);
 
+  // § Correzione 12: seconda chiamata dello stesso salvataggio, questa
+  // volta con il flag di conferma — il backend cessa gli incarichi attivi
+  // e salva la sezione nella stessa transazione (mai due chiamate
+  // separate, § "operazioni composite = transazione unica").
+  const confermaCessazioneOrganoControllo = useCallback(() => {
+    if (!state.cessazioneOrganoControllo) return;
+    const { sectionKey } = state.cessazioneOrganoControllo;
+    dispatch({ type: "CESSAZIONE_CONFIRM_START" });
+    save(sectionKey, { confermaCessazioneOrganoControllo: true }).then((ok) => {
+      if (ok) dispatch({ type: "CANCEL_CESSAZIONE_CONFIRM" });
+      else dispatch({ type: "CESSAZIONE_CONFIRM_ERROR", message: "Impossibile salvare: riprova." });
+    });
+  }, [state.cessazioneOrganoControllo, save]);
+
+  const cancelCessazioneOrganoControllo = useCallback(() => {
+    dispatch({ type: "CANCEL_CESSAZIONE_CONFIRM" });
+  }, []);
+
   const api = useMemo<WorkspaceApi>(
     () => ({
       state,
@@ -465,7 +617,7 @@ export function WorkspaceProvider({
       requestCloseTab,
       activateTab: (key) => dispatch({ type: "ACTIVATE_TAB", key }),
       enterEdit: (sectionKey) => dispatch({ type: "ENTER_EDIT", sectionKey }),
-      updateField: (sectionKey, field, value) => dispatch({ type: "UPDATE_FIELD", sectionKey, field, value }),
+      updateField,
       requestDiscard,
       save,
       toggleVisibility,
@@ -474,6 +626,10 @@ export function WorkspaceProvider({
       cancelConfirm: () => dispatch({ type: "CANCEL_CONFIRM" }),
       confirmSaveAndExit,
       confirmDiscardAndExit,
+      cancelCessazioneOrganoControllo,
+      confermaCessazioneOrganoControllo,
+      cancelCancellazioneConfigurazione,
+      confermaCancellazioneConfigurazione,
     }),
     [
       state,
@@ -482,6 +638,7 @@ export function WorkspaceProvider({
       reload,
       requestCloseDrawer,
       requestCloseTab,
+      updateField,
       requestDiscard,
       save,
       toggleVisibility,
@@ -489,6 +646,10 @@ export function WorkspaceProvider({
       submitReview,
       confirmSaveAndExit,
       confirmDiscardAndExit,
+      cancelCessazioneOrganoControllo,
+      confermaCessazioneOrganoControllo,
+      cancelCancellazioneConfigurazione,
+      confermaCancellazioneConfigurazione,
     ],
   );
 

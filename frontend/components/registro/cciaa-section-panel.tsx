@@ -35,11 +35,24 @@ import type {
 // dentro il blocco embedded stesso. Le viste assenti da questa mappa non
 // hanno un blocco a registro con footer (solo tabelle, es. "attivita-albi"),
 // o hanno un pannello del tutto diverso ("sintesi").
+// § Correzione 11: "sindaci" ha ora una propria sezione a registro
+// ("organi-controllo", `SEZIONE_ORGANI_CONTROLLO`), non più condivisa con
+// "amministratori" — vedi anche `CAMPO_PRINCIPALE_VISTA` sotto.
 const VISTA_FOOTER_SECTION_KEY: Partial<Record<CciaaVistaKey, string>> = {
   soci: "elenco-soci-estremi",
   amministratori: "amministrazione-controllo",
-  sindaci: "amministrazione-controllo",
+  sindaci: "organi-controllo",
   "aggiornamento-impresa": "informazioni-societarie",
+};
+
+// Vista -> chiave del campo principale della sua sezione a registro, usato
+// da `CciaaSectionPanel` per nascondere la tabella degli incarichi finché
+// nessuna scelta è stata fatta (§ Correzione 04 seguito, estesa dalla
+// Correzione 11 a "sindaci" con il proprio campo "assetto_controllo_in_carica",
+// invece del campo "organo_amministrativo_in_carica" di "amministratori").
+const CAMPO_PRINCIPALE_VISTA: Partial<Record<CciaaVistaKey, string>> = {
+  amministratori: "organo_amministrativo_in_carica",
+  sindaci: "assetto_controllo_in_carica",
 };
 
 const SOTTOTITOLO_VISTA_CCIAA: Record<CciaaVistaKey, string> = {
@@ -66,6 +79,24 @@ const TITOLO_TABELLA_AMMINISTRATORI: Partial<Record<string, string>> = {
   AMMINISTRAZIONE_PLURIPERSONALE_DISGIUNTIVA: "Amministratori in carica",
 };
 
+// Stesso pattern per la tabella incarichi della card "Sindaci", per codice
+// del catalogo cat_assetti_controllo (§ Correzione 13 punto sul titolo
+// "Sindaco unico in carica"): un solo assetto definito finora, il
+// fallback "Sindaci e revisori" resta per gli altri 5 non ancora definiti
+// (NESSUN_ORGANO_CONTROLLO non arriva qui, la tabella non è renderizzata).
+const TITOLO_TABELLA_SINDACI: Partial<Record<string, string>> = {
+  SINDACO_UNICO: "Sindaco unico in carica",
+};
+
+// § Correzione 13, "assetti combinati": scegliere un revisore esterno
+// (persona fisica o società) come "Revisione legale affidata a" mentre
+// l'assetto è "Sindaco unico" produce una combinazione incoerente — quella
+// combinazione ha già un proprio assetto dedicato
+// (SINDACO_UNICO_REVISORE_ESTERNO). Codici che, scelti in questo campo
+// mentre l'assetto è SINDACO_UNICO, fanno comparire il suggerimento di
+// passaggio (§ "proporre", non bloccare: nessuna validazione backend).
+const AFFIDATARI_REVISORE_ESTERNO = new Set(["REVISORE_LEGALE_PERSONA_FISICA", "SOCIETA_REVISIONE_LEGALE"]);
+
 function SediSecondarieTable({ sedi, recordIdsInPanoramica }: { sedi: Sede[]; recordIdsInPanoramica: string[] }) {
   const secondarie = sedi.filter((s) => !s.tipo_sede.toLowerCase().includes("legale"));
   return <SediTable sedi={secondarie} recordIdsInPanoramica={recordIdsInPanoramica} />;
@@ -73,16 +104,19 @@ function SediSecondarieTable({ sedi, recordIdsInPanoramica }: { sedi: Sede[]; re
 
 function ContenutoVista({
   vistaKey,
-  organoAmministrativo,
+  campoPrincipale,
 }: {
   vistaKey: CciaaVistaKey;
-  // Valore corrente di "Organo amministrativo in carica" (§ Correzione 04
-  // seguito): finché è "Non disponibile" (null), le card "Amministratori"
-  // e "Sindaci" non mostrano nemmeno la tabella degli incarichi — nessuna
-  // scelta fatta significa nessun'altra informazione applicabile, non solo
-  // i campi della sezione (quelli già filtrati dal backend).
-  organoAmministrativo?: string | null;
+  // Valore corrente del campo principale della sezione (§ Correzione 04
+  // seguito, generalizzato dalla Correzione 11 a "sindaci"): finché è "Non
+  // disponibile" (null), le card "Amministratori" e "Sindaci" non mostrano
+  // nemmeno la tabella degli incarichi — nessuna scelta fatta significa
+  // nessun'altra informazione applicabile, non solo i campi della sezione
+  // (quelli già filtrati dal backend). Vedi `CAMPO_PRINCIPALE_VISTA` per
+  // quale campo, di quale sezione, ciascuna vista legge.
+  campoPrincipale?: string | null;
 }) {
+  const { state, updateField } = useWorkspace();
   switch (vistaKey) {
     case "sintesi":
       return <SintesiPanel />;
@@ -111,13 +145,13 @@ function ContenutoVista({
             hideFooter
             groupTitleOverrides={{ "amministrazione-controllo": "Amministrazione" }}
           />
-          {organoAmministrativo && (
+          {campoPrincipale && (
             <section className="py-2">
               <IncaricoTable
                 // § Correzione 05/06 punto 9/11: titolo dedicato solo per le
                 // configurazioni già definite, per ogni altra scelta resta
                 // il titolo generico finché quella configurazione non lo è.
-                titolo={TITOLO_TABELLA_AMMINISTRATORI[organoAmministrativo] ?? "Amministratori"}
+                titolo={TITOLO_TABELLA_AMMINISTRATORI[campoPrincipale] ?? "Amministratori"}
                 icon={GavelIcon}
                 ruoliCodici={["AMMINISTRATORE", "AMMINISTRATORE_DELEGATO", "COMPONENTE_CDA"]}
                 etichettaVuoto="Nessun amministratore registrato."
@@ -129,29 +163,69 @@ function ContenutoVista({
           )}
         </>
       );
-    case "sindaci":
+    case "sindaci": {
+      // § Correzione 13, "assetti combinati": suggerimento di passaggio a
+      // SINDACO_UNICO_REVISORE_ESTERNO quando il revisore scelto è esterno
+      // — ha senso solo mentre si sta effettivamente scegliendo (bozza in
+      // modifica), non un divieto lato backend (§ "proporre").
+      const entryOrganiControllo = state.sections["organi-controllo"];
+      const revisioneLegaleAffidataA = entryOrganiControllo?.editing
+        ? (entryOrganiControllo.draft?.["revisione_legale_affidata_a"] ?? null)
+        : null;
+      const proponiAssettoCombinato =
+        entryOrganiControllo?.editing &&
+        campoPrincipale === "SINDACO_UNICO" &&
+        revisioneLegaleAffidataA !== null &&
+        AFFIDATARI_REVISORE_ESTERNO.has(revisioneLegaleAffidataA);
       return (
         <>
-          <SectionContent
-            sectionKey="amministrazione-controllo"
-            embedded
-            hideFooter
-            groupTitleOverrides={{ "amministrazione-controllo": "Organi di controllo" }}
-          />
-          {organoAmministrativo && (
+          {/* § Correzione 11: sezione propria "organi-controllo" — il
+           * gruppo unico si chiama già "Organi di controllo" come la
+           * sezione stessa, nessun `groupTitleOverrides` necessario (vedi
+           * `sottotitoloDuplicato` in section-content.tsx). */}
+          <SectionContent sectionKey="organi-controllo" embedded hideFooter />
+          {proponiAssettoCombinato && (
+            <div className="mt-3 flex items-center justify-between gap-3 rounded-[8px] border border-[#cedaf0] bg-[#f5f8ff] px-4 py-3 text-sm text-[var(--az-ink)]">
+              <span>
+                Un revisore esterno insieme al sindaco unico corrisponde all&apos;assetto &quot;Sindaco unico + revisore
+                esterno&quot;.
+              </span>
+              <button
+                type="button"
+                onClick={() => updateField("organi-controllo", "assetto_controllo_in_carica", "SINDACO_UNICO_REVISORE_ESTERNO")}
+                className="shrink-0 rounded-[6px] bg-[var(--az-blue)] px-3 py-1.5 text-xs font-bold text-white hover:bg-[var(--az-blue-dark)]"
+              >
+                Passa a questo assetto
+              </button>
+            </div>
+          )}
+          {/* § Correzione 12: "Nessun organo di controllo o revisore" deve
+           * mostrare ESCLUSIVAMENTE il campo principale — niente tabella,
+           * niente conteggio righe, niente "Aggiungi riga" (i tre spariscono
+           * insieme non renderizzando affatto il blocco). La cessazione
+           * confermata di eventuali sindaci/revisori già registrati è
+           * gestita dal backend al salvataggio (vedi
+           * `CessazioneOrganoControlloDialog`), non qui. */}
+          {campoPrincipale && campoPrincipale !== "NESSUN_ORGANO_CONTROLLO" && (
             <section className="py-2">
               <IncaricoTable
-                titolo="Sindaci e revisori"
+                // § Correzione 13 punto 9: titolo dedicato solo per
+                // l'assetto già definito, per ogni altro resta il titolo
+                // generico finché quell'assetto non lo è (stesso pattern di
+                // TITOLO_TABELLA_AMMINISTRATORI).
+                titolo={TITOLO_TABELLA_SINDACI[campoPrincipale] ?? "Sindaci e revisori"}
                 icon={ShieldCheckIcon}
                 ruoliCodici={["SINDACO", "REVISORE_LEGALE"]}
                 etichettaVuoto="Nessun sindaco o revisore registrato."
-                sectionKey="amministrazione-controllo"
+                sectionKey="organi-controllo"
+                addRowLabel="Aggiungi riga"
                 variante="cariche"
               />
             </section>
           )}
         </>
       );
+    }
     case "attivita-albi":
       return (
         <>
@@ -221,18 +295,22 @@ export function CciaaSectionPanel({
     sezionePrincipale.groups[0].title === sezionePrincipale.title
       ? sezionePrincipale.completionStatus
       : null;
-  // Solo per "amministratori"/"sindaci" (unico caso con footerSectionKey
-  // "amministrazione-controllo"): valore corrente del campo principale
-  // della sezione, per nascondere anche la tabella degli incarichi finché
-  // non è stata fatta una scelta (vedi `ContenutoVista`) — e per il titolo
-  // dedicato "Amministratore unico in carica" (§ Correzione 05 punto 9).
-  // In modifica legge la bozza (non il salvato): stessa reattività
-  // istantanea già applicata ai campi della sezione, la tabella non deve
-  // restare un passo indietro rispetto a loro finché non si salva.
-  const organoAmministrativo = entryPrincipale?.editing
-    ? (entryPrincipale.draft?.organo_amministrativo_in_carica ?? null)
-    : (sezionePrincipale?.groups.flatMap((g) => g.fields).find((f) => f.key === "organo_amministrativo_in_carica")
-        ?.value ?? null);
+  // Solo per "amministratori"/"sindaci" (§ Correzione 11: ciascuna con la
+  // propria sezione/campo, vedi `CAMPO_PRINCIPALE_VISTA`): valore corrente
+  // del campo principale della sezione, per nascondere anche la tabella
+  // degli incarichi finché non è stata fatta una scelta (vedi
+  // `ContenutoVista`) — e per il titolo dedicato "Amministratore unico in
+  // carica" (§ Correzione 05 punto 9). In modifica legge la bozza (non il
+  // salvato): stessa reattività istantanea già applicata ai campi della
+  // sezione, la tabella non deve restare un passo indietro rispetto a loro
+  // finché non si salva.
+  const campoPrincipaleChiave = CAMPO_PRINCIPALE_VISTA[vistaKey];
+  const campoPrincipale = campoPrincipaleChiave
+    ? (entryPrincipale?.editing
+        ? (entryPrincipale.draft?.[campoPrincipaleChiave] ?? null)
+        : (sezionePrincipale?.groups.flatMap((g) => g.fields).find((f) => f.key === campoPrincipaleChiave)
+            ?.value ?? null))
+    : null;
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="flex items-start justify-between gap-4 border-b border-[#edf1f7] px-[30px] py-6">
@@ -258,7 +336,7 @@ export function CciaaSectionPanel({
         </div>
       </div>
       <div className="az-scroll-thin flex-1 overflow-y-auto px-[30px] pb-6">
-        <ContenutoVista vistaKey={vistaKey} organoAmministrativo={organoAmministrativo} />
+        <ContenutoVista vistaKey={vistaKey} campoPrincipale={campoPrincipale} />
       </div>
       {footerSectionKey && <SectionFooter sectionKey={footerSectionKey} />}
     </div>

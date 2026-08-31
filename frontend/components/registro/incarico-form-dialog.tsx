@@ -45,6 +45,12 @@ export function IncaricoFormDialog({
   const [note, setNote] = useState(incarico?.note ?? "");
   const [errore, setErrore] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
+  // § Correzione 13: quando `creaIncarico` segnala che c'è già un sindaco
+  // unico attivo, il dialogo mostra questo messaggio al posto del form —
+  // "Conferma sostituzione" ripete la stessa creazione con il flag di
+  // conferma (il backend cessa il precedente e crea il nuovo incarico
+  // nella stessa transazione), "Annulla" torna al form senza inviare nulla.
+  const [confermaSostituzione, setConfermaSostituzione] = useState<string | null>(null);
 
   const ruoloSelezionato = useMemo(() => ruoli.find((r) => r.id === ruoloId), [ruoli, ruoloId]);
 
@@ -75,19 +81,66 @@ export function IncaricoFormDialog({
     if (esito.esito === "ok") {
       setOpen(false);
       onSaved();
+    } else if (esito.esito === "conferma_sostituzione_sindaco_unico") {
+      setConfermaSostituzione(esito.messaggio);
     } else {
       setErrore(esito.messaggio);
     }
   }
 
+  async function onConfermaSostituzione() {
+    if (!persona || !ruoloId) return;
+    setSalvando(true);
+    setErrore(null);
+    const payload = { persona_id: persona.id, ruolo_id: ruoloId, note: note || null, valori };
+    const esito = await creaIncarico(payload, { confermaSostituzioneSindacoUnico: true });
+    setSalvando(false);
+    if (esito.esito === "ok") {
+      setConfermaSostituzione(null);
+      setOpen(false);
+      onSaved();
+    } else if (esito.esito === "errore") {
+      setConfermaSostituzione(null);
+      setErrore(esito.messaggio);
+    }
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        // Il dialogo resta montato tra un'apertura e l'altra (stesso
+        // pattern già in uso per gli altri stati del form): senza questo
+        // reset, riaprendolo dopo una sostituzione annullata mostrerebbe
+        // di nuovo la schermata di conferma invece del form.
+        if (!nextOpen) setConfermaSostituzione(null);
+      }}
+    >
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{incarico ? "Modifica incarico" : "Nuovo incarico"}</DialogTitle>
         </DialogHeader>
 
+        {confermaSostituzione !== null ? (
+          // § Correzione 13: sostituisce il form finché l'utente non
+          // decide — "Annulla" torna al form senza inviare nulla (la
+          // bozza compilata resta intatta), "Conferma sostituzione" cessa
+          // il sindaco unico esistente e crea questo nuovo incarico nella
+          // stessa transazione.
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-[var(--az-ink)]">{confermaSostituzione}</p>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setConfermaSostituzione(null)} disabled={salvando}>
+                Annulla
+              </Button>
+              <Button type="button" onClick={onConfermaSostituzione} disabled={salvando}>
+                {salvando ? "Salvataggio…" : "Conferma sostituzione"}
+              </Button>
+            </div>
+          </div>
+        ) : (
         <div className="flex flex-col gap-4">
           <FormError message={errore ?? undefined} />
 
@@ -176,6 +229,7 @@ export function IncaricoFormDialog({
             </Button>
           </div>
         </div>
+        )}
       </DialogContent>
     </Dialog>
   );

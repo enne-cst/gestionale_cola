@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.deps import AziendaContext, get_current_azienda
+from app.core.incarichi import verifica_transizione_nessun_organo_controllo
 from app.core.moduli import require_modulo
 from app.core.registro_campi import (
     SEZIONI,
@@ -20,6 +21,7 @@ from app.core.registro_campi import (
     applica_modifiche_sezione,
     applica_visibilita,
     costruisci_sezione,
+    normalizza_numero_componenti_nessun_organo_controllo,
     require_consulente_ctx,
     riepilogo_sezioni,
     ultime_modifiche,
@@ -94,6 +96,13 @@ def salva_sezione(
     ctx: AziendaContext = Depends(get_current_azienda),
     _modulo: None = Depends(_modulo_dep),
     if_match: str | None = Header(default=None, alias="If-Match"),
+    # § Correzione 12: solo per section_key "organi-controllo", quando il
+    # passaggio a "Nessun organo di controllo o revisore" lascerebbe
+    # sindaci/revisori ancora attivi — vedi
+    # `verifica_transizione_nessun_organo_controllo`. Ignorato da ogni altra
+    # sezione: non generalizzato ad altre, e' un caso specifico di questa
+    # sola sezione.
+    confirm_cessazione_organo_controllo: bool = False,
 ):
     sezione = _sezione_o_404(section_key)
     row = _carica_record(db, ctx, sezione)
@@ -114,12 +123,22 @@ def salva_sezione(
             detail=[{"loc": ["fields", campo], "msg": msg} for campo, msg in errori.items()],
         )
 
+    if section_key == "organi-controllo":
+        verifica_transizione_nessun_organo_controllo(
+            db,
+            ctx.azienda_id,
+            row=row,
+            nuovo_codice=payload.fields.get("assetto_controllo_in_carica"),
+            confermata=confirm_cessazione_organo_controllo,
+        )
+
     if row is None:
         row = sezione.model(azienda_id=ctx.azienda_id)
         db.add(row)
         db.flush()
 
     applica_modifiche_sezione(db, ctx, sezione, row=row, cambiamenti=payload.fields)
+    normalizza_numero_componenti_nessun_organo_controllo(db, row)
     db.commit()
     db.refresh(row)
     return costruisci_sezione(db, ctx, sezione, row=row)

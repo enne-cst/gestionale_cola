@@ -35,7 +35,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import AziendaContext
 from app.core.registro_campi import STATO_API_TO_DB, STATO_DB_TO_API, registra_audit
-from app.models.anagrafica import AnaAmministrazioneControllo, CatOrganoAmministrativo
+from app.models.anagrafica import AnaAmministrazioneControllo, AnaOrganiControllo, CatAssettoControllo, CatOrganoAmministrativo
 from app.models.personale import CatCaratteristicaIncarico, CatRuolo, PerIncarico, PerIncaricoValore, RelRuoloCaratteristica
 from app.models.sistema import SysRegistroStatoCampi, SysUtente
 from app.schemas.registro_campi import VerificationStatus
@@ -191,13 +191,48 @@ def leggi_valori(db: Session, incarico_id: UUID) -> dict[str, Any]:
 
 
 # ===========================================================================
+# "Attivo"/"in carica" = senza data di cessazione (A02), non lo stato
+# testuale A25 (catalogo libero senza `valori_ammessi` imposti a livello di
+# dominio, quindi non abbastanza affidabile da usare come unica fonte per
+# bloccare un salvataggio). Helper condiviso da
+# `verifica_amministratore_unico_disponibile` (Correzione 05) e da
+# `verifica_transizione_nessun_organo_controllo` (Correzione 12): stessa
+# nozione di "incarico attivo per un insieme di ruoli", non duplicata.
+# ===========================================================================
+
+
+def _incarichi_attivi(db: Session, azienda_id: UUID, ruoli_codici: frozenset[str]) -> list[PerIncarico]:
+    sotto_query_cessati = (
+        select(PerIncaricoValore.incarico_id)
+        .join(CatCaratteristicaIncarico, CatCaratteristicaIncarico.id == PerIncaricoValore.caratteristica_id)
+        .where(CatCaratteristicaIncarico.codice == "A02", PerIncaricoValore.valore_data.is_not(None))
+    )
+    return list(
+        db.scalars(
+            select(PerIncarico)
+            .join(CatRuolo, CatRuolo.id == PerIncarico.ruolo_id)
+            .where(
+                PerIncarico.azienda_id == azienda_id,
+                CatRuolo.codice.in_(ruoli_codici),
+                PerIncarico.id.not_in(sotto_query_cessati),
+            )
+        ).all()
+    )
+
+
+def cessa_incarichi(db: Session, incarichi: list[PerIncarico]) -> None:
+    """Cessa (§ commento in testa al modulo: aggiornamento della riga
+    esistente, mai un DELETE) tutti gli incarichi passati, valorizzando A02
+    "Data cessazione" a oggi. Usata dalla Correzione 12 dopo che l'utente ha
+    confermato esplicitamente la cessazione — mai chiamata senza conferma."""
+    oggi = date.today().isoformat()
+    for incarico in incarichi:
+        valida_e_salva_valori(db, incarico, {"A02": oggi}, parziale=True)
+
+
+# ===========================================================================
 # Amministratore unico: al più un incarico attivo alla volta (Correzione 05)
 # ===========================================================================
-#
-# "Attivo"/"in carica" qui significa "senza data di cessazione" (A02), non
-# lo stato testuale A25 (catalogo libero senza `valori_ammessi` imposti a
-# livello di dominio, quindi non abbastanza affidabile da usare come unica
-# fonte per bloccare un salvataggio).
 RUOLI_AMMINISTRATORI_ORGANO = frozenset({"AMMINISTRATORE", "AMMINISTRATORE_DELEGATO", "COMPONENTE_CDA"})
 
 
@@ -223,26 +258,117 @@ def verifica_amministratore_unico_disponibile(db: Session, azienda_id: UUID, ruo
     if organo is None or organo.codice != "AMMINISTRATORE_UNICO":
         return
 
-    sotto_query_cessati = (
-        select(PerIncaricoValore.incarico_id)
-        .join(CatCaratteristicaIncarico, CatCaratteristicaIncarico.id == PerIncaricoValore.caratteristica_id)
-        .where(CatCaratteristicaIncarico.codice == "A02", PerIncaricoValore.valore_data.is_not(None))
-    )
-    esiste_attivo = db.scalars(
-        select(PerIncarico.id)
-        .join(CatRuolo, CatRuolo.id == PerIncarico.ruolo_id)
-        .where(
-            PerIncarico.azienda_id == azienda_id,
-            CatRuolo.codice.in_(RUOLI_AMMINISTRATORI_ORGANO),
-            PerIncarico.id.not_in(sotto_query_cessati),
-        )
-        .limit(1)
-    ).first()
-    if esiste_attivo is not None:
+    if _incarichi_attivi(db, azienda_id, RUOLI_AMMINISTRATORI_ORGANO):
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             "È già presente un amministratore unico in carica: per sostituirlo, cessare prima l'incarico esistente.",
         )
+
+
+# ===========================================================================
+# Nessun organo di controllo o revisore: cessazione confermata degli
+# incarichi esistenti (Correzione 12)
+# ===========================================================================
+RUOLI_ORGANO_CONTROLLO = frozenset({"SINDACO", "REVISORE_LEGALE"})
+
+
+def incarichi_organo_controllo_attivi(db: Session, azienda_id: UUID) -> list[PerIncarico]:
+    return _incarichi_attivi(db, azienda_id, RUOLI_ORGANO_CONTROLLO)
+
+
+def verifica_transizione_nessun_organo_controllo(
+    db: Session, azienda_id: UUID, *, row: object | None, nuovo_codice: str | None, confermata: bool
+) -> None:
+    """§ Correzione 12: quando "Assetto di controllo in carica" passa a
+    "Nessun organo di controllo o revisore" e ci sono ancora sindaci/
+    revisori attivi, il salvataggio non deve cancellare o storicizzare
+    nulla silenziosamente — richiede una conferma esplicita del chiamante
+    (`confermata`, propagata dal PATCH della sezione) e solo allora cessa
+    gli incarichi attivi (A02 = oggi), nella stessa transazione del
+    salvataggio della sezione (chiamata da `salva_sezione` prima del
+    commit, mai a parte: § "operazioni composite = transazione unica").
+
+    No-op se il nuovo valore non è questo assetto, o se lo era già (nessuna
+    transizione reale, nessun bisogno di riproporre la conferma ogni
+    salvataggio successivo)."""
+    if nuovo_codice != "NESSUN_ORGANO_CONTROLLO":
+        return
+
+    precedente_codice = None
+    if row is not None and getattr(row, "assetto_controllo_id", None) is not None:
+        precedente = db.get(CatAssettoControllo, row.assetto_controllo_id)
+        precedente_codice = precedente.codice if precedente is not None else None
+    if precedente_codice == "NESSUN_ORGANO_CONTROLLO":
+        return
+
+    attivi = incarichi_organo_controllo_attivi(db, azienda_id)
+    if not attivi:
+        return
+    if not confermata:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail={
+                "code": "CESSAZIONE_ORGANO_CONTROLLO_RICHIESTA",
+                "message": (
+                    f"Risultano {len(attivi)} sindaci/revisori ancora in carica. Confermando, gli incarichi "
+                    "esistenti verranno cessati (data di cessazione impostata a oggi)."
+                ),
+                "count": len(attivi),
+            },
+        )
+    cessa_incarichi(db, attivi)
+
+
+# ===========================================================================
+# Sindaco unico: sostituzione confermata di un incarico già in carica
+# (Correzione 13)
+# ===========================================================================
+
+
+def verifica_sindaco_unico_disponibile(db: Session, azienda_id: UUID, ruolo_codice: str, *, confermata: bool) -> None:
+    """§ Correzione 13: quando l'assetto di controllo in carica è "Sindaco
+    unico" e ne esiste già uno attivo, l'inserimento di un nuovo sindaco
+    unico è una SOSTITUZIONE (cessazione/storicizzazione del precedente,
+    § testo esplicito "deve essere gestito come sostituzione"), non un
+    secondo incarico attivo in parallelo — a differenza
+    dell'amministratore unico (Correzione 05, tuttora bloccato senza
+    percorso di conferma: "funzionalità futura, non implementata qui"),
+    qui la sostituzione è implementata per davvero: richiede conferma
+    esplicita del chiamante (stesso pattern a due tentativi di
+    `verifica_transizione_nessun_organo_controllo`, § Correzione 12) e,
+    solo allora, cessa il precedente (A02 = oggi) nella stessa transazione
+    della creazione del nuovo incarico (chiamata da `create_incarico`
+    prima del commit).
+
+    No-op per ogni ruolo diverso da SINDACO e per ogni assetto diverso da
+    "Sindaco unico" (compreso "non disponibile")."""
+    if ruolo_codice != "SINDACO":
+        return
+
+    organi_controllo = db.scalars(
+        select(AnaOrganiControllo).where(AnaOrganiControllo.azienda_id == azienda_id)
+    ).first()
+    if organi_controllo is None or organi_controllo.assetto_controllo_id is None:
+        return
+    assetto = db.get(CatAssettoControllo, organi_controllo.assetto_controllo_id)
+    if assetto is None or assetto.codice != "SINDACO_UNICO":
+        return
+
+    attivi = _incarichi_attivi(db, azienda_id, frozenset({"SINDACO"}))
+    if not attivi:
+        return
+    if not confermata:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail={
+                "code": "SOSTITUZIONE_SINDACO_UNICO_RICHIESTA",
+                "message": (
+                    "È già presente un sindaco unico in carica. Confermando, l'incarico esistente verrà "
+                    "cessato (data di cessazione impostata a oggi) e sostituito da questo nuovo incarico."
+                ),
+            },
+        )
+    cessa_incarichi(db, attivi)
 
 
 # ===========================================================================

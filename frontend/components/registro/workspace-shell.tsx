@@ -4,7 +4,9 @@ import { useEffect, type ReactNode } from "react";
 import { Maximize2Icon, PanelRightIcon, SquareArrowOutUpRightIcon, XIcon } from "lucide-react";
 
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { CancellazioneConfigurazioneDialog } from "@/components/registro/cancellazione-configurazione-dialog";
 import { CciaaSectionPanel } from "@/components/registro/cciaa-section-panel";
+import { CessazioneOrganoControlloDialog } from "@/components/registro/cessazione-organo-controllo-dialog";
 import { SectionContent } from "@/components/registro/section-content";
 import { UnsavedChangesDialog } from "@/components/registro/unsaved-changes-dialog";
 import { isSectionDirty, useWorkspace } from "@/components/registro/workspace-provider";
@@ -182,6 +184,8 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
       )}
 
       <UnsavedChangesDialog />
+      <CessazioneOrganoControlloDialog />
+      <CancellazioneConfigurazioneDialog />
     </div>
   );
 }

@@ -388,6 +388,181 @@ class CatGestioneOpposizione(Base):
 
 
 # ===========================================================================
+# Cataloghi - Assetti di controllo e titoli della nomina (Correzione 11)
+# ===========================================================================
+
+
+class CatAssettoControllo(Base):
+    """Catalogo estendibile degli assetti di controllo selezionabili nel
+    campo "Assetto di controllo in carica" (sezione Organi di controllo,
+    card "Sindaci"): Nessun organo di controllo o revisore, Sindaco unico,
+    Collegio sindacale, Revisore legale persona fisica, Società di
+    revisione legale, Sindaco unico + revisore esterno, Collegio sindacale
+    + revisore esterno."""
+
+    __tablename__ = "cat_assetti_controllo"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatTitoloNominaOrganoControllo(Base):
+    """Catalogo estendibile (ancora vuoto, § Correzione 11: opzioni
+    definite separatamente) dei titoli della nomina selezionabili nel campo
+    "Titolo della nomina" (sezione Organi di controllo)."""
+
+    __tablename__ = "cat_titoli_nomina_organo_controllo"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+# ===========================================================================
+# Cataloghi - Configurazione "Sindaco unico" (Correzione 13)
+# ===========================================================================
+
+
+class CatFunzioneOrganoInterno(Base):
+    """Catalogo estendibile delle funzioni dell'organo interno di
+    controllo (campo "Funzioni dell'organo interno" della configurazione
+    "Sindaco unico"): Vigilanza sulla gestione, Vigilanza sulla gestione e
+    revisione legale, Competenze definite dall'atto costitutivo."""
+
+    __tablename__ = "cat_funzioni_organo_interno"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatAffidatarioRevisioneLegale(Base):
+    """Catalogo estendibile, condiviso da tutte le configurazioni della
+    sezione Organi di controllo (campo "Revisione legale affidata a"): Non
+    attribuita, Sindaco unico, Collegio sindacale, Revisore legale persona
+    fisica, Società di revisione legale."""
+
+    __tablename__ = "cat_affidatari_revisione_legale"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatDurataIncaricoOrganoControllo(Base):
+    """Catalogo estendibile delle tipologie di durata dell'incarico per gli
+    organi di controllo (campo "Durata dell'incarico" della configurazione
+    "Sindaco unico"), distinto da `CatDurataCarica` (Amministratori):
+    Fino all'approvazione del bilancio, Tre esercizi, Fino a revoca o
+    cessazione, Altra durata risultante dall'atto di nomina."""
+
+    __tablename__ = "cat_durate_incarico_organi_controllo"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+# ===========================================================================
+# 041 - Organi di controllo (singleton, Correzione 11) - vedi
+#        041_ana_organi_controllo.sql
+# ===========================================================================
+
+
+class AnaOrganiControllo(Base):
+    """Impostazioni generali della card "Sindaci e membri degli organi di
+    controllo" (Correzione 11): assetto di controllo in carica, numero
+    componenti, titolo della nomina. 1:1 con l'azienda, come
+    `AnaAmministrazioneControllo`.
+
+    Sezione indipendente da `AnaAmministrazioneControllo`: quella tabella
+    restava finora condivisa (senza una configurazione propria) dalla card
+    "Sindaci", ma una `SezioneRegistro` non può avere due campi guida
+    indipendenti (uno per "Amministratori", uno per "Sindaci"), ciascuno
+    con la propria cascata di campi condizionali — vedi il commento in
+    testa a `041_ana_organi_controllo.sql`."""
+
+    __tablename__ = "ana_organi_controllo"
+    __table_args__ = (UniqueConstraint("azienda_id"),)
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+
+    assetto_controllo_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_assetti_controllo.id")
+    )
+    # Correzione 11: "Numero componenti" resta scrivibile qui solo per le
+    # configurazioni ancora non definite — "Sindaco unico" (Correzione 13)
+    # non lo usa più, sincronizzato invece via campo derivato
+    # (`numero_componenti_organo` in registro_campi.py).
+    numero_componenti: Mapped[int | None] = mapped_column(Integer)
+    titolo_nomina_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_titoli_nomina_organo_controllo.id")
+    )
+
+    # Correzione 13 (configurazione "Sindaco unico"):
+    funzioni_organo_interno_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_funzioni_organo_interno.id")
+    )
+    # Catalogo condiviso da tutte le configurazioni della sezione (§
+    # richiesta esplicita): non solo di "Sindaco unico".
+    revisione_legale_affidata_a_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_affidatari_revisione_legale.id")
+    )
+    durata_incarico_tipo_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_durate_incarico_organi_controllo.id")
+    )
+    durata_incarico_data_bilancio: Mapped[date | None] = mapped_column(Date)
+    durata_incarico_descrizione: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+# ===========================================================================
 # 007 - Amministrazione e controllo (singleton) + sistemi di amministrazione
 # ===========================================================================
 

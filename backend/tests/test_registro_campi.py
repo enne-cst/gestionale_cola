@@ -15,6 +15,7 @@ from app.core.registro_campi import (
     SEZIONE_DURATA_SOCIETA_ESERCIZI,
     SEZIONE_ELENCO_SOCI_ESTREMI,
     SEZIONE_INFORMAZIONI_SOCIETARIE,
+    SEZIONE_ORGANI_CONTROLLO,
     SEZIONE_SEDE,
     SEZIONE_STATUTO,
     SEZIONI,
@@ -28,6 +29,7 @@ from app.models.anagrafica import (
     AnaCapitaleSociale,
     AnaDurataSocietaEsercizi,
     AnaIdentificazioneCamerale,
+    AnaOrganiControllo,
 )
 
 
@@ -117,12 +119,13 @@ class TestCatalogoInformazioniSocietarie:
 
 
 class TestSezioniRegistrate:
-    def test_sette_sezioni_registrate(self):
+    def test_otto_sezioni_registrate(self):
         assert set(SEZIONI) == {
             "informazioni-societarie",
             "capitale-sociale",
             "durata-societa-esercizi",
             "amministrazione-controllo",
+            "organi-controllo",
             "elenco-soci-estremi",
             "sede",
             "statuto",
@@ -186,6 +189,35 @@ class TestSezioniRegistrate:
         assert indice.minimi.get("numero_amministratori_in_carica") == 1
         assert "numero_titolari_cariche" not in indice.minimi
 
+    def test_catalogo_organi_controllo(self):
+        # Correzione 11: campo principale "assetto_controllo_in_carica" (a
+        # catalogo, cat_assetti_controllo) più "numero_componenti" (per le
+        # configurazioni non ancora definite) e "titolo_nomina" (a
+        # catalogo, condiviso da tutte le configurazioni con un organo).
+        # Correzione 13: prima configurazione definita, "Sindaco unico" —
+        # "numero_componenti_organo" (derivato, sincronizzato con la
+        # tabella) rimpiazza "numero_componenti" per questo assetto, più
+        # "funzioni_organo_interno"/"revisione_legale_affidata_a" (a
+        # catalogo) e "durata_incarico_tipo" (a catalogo) con i suoi due
+        # campi condizionali "durata_incarico_data_bilancio"/
+        # "durata_incarico_descrizione".
+        indice = _indice(SEZIONE_ORGANI_CONTROLLO)
+        assert indice.chiavi == {
+            "assetto_controllo_in_carica",
+            "numero_componenti_organo",
+            "numero_componenti",
+            "funzioni_organo_interno",
+            "revisione_legale_affidata_a",
+            "titolo_nomina",
+            "durata_incarico_tipo",
+            "durata_incarico_data_bilancio",
+            "durata_incarico_descrizione",
+        }
+        assert indice.derivate == {"numero_componenti_organo"}
+        # § Correzione 13 punto esplicito: "Numero componenti" della
+        # configurazione "Sindaco unico" non è modificabile.
+        assert "numero_componenti_organo" not in indice.scrivibili
+
     def test_catalogo_elenco_soci_estremi(self):
         indice = _indice(SEZIONE_ELENCO_SOCI_ESTREMI)
         assert indice.chiavi == {
@@ -235,19 +267,20 @@ class TestSezioniRegistrate:
 
     def test_totale_applicabile_su_tutte_le_sezioni(self):
         # Stessa somma che `valuta_qualita`/`riepilogo_sezioni` usano per
-        # `totalApplicable` (22 + 4 + 3 + 15 + 5 + 12 + 12, il quarto per
+        # `totalApplicable` (22 + 4 + 3 + 15 + 9 + 5 + 12 + 12, il quarto per
         # "amministrazione-controllo": 6 campi originari, 11 dopo la
         # correzione 05 ("Amministratore unico"), 13 dopo la correzione 06
         # ("Consiglio di amministrazione", +2 campi propri), 14 dopo la
         # correzione 07 ("Amministrazione pluripersonale congiuntiva", +1
         # campo proprio), 15 dopo la correzione 08 ("Amministrazione
         # pluripersonale disgiuntiva", +1 campo proprio, ultima
-        # configurazione dell'organo), il penultimo per
-        # "elenco-soci-estremi" dopo la correzione 035, gli ultimi due per
-        # "sede"/"statuto", pilota su ana_sede_rev2/ana_statuto_rev2: un
-        # cambiamento qui e' un promemoria per aggiornare quel numero
-        # consapevolmente.
-        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 73
+        # configurazione dell'organo), il quinto per "organi-controllo"
+        # (Correzione 11: 3 campi, Correzione 13 "Sindaco unico": +6 campi
+        # propri = 9), il penultimo per "elenco-soci-estremi" dopo la
+        # correzione 035, gli ultimi due per "sede"/"statuto", pilota su
+        # ana_sede_rev2/ana_statuto_rev2: un cambiamento qui e' un
+        # promemoria per aggiornare quel numero consapevolmente.
+        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 82
 
 
 class TestValidaCampo:
@@ -342,3 +375,12 @@ class TestStatoCompletamento:
 
         in_corso = AnaAmministrazioneControllo(organo_amministrativo_id=None, numero_amministratori_in_carica=1)
         assert stato_completamento(SEZIONE_AMMINISTRAZIONE_CONTROLLO, in_corso) == "IN_PROGRESS"
+
+    def test_organi_controllo_usa_assetto_come_campo_guida(self):
+        # Correzione 11: stesso meccanismo di "organo_amministrativo_in_carica"
+        # (§ sopra), ma per il campo principale della sezione "Sindaci".
+        completa = AnaOrganiControllo(assetto_controllo_id=uuid4())
+        assert stato_completamento(SEZIONE_ORGANI_CONTROLLO, completa) == "COMPLETE"
+
+        in_corso = AnaOrganiControllo(assetto_controllo_id=None, numero_componenti=3)
+        assert stato_completamento(SEZIONE_ORGANI_CONTROLLO, in_corso) == "IN_PROGRESS"

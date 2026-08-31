@@ -39,18 +39,24 @@ from app.models.anagrafica import (
     AnaDurataSocietaEsercizi,
     AnaElencoSociEstremi,
     AnaIdentificazioneCamerale,
+    AnaOrganiControllo,
     AnaSede,
     AnaSedeRev2,
     AnaStatutoRev2,
+    CatAffidatarioRevisioneLegale,
+    CatAssettoControllo,
     CatDelegheConsiglio,
     CatDurataCarica,
+    CatDurataIncaricoOrganoControllo,
+    CatFunzioneOrganoInterno,
     CatGestioneOpposizione,
     CatModalitaDecisioniConsiglio,
     CatModalitaEsercizioPoteri,
     CatOrganoAmministrativo,
     CatRegimeRappresentanza,
+    CatTitoloNominaOrganoControllo,
 )
-from app.models.personale import CatRuolo, PerIncarico
+from app.models.personale import CatCaratteristicaIncarico, CatRuolo, PerIncarico, PerIncaricoValore
 from app.models.sistema import SysRegistroAudit, SysRegistroStatoCampi, SysUtente
 from app.schemas.registro_campi import (
     CompletionStatus,
@@ -360,6 +366,36 @@ def _numero_componenti_amministratore_unico(db: Session, azienda_id: UUID) -> st
     "Organo amministrativo in carica" è "Amministratore unico" (`dipende_da`
     sul CampoDef), quindi non serve verificarlo di nuovo qui."""
     return "1"
+
+
+def _numero_componenti_sindaco_unico(db: Session, azienda_id: UUID) -> str | None:
+    """"Numero componenti" della configurazione "Sindaco unico" (§
+    Correzione 13): a differenza dell'amministratore unico sopra (una
+    costante "1" per definizione), qui il requisito è esplicito —
+    "rimanere sincronizzato con l'unica riga della tabella" — quindi si
+    conta davvero l'incarico SINDACO attivo (0 se non è ancora stato
+    registrato nessuno, mai più di 1 per costruzione:
+    `verifica_sindaco_unico_disponibile` impedisce di salvarne un secondo
+    attivo). "Attivo" = senza data di cessazione (A02), stessa nozione già
+    usata in `app.core.incarichi` — sotto-query duplicata qui (non
+    importabile da `incarichi.py`, che already importa da questo modulo:
+    l'importazione opposta creerebbe un ciclo)."""
+    sotto_query_cessati = (
+        select(PerIncaricoValore.incarico_id)
+        .join(CatCaratteristicaIncarico, CatCaratteristicaIncarico.id == PerIncaricoValore.caratteristica_id)
+        .where(CatCaratteristicaIncarico.codice == "A02", PerIncaricoValore.valore_data.is_not(None))
+    )
+    numero = db.scalar(
+        select(func.count())
+        .select_from(PerIncarico)
+        .join(CatRuolo, CatRuolo.id == PerIncarico.ruolo_id)
+        .where(
+            PerIncarico.azienda_id == azienda_id,
+            CatRuolo.codice == "SINDACO",
+            PerIncarico.id.not_in(sotto_query_cessati),
+        )
+    )
+    return str(numero or 0)
 
 
 def _opzioni_catalogo(db: Session, catalogo: CampoCatalogo) -> list[FieldOptionRead]:
@@ -1275,6 +1311,190 @@ SEZIONE_AMMINISTRAZIONE_CONTROLLO = SezioneRegistro(
     ],
 )
 
+# Nuova (Correzione 11, "Impostazioni generali della sezione Sindaci"):
+# finora la card "Sindaci e membri degli organi di controllo" mostrava la
+# stessa `SEZIONE_AMMINISTRAZIONE_CONTROLLO` di "Amministratori" (solo
+# `groupTitleOverrides` diverso lato frontend, nessuna configurazione
+# propria — vedi `cciaa-sezioni-rev2-progresso`). Questa correzione le dà un
+# campo principale proprio, "Assetto di controllo in carica", a scelta
+# singola sostenuta dal catalogo `cat_assetti_controllo` (7 valori, § stessa
+# convenzione di `organo_amministrativo_in_carica`): una `SezioneRegistro`
+# non può avere due campi guida indipendenti con la propria cascata di
+# campi condizionali (il meccanismo `dipende_da`/`valori_dipendenza` è
+# pensato per UN campo principale per sezione), quindi la sezione va su una
+# tabella dedicata (`AnaOrganiControllo`), non su `ana_amministrazione_controllo`
+# — stesso principio già seguito per "Sede"/"Statuto" (tabelle "_rev2"
+# quando la card non è più rappresentabile 1:1 da una tabella condivisa).
+#
+# "Numero componenti" e "Titolo della nomina" erano, alla Correzione 11,
+# sempre visibili (nessuna condizione ancora). La Correzione 12 introduce la
+# prima regola specifica per assetto: quando "Assetto di controllo in
+# carica" è "Nessun organo di controllo o revisore"
+# (NESSUN_ORGANO_CONTROLLO), la sezione mostra ESCLUSIVAMENTE il campo
+# principale — stesso meccanismo `dipende_da`/`valori_dipendenza` già usato
+# per l'organo amministrativo, qui invertito: invece di "mostra solo per
+# questi codici", serve "mostra per ogni codice TRANNE questo", quindi
+# `valori_dipendenza` elenca esplicitamente i 6 codici rimanenti
+# (`_ASSETTI_CON_ORGANO_CONTROLLO`) — il meccanismo non supporta negazioni,
+# solo liste positive. "Titolo della nomina" è già un campo a catalogo
+# (`cat_titoli_nomina_organo_controllo`) anche se il catalogo è oggi vuoto —
+# le opzioni sono state esplicitamente rimandate a una correzione
+# successiva.
+#
+# Il comportamento dinamico per gli altri 6 assetti (campi mostrati, titolo
+# della tabella, righe predisposte) sarà definito nelle correzioni
+# successive, una alla volta — stesso percorso già seguito per l'organo
+# amministrativo (Correzioni 05-08). Cambiare l'assetto selezionato non
+# deve mai eliminare dati già registrati: soddisfatto per costruzione dallo
+# stesso meccanismo di visibilità condizionale già in uso altrove (i valori
+# restano nelle colonne anche quando il campo che li mostra è nascosto) —
+# tranne "Numero componenti" per NESSUN_ORGANO_CONTROLLO, che la Correzione
+# 12 impone esplicitamente a 0 (non un valore a scelta libera per questa
+# configurazione, § `normalizza_numero_componenti_nessun_organo_controllo`
+# sotto, applicata da `salva_sezione` dopo `applica_modifiche_sezione`,
+# prima del commit — un'eccezione dichiarata al principio generale, non una
+# cancellazione: il valore precedente per un ALTRO assetto non è mai stato
+# 0 "per sbaglio", lo diventa solo quando si sceglie proprio questo
+# assetto).
+#
+# Tabella degli incarichi (righe, conteggio, "Aggiungi riga") e cessazione
+# confermata dei sindaci/revisori ancora attivi al passaggio a
+# NESSUN_ORGANO_CONTROLLO: vedi `cciaa-section-panel.tsx` (nasconde la
+# tabella) e `app.core.incarichi.verifica_transizione_nessun_organo_controllo`
+# (blocca il salvataggio con una richiesta di conferma finché non arriva,
+# poi cessa gli incarichi nella stessa transazione — mai una cancellazione
+# silenziosa, § vincoli della Correzione 12).
+#
+# Riconoscimento CCIAA: nessuna colonna "testo originale"/"da verificare"
+# qui — riusa il meccanismo generico già esistente `sys_registro_stato_campi`
+# (per campo, non serve duplicarlo), vedi il commento in testa a
+# `041_ana_organi_controllo.sql`.
+_NESSUN_ORGANO_CONTROLLO = frozenset({"NESSUN_ORGANO_CONTROLLO"})
+_ASSETTI_CON_ORGANO_CONTROLLO = frozenset(
+    {
+        "SINDACO_UNICO",
+        "COLLEGIO_SINDACALE",
+        "REVISORE_LEGALE_PERSONA_FISICA",
+        "SOCIETA_REVISIONE_LEGALE",
+        "SINDACO_UNICO_REVISORE_ESTERNO",
+        "COLLEGIO_SINDACALE_REVISORE_ESTERNO",
+    }
+)
+
+# Correzione 13: prima configurazione definita della sezione, "Sindaco
+# unico" — stesso schema evolutivo già seguito per l'organo amministrativo
+# (Correzioni 05-08): finché una configurazione non è definita usa i campi
+# generici sopra (`numero_componenti` modificabile), quando viene definita
+# esce da `_ASSETTI_ORGANO_CONTROLLO_NON_DEFINITI` e riceve i propri campi.
+# "Titolo della nomina" resta condiviso da tutte le configurazioni con un
+# organo (`_ASSETTI_CON_ORGANO_CONTROLLO`, invariato): non è mai stato
+# generico-in-attesa-di-definizione, è "impostazioni generali" fin dalla
+# Correzione 11.
+_SINDACO_UNICO = frozenset({"SINDACO_UNICO"})
+_ASSETTI_ORGANO_CONTROLLO_NON_DEFINITI = _ASSETTI_CON_ORGANO_CONTROLLO - _SINDACO_UNICO
+_DURATA_FINO_APPROVAZIONE_BILANCIO = frozenset({"FINO_APPROVAZIONE_BILANCIO"})
+_DURATA_ALTRA = frozenset({"ALTRA_DURATA"})
+
+SEZIONE_ORGANI_CONTROLLO = SezioneRegistro(
+    section_key="organi-controllo",
+    sezione_codice="ANAGRAFICA_AZIENDALE.ORGANI_CONTROLLO",
+    title="Organi di controllo",
+    model=AnaOrganiControllo,
+    campo_completamento="assetto_controllo_in_carica",
+    campi_derivati={
+        "numero_componenti_organo": _numero_componenti_sindaco_unico,
+    },
+    campi_catalogo={
+        "assetto_controllo_in_carica": CampoCatalogo(
+            model=CatAssettoControllo, colonna_fk="assetto_controllo_id"
+        ),
+        "titolo_nomina": CampoCatalogo(
+            model=CatTitoloNominaOrganoControllo, colonna_fk="titolo_nomina_id"
+        ),
+        "funzioni_organo_interno": CampoCatalogo(
+            model=CatFunzioneOrganoInterno, colonna_fk="funzioni_organo_interno_id"
+        ),
+        "revisione_legale_affidata_a": CampoCatalogo(
+            model=CatAffidatarioRevisioneLegale, colonna_fk="revisione_legale_affidata_a_id"
+        ),
+        "durata_incarico_tipo": CampoCatalogo(
+            model=CatDurataIncaricoOrganoControllo, colonna_fk="durata_incarico_tipo_id"
+        ),
+    },
+    gruppi=[
+        GruppoDef(
+            key="organi-controllo",
+            title="Organi di controllo",
+            campi=[
+                CampoDef("assetto_controllo_in_carica", "Assetto di controllo in carica", "catalogo"),
+                CampoDef(
+                    # Correzione 13: "rimanere sincronizzato con l'unica riga
+                    # della tabella" (§ punto esplicito) — derivato per
+                    # davvero (conta l'incarico SINDACO attivo), non una
+                    # costante come per l'amministratore unico. Non
+                    # modificabile (derived=True), con la nota richiesta
+                    # testualmente dalla correzione.
+                    "numero_componenti_organo", "Numero componenti", "number",
+                    derived=True, derived_note="Allineato all'assetto selezionato e alle righe della tabella",
+                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_SINDACO_UNICO,
+                ),
+                CampoDef(
+                    "numero_componenti", "Numero componenti", "number",
+                    dipende_da="assetto_controllo_in_carica",
+                    valori_dipendenza=_ASSETTI_ORGANO_CONTROLLO_NON_DEFINITI,
+                ),
+                CampoDef(
+                    "funzioni_organo_interno", "Funzioni dell'organo interno", "catalogo",
+                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_SINDACO_UNICO,
+                ),
+                CampoDef(
+                    # Correzione 13: catalogo condiviso (§ richiesta
+                    # esplicita) — il campo stesso è per ora visibile solo
+                    # per "Sindaco unico", si estenderà alle altre
+                    # configurazioni quando verranno definite (stesso
+                    # pattern di `modalita_esercizio_poteri` per
+                    # Amministratori).
+                    "revisione_legale_affidata_a", "Revisione legale affidata a", "catalogo",
+                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_SINDACO_UNICO,
+                ),
+                CampoDef(
+                    "titolo_nomina", "Titolo della nomina", "catalogo",
+                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_ASSETTI_CON_ORGANO_CONTROLLO,
+                ),
+                CampoDef(
+                    "durata_incarico_tipo", "Durata dell'incarico", "catalogo",
+                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_SINDACO_UNICO,
+                ),
+                CampoDef(
+                    # Mai una data dentro la denominazione del catalogo (§
+                    # vincolo esplicito): campo separato, mostrato solo per
+                    # "Fino all'approvazione del bilancio".
+                    "durata_incarico_data_bilancio", "Data di approvazione del bilancio", "date",
+                    dipende_da="durata_incarico_tipo", valori_dipendenza=_DURATA_FINO_APPROVAZIONE_BILANCIO,
+                ),
+                CampoDef(
+                    "durata_incarico_descrizione", "Descrizione della durata", "text",
+                    dipende_da="durata_incarico_tipo", valori_dipendenza=_DURATA_ALTRA,
+                ),
+            ],
+        ),
+    ],
+)
+
+
+def normalizza_numero_componenti_nessun_organo_controllo(db: Session, row: object) -> None:
+    """§ Correzione 12: impone Numero componenti = 0 quando l'assetto di
+    controllo salvato è "Nessun organo di controllo o revisore" — chiamata
+    da `salva_sezione` dopo `applica_modifiche_sezione`, prima del commit,
+    così vale sia per una transizione appena fatta sia come rete di
+    sicurezza per un salvataggio successivo nello stesso stato. No-op per
+    ogni altro model/sezione o assetto."""
+    if not isinstance(row, AnaOrganiControllo) or row.assetto_controllo_id is None:
+        return
+    assetto = db.get(CatAssettoControllo, row.assetto_controllo_id)
+    if assetto is not None and assetto.codice == "NESSUN_ORGANO_CONTROLLO" and row.numero_componenti != 0:
+        row.numero_componenti = 0
+
 # Nuova (mappatura CCIAA §4.2, decisione D-H): estremi di testata
 # dell'elenco soci depositato, 1:1 con l'azienda come capitale sociale. Non
 # è un dato del singolo socio (quello vive in `per_incarichi`, ruolo SOCIO).
@@ -1403,6 +1623,7 @@ SEZIONI: dict[str, SezioneRegistro] = {
         SEZIONE_CAPITALE_SOCIALE,
         SEZIONE_DURATA_SOCIETA_ESERCIZI,
         SEZIONE_AMMINISTRAZIONE_CONTROLLO,
+        SEZIONE_ORGANI_CONTROLLO,
         SEZIONE_ELENCO_SOCI_ESTREMI,
         SEZIONE_SEDE,
         SEZIONE_STATUTO,
