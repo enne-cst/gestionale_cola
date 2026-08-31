@@ -30,15 +30,21 @@ from app.core.incarichi import (
     leggi_valori,
     valida_e_salva_valori,
     verifica_amministratore_unico_disponibile,
+    verifica_carica_collegio_sindacale_disponibile,
+    verifica_revisore_legale_persona_fisica_disponibile,
     verifica_sindaco_unico_disponibile,
+    verifica_societa_revisione_disponibile,
 )
 from app.core.moduli import require_modulo
 from app.core.registro_campi import require_consulente_ctx
 from app.crud.generic import register_list_crud
 from app.database import get_db
-from app.models.personale import AnaPersone, CatRuolo, PerIncarico
+from app.models.personale import AnaPersonaGiuridica, AnaPersone, CatRuolo, PerIncarico
 from app.schemas.personale import (
     AnaPersoneCreate,
+    AnaPersoneGiuridicheCreate,
+    AnaPersoneGiuridicheRead,
+    AnaPersoneGiuridicheUpdate,
     AnaPersoneRead,
     AnaPersoneUpdate,
     CaratteristicaRuoloRead,
@@ -63,6 +69,20 @@ register_list_crud(
     read_schema=AnaPersoneRead,
     create_schema=AnaPersoneCreate,
     update_schema=AnaPersoneUpdate,
+)
+
+# § Correzione 16: anagrafica delle persone giuridiche (titolare alternativo
+# di un incarico, es. "Società di revisione legale") — stesso trattamento
+# CRUD di /persone, nessuna logica su misura.
+register_list_crud(
+    router,
+    path="/persone-giuridiche",
+    tags=TAGS,
+    modulo=MODULO,
+    model=AnaPersonaGiuridica,
+    read_schema=AnaPersoneGiuridicheRead,
+    create_schema=AnaPersoneGiuridicheCreate,
+    update_schema=AnaPersoneGiuridicheUpdate,
 )
 
 
@@ -139,18 +159,34 @@ def _persona_owned_or_404(db: Session, persona_id: UUID, azienda_id: UUID) -> An
     return persona
 
 
+def _persona_giuridica_owned_or_404(db: Session, persona_giuridica_id: UUID, azienda_id: UUID) -> AnaPersonaGiuridica:
+    persona = db.get(AnaPersonaGiuridica, persona_giuridica_id)
+    if persona is None or persona.azienda_id != azienda_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona giuridica non trovata")
+    return persona
+
+
 def _to_read(db: Session, incarico: PerIncarico) -> IncaricoRead:
-    persona = db.get(AnaPersone, incarico.persona_id)
+    # § Correzione 16: esattamente uno dei due è valorizzato
+    # (chk_per_incarichi_titolare_esclusivo), l'altro resta None.
+    persona = db.get(AnaPersone, incarico.persona_id) if incarico.persona_id is not None else None
+    persona_giuridica = (
+        db.get(AnaPersonaGiuridica, incarico.persona_giuridica_id)
+        if incarico.persona_giuridica_id is not None
+        else None
+    )
     ruolo = db.get(CatRuolo, incarico.ruolo_id)
     stato = leggi_stato_verifica_incarico(db, incarico.azienda_id, incarico.id)
     return IncaricoRead(
         id=incarico.id,
         azienda_id=incarico.azienda_id,
         persona_id=incarico.persona_id,
+        persona_giuridica_id=incarico.persona_giuridica_id,
         ruolo_id=incarico.ruolo_id,
         note=incarico.note,
         valori=leggi_valori(db, incarico.id),
         persona=persona,
+        persona_giuridica=persona_giuridica,
         ruolo=ruolo,
         created_at=incarico.created_at,
         updated_at=incarico.updated_at,
@@ -186,8 +222,29 @@ def create_incarico(
     # in carica è "Sindaco unico" e ne esiste già uno attivo — vedi
     # `verifica_sindaco_unico_disponibile`. Ignorato per ogni altro ruolo.
     confirm_sostituzione_sindaco_unico: bool = False,
+    # § Correzione 15: solo per ruolo REVISORE_LEGALE quando l'assetto è
+    # "Revisore legale persona fisica" e ne esiste già uno attivo — stesso
+    # pattern del flag precedente, vedi
+    # `verifica_revisore_legale_persona_fisica_disponibile`.
+    confirm_sostituzione_revisore_legale: bool = False,
+    # § Correzione 16: come sopra, ma per ruolo REVISORE_LEGALE quando
+    # l'assetto è "Società di revisione legale" — vedi
+    # `verifica_societa_revisione_disponibile`.
+    confirm_sostituzione_societa_revisione: bool = False,
+    # § Correzione 14: solo per ruolo SINDACO quando l'assetto è "Collegio
+    # sindacale" e la carica scelta (`valori["A28"]`) è già al completo —
+    # l'ID dell'incarico da cessare e sostituire, scelto dall'utente tra i
+    # titolari attuali mostrati dal 409 di `verifica_carica_collegio_sindacale_disponibile`.
+    sostituisci_incarico_id: UUID | None = None,
 ):
-    _persona_owned_or_404(db, payload.persona_id, ctx.azienda_id)
+    # § Correzione 16: esattamente uno dei due (già verificato dal validator
+    # di IncaricoCreate), ma solo quello valorizzato va risolto/verificato —
+    # l'altro resta assente dalla riga (chk_per_incarichi_titolare_esclusivo).
+    if payload.persona_id is not None:
+        _persona_owned_or_404(db, payload.persona_id, ctx.azienda_id)
+    else:
+        assert payload.persona_giuridica_id is not None
+        _persona_giuridica_owned_or_404(db, payload.persona_giuridica_id, ctx.azienda_id)
     ruolo = db.get(CatRuolo, payload.ruolo_id)
     if ruolo is None or not ruolo.attivo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ruolo non trovato")
@@ -195,9 +252,27 @@ def create_incarico(
     verifica_sindaco_unico_disponibile(
         db, ctx.azienda_id, ruolo.codice, confermata=confirm_sostituzione_sindaco_unico
     )
+    verifica_revisore_legale_persona_fisica_disponibile(
+        db, ctx.azienda_id, ruolo.codice, confermata=confirm_sostituzione_revisore_legale
+    )
+    verifica_societa_revisione_disponibile(
+        db, ctx.azienda_id, ruolo.codice, confermata=confirm_sostituzione_societa_revisione
+    )
+    carica_codice = payload.valori.get("A28")
+    verifica_carica_collegio_sindacale_disponibile(
+        db,
+        ctx.azienda_id,
+        ruolo.codice,
+        carica_codice=str(carica_codice) if carica_codice is not None else None,
+        sostituisci_incarico_id=sostituisci_incarico_id,
+    )
 
     incarico = PerIncarico(
-        azienda_id=ctx.azienda_id, persona_id=payload.persona_id, ruolo_id=payload.ruolo_id, note=payload.note
+        azienda_id=ctx.azienda_id,
+        persona_id=payload.persona_id,
+        persona_giuridica_id=payload.persona_giuridica_id,
+        ruolo_id=payload.ruolo_id,
+        note=payload.note,
     )
     db.add(incarico)
     db.flush()
@@ -231,6 +306,11 @@ def update_incarico(
     if payload.persona_id is not None and payload.persona_id != incarico.persona_id:
         _persona_owned_or_404(db, payload.persona_id, ctx.azienda_id)
         incarico.persona_id = payload.persona_id
+        incarico.persona_giuridica_id = None
+    if payload.persona_giuridica_id is not None and payload.persona_giuridica_id != incarico.persona_giuridica_id:
+        _persona_giuridica_owned_or_404(db, payload.persona_giuridica_id, ctx.azienda_id)
+        incarico.persona_giuridica_id = payload.persona_giuridica_id
+        incarico.persona_id = None
     if payload.ruolo_id is not None and payload.ruolo_id != incarico.ruolo_id:
         nuovo_ruolo = db.get(CatRuolo, payload.ruolo_id)
         if nuovo_ruolo is None or not nuovo_ruolo.attivo:

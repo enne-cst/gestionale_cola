@@ -5,13 +5,78 @@ import { useCallback, useEffect, useState } from "react";
 
 import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { Button } from "@/components/ui/button";
-import { IncaricoFormDialog } from "@/components/registro/incarico-form-dialog";
+import { CARICHE_COLLEGIO_SINDACALE, IncaricoFormDialog } from "@/components/registro/incarico-form-dialog";
 import { IncaricoVerificationPopover } from "@/components/registro/incarico-verification-popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useWorkspace } from "@/components/registro/workspace-provider";
 import { eliminaIncarico, getIncarichi, getRuoli } from "@/lib/actions/personale";
 import { formatCurrency, formatDate, formatDecimal } from "@/lib/format";
 import type { Incarico, RuoloSummary } from "@/lib/types/personale";
+
+// § Correzione 14: etichetta di "Carica" per la colonna della tabella —
+// A28, quando compilata (solo per un incarico SINDACO nel "Collegio
+// sindacale"), altrimenti il comportamento invariato di sempre (nome del
+// ruolo, es. "Amministratore" o "Sindaco").
+const ETICHETTE_CARICA_COLLEGIO: Record<string, string> = Object.fromEntries(
+  CARICHE_COLLEGIO_SINDACALE.map((c) => [c.codice, c.etichetta]),
+);
+
+function etichettaCarica(incarico: Incarico): string {
+  // § Correzione 16: "La carica deve essere: Società di revisione legale"
+  // (§ testo esplicito) — un'etichetta fissa per il titolare persona
+  // giuridica, non il nome del ruolo (che qui resterebbe "Revisore
+  // Legale", lo stesso ruolo condiviso col titolare persona fisica).
+  if (incarico.persona_giuridica) return "Società di revisione legale";
+  const carica = valoreCaratteristica(incarico, "A28");
+  return (carica && ETICHETTE_CARICA_COLLEGIO[carica]) || incarico.ruolo.denominazione;
+}
+
+// § Correzione 16: nome/identificativo del titolare, qualunque sia il tipo
+// (persona fisica o giuridica) — evita di ripetere il controllo
+// `incarico.persona ?? incarico.persona_giuridica` in ogni punto che ne ha
+// bisogno (conferma di eliminazione, popover di verifica).
+function nomeTitolare(incarico: Incarico): string {
+  if (incarico.persona) return `${incarico.persona.cognome} ${incarico.persona.nome}`;
+  if (incarico.persona_giuridica) return incarico.persona_giuridica.denominazione;
+  return "—";
+}
+
+/** Cella "Persona" della tabella, per entrambi i tipi di titolare (§
+ * Correzione 16): persona fisica (cognome+nome, CF sotto) o persona
+ * giuridica (denominazione, CF sotto) — stesso layout in entrambi i casi. */
+function CellaTitolare({ incarico }: { incarico: Incarico }) {
+  if (incarico.persona) {
+    return (
+      <div className="flex flex-col">
+        <span className="font-medium text-foreground">
+          {incarico.persona.cognome} {incarico.persona.nome}
+        </span>
+        <span className="text-xs text-muted-foreground">{incarico.persona.codice_fiscale}</span>
+      </div>
+    );
+  }
+  if (incarico.persona_giuridica) {
+    return (
+      <div className="flex flex-col">
+        <span className="font-medium text-foreground">{incarico.persona_giuridica.denominazione}</span>
+        <span className="text-xs text-muted-foreground">{incarico.persona_giuridica.codice_fiscale}</span>
+      </div>
+    );
+  }
+  return <span className="text-muted-foreground">—</span>;
+}
+
+// § Correzione 14: quanti posti prescrive la composizione del collegio
+// sindacale per ciascuna carica — Presidente e Sindaco supplente sono
+// fissi, Sindaco effettivo dipende dalla scelta "Sindaci effettivi" (3 o
+// 5) fatta nella sezione. `null` = non ancora determinabile (scelta non
+// ancora fatta), stesso significato di `sindaciEffettivi: null`.
+function capCaricaCollegio(codice: string, sindaciEffettivi: number | null): number | null {
+  if (codice === "PRESIDENTE") return 1;
+  if (codice === "SINDACO_SUPPLENTE") return 2;
+  if (codice === "SINDACO_EFFETTIVO") return sindaciEffettivi !== null ? Math.max(sindaciEffettivi - 1, 0) : null;
+  return null;
+}
 
 /** Prima data valorizzata tra quelle candidate, nell'ordine indicato — usata
  * per mostrare "Data di nomina" qualunque sia la caratteristica realmente
@@ -46,6 +111,8 @@ export function IncaricoTable({
   sectionKey,
   variante,
   addRowLabel = "Aggiungi",
+  collegioSindacale,
+  tipoTitolare,
 }: {
   titolo: string;
   icon: LucideIcon;
@@ -82,6 +149,25 @@ export function IncaricoTable({
   // `sectionKey` (§ Correzione 05 punto 10: "Aggiungi riga" per la card
   // Amministratori). Default invariato per gli altri chiamanti (Soci).
   addRowLabel?: string;
+  // § Correzione 14: solo per la card Sindaci quando l'assetto è "Collegio
+  // sindacale" — `sindaciEffettivi` è il valore corrente (bozza se in
+  // modifica) del campo omonimo della sezione. Attiva: il selettore
+  // "Carica" nel dialogo "Aggiungi riga", il conteggio del titolo secondo
+  // la composizione prescritta (non le sole righe già compilate) e le
+  // righe segnaposto per i posti ancora non occupati. Assente per ogni
+  // altra card/configurazione (Soci, Amministratori, le altre
+  // configurazioni dell'organo di controllo).
+  collegioSindacale?: { sindaciEffettivi: number | null };
+  // § Correzione 16: quando `ruoliCodici` include REVISORE_LEGALE ma la
+  // card deve mostrare solo un tipo di titolare (persona fisica per
+  // "Revisore legale persona fisica", giuridica per "Società di revisione
+  // legale" — stesso ruolo condiviso da entrambe le configurazioni, § nota
+  // in cciaa-section-panel.tsx), filtra le righe per tipo di titolare
+  // effettivo e passa lo stesso vincolo al dialogo "Aggiungi riga"
+  // (`PersonaGiuridicaPicker` invece di `PersonaPicker`). `undefined` per
+  // ogni card che mescola i due tipi (Soci, Amministratori, Sindaco
+  // unico/Collegio sindacale, tabella generica "Sindaci e revisori").
+  tipoTitolare?: "FISICA" | "GIURIDICA";
 }) {
   const { ruolo, state } = useWorkspace();
   const consulente = ruolo === "CONSULENTE";
@@ -106,7 +192,7 @@ export function IncaricoTable({
   }, [carica]);
 
   async function onElimina(incarico: Incarico) {
-    if (!confirm(`Rimuovere l'incarico di ${incarico.persona.cognome} ${incarico.persona.nome}?`)) return;
+    if (!confirm(`Rimuovere l'incarico di ${nomeTitolare(incarico)}?`)) return;
     const esito = await eliminaIncarico(incarico.id);
     if (esito.esito === "ok") carica();
   }
@@ -133,14 +219,58 @@ export function IncaricoTable({
   }
 
   const Icon = icon;
+  const caricheOpzioni = collegioSindacale ? CARICHE_COLLEGIO_SINDACALE : undefined;
+  // § Correzione 16: solo le righe del tipo di titolare atteso da questa
+  // card — vedi il commento su `tipoTitolare` sopra. Righe di un altro
+  // tipo (es. un revisore persona fisica storico, mentre l'assetto
+  // corrente è "Società di revisione legale") restano nel database, non
+  // spariscono: semplicemente non compaiono in QUESTA tabella.
+  const incarichiFiltrati =
+    tipoTitolare === "GIURIDICA"
+      ? incarichi.filter((i) => i.persona_giuridica !== null)
+      : tipoTitolare === "FISICA"
+        ? incarichi.filter((i) => i.persona !== null)
+        : incarichi;
   const addTrigger = sectionKey ? (
-    <IncaricoFormDialog ruoli={ruoli} onSaved={carica} trigger={<AddRowButton icon={PlusIcon} label={addRowLabel} />} />
+    <IncaricoFormDialog
+      ruoli={ruoli}
+      onSaved={carica}
+      caricheDisponibili={caricheOpzioni}
+      tipoTitolare={tipoTitolare === "GIURIDICA" ? "GIURIDICA" : undefined}
+      trigger={<AddRowButton icon={PlusIcon} label={addRowLabel} />}
+    />
   ) : (
     <IncaricoFormDialog ruoli={ruoli} onSaved={carica} trigger={<AddRowButton icon={Icon} />} />
   );
+
+  // § Correzione 14: righe segnaposto per i posti del collegio sindacale
+  // ancora non occupati — solo UI, mai righe reali nel database (§
+  // decisione esplicita, AskUserQuestion: `PerIncarico.persona_id` NOT
+  // NULL rende impossibile crearle davvero). Ognuna apre lo stesso
+  // dialogo "Aggiungi riga" con ruolo/carica già preselezionati.
+  const ruoloSindaco = collegioSindacale ? ruoli.find((r) => r.codice === "SINDACO") : undefined;
+  const segnaposto =
+    collegioSindacale && ruoloSindaco
+      ? CARICHE_COLLEGIO_SINDACALE.flatMap((c) => {
+          const cap = capCaricaCollegio(c.codice, collegioSindacale.sindaciEffettivi);
+          if (cap === null) return [];
+          const occupati = incarichi.filter(
+            (i) => i.ruolo.codice === "SINDACO" && valoreCaratteristica(i, "A28") === c.codice,
+          ).length;
+          return Array.from({ length: Math.max(cap - occupati, 0) }, (_, idx) => ({ carica: c, key: `${c.codice}-${idx}` }));
+        })
+      : [];
+  // § Correzione 14: il conteggio del titolo segue la composizione
+  // prescritta (sindaciEffettivi + 2), non le sole righe già compilate —
+  // coerente con "Numero componenti" della sezione, che conta allo stesso
+  // modo. Invariato (righe compilate, ora filtrate per tipo di titolare §
+  // Correzione 16) per ogni altra card/configurazione.
+  const numeroComponenti =
+    collegioSindacale?.sindaciEffettivi != null ? collegioSindacale.sindaciEffettivi + 2 : incarichiFiltrati.length;
+  const vuoto = incarichiFiltrati.length === 0 && segnaposto.length === 0;
   return (
-    <DataTableCard title={titolo} count={incarichi.length} editing={editingScheda} addTrigger={addTrigger}>
-      {incarichi.length === 0 ? (
+    <DataTableCard title={titolo} count={numeroComponenti} editing={editingScheda} addTrigger={addTrigger}>
+      {vuoto ? (
         <EmptyTableMessage>{etichettaVuoto}</EmptyTableMessage>
       ) : (
         <Table>
@@ -160,18 +290,13 @@ export function IncaricoTable({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {incarichi.map((incarico) => {
+                {incarichiFiltrati.map((incarico) => {
                   const statoCarica = valoreCaratteristica(incarico, "A25");
-                  const nomeIncarico = `${incarico.ruolo.denominazione} ${incarico.persona.cognome} ${incarico.persona.nome}`;
+                  const nomeIncarico = `${incarico.ruolo.denominazione} ${nomeTitolare(incarico)}`;
                   return (
                     <TableRow key={incarico.id}>
                       <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium text-foreground">
-                            {incarico.persona.cognome} {incarico.persona.nome}
-                          </span>
-                          <span className="text-xs text-muted-foreground">{incarico.persona.codice_fiscale}</span>
-                        </div>
+                        <CellaTitolare incarico={incarico} />
                       </TableCell>
                       <TableCell className="text-center">{incarico.ruolo.denominazione}</TableCell>
                       <TableCell className="text-center">{primaData(incarico, ["A49", "A01"])}</TableCell>
@@ -227,22 +352,17 @@ export function IncaricoTable({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {incarichi.map((incarico) => {
+                {incarichiFiltrati.map((incarico) => {
                   const statoCarica = valoreCaratteristica(incarico, "A25");
                   const durata = valoreCaratteristica(incarico, "A29");
-                  const nomeIncarico = `${incarico.ruolo.denominazione} ${incarico.persona.cognome} ${incarico.persona.nome}`;
+                  const nomeIncarico = `${incarico.ruolo.denominazione} ${nomeTitolare(incarico)}`;
                   return (
                     <TableRow key={incarico.id}>
                       <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium text-foreground">
-                            {incarico.persona.cognome} {incarico.persona.nome}
-                          </span>
-                          <span className="text-xs text-muted-foreground">{incarico.persona.codice_fiscale}</span>
-                        </div>
+                        <CellaTitolare incarico={incarico} />
                       </TableCell>
                       <TableCell className="text-center">{incarico.ruolo.denominazione}</TableCell>
-                      <TableCell className="text-center">{incarico.ruolo.denominazione}</TableCell>
+                      <TableCell className="text-center">{etichettaCarica(incarico)}</TableCell>
                       <TableCell className="text-center">{primaData(incarico, ["A49", "A01"])}</TableCell>
                       <TableCell className="text-center">{durata ?? "—"}</TableCell>
                       <TableCell className="text-center">{statoCarica ?? "—"}</TableCell>
@@ -262,6 +382,7 @@ export function IncaricoTable({
                           ruoli={ruoli}
                           incarico={incarico}
                           onSaved={carica}
+                          tipoTitolare={tipoTitolare === "GIURIDICA" ? "GIURIDICA" : undefined}
                           trigger={
                             <Button variant="ghost" size="icon" aria-label="Modifica">
                               <PencilIcon className="size-4" />
@@ -275,6 +396,33 @@ export function IncaricoTable({
                     </TableRow>
                   );
                 })}
+                {segnaposto.map(({ carica: opzioneCarica, key }) => (
+                  <TableRow key={key} className="text-muted-foreground">
+                    <TableCell className="italic">Posto libero</TableCell>
+                    <TableCell className="text-center">{ruoloSindaco?.denominazione ?? "Sindaco"}</TableCell>
+                    <TableCell className="text-center">{opzioneCarica.etichetta}</TableCell>
+                    <TableCell className="text-center">—</TableCell>
+                    <TableCell className="text-center">—</TableCell>
+                    <TableCell className="text-center">—</TableCell>
+                    <TableCell className="text-center">—</TableCell>
+                    <TableCell className="flex justify-end gap-1">
+                      {ruoloSindaco && (
+                        <IncaricoFormDialog
+                          ruoli={ruoli}
+                          onSaved={carica}
+                          caricheDisponibili={caricheOpzioni}
+                          caricaPredefinita={opzioneCarica.codice}
+                          ruoloIdPredefinito={ruoloSindaco.id}
+                          trigger={
+                            <Button variant="ghost" size="icon" aria-label={`Aggiungi ${opzioneCarica.etichetta.toLowerCase()}`}>
+                              <PlusIcon className="size-4" />
+                            </Button>
+                          }
+                        />
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </>
           )}

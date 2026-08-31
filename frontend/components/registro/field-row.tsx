@@ -18,7 +18,8 @@ function formattaValore(field: FieldState): string {
   if (field.dataType === "date") return formatDate(field.value);
   if (field.dataType === "importo") return formatDecimal(field.value);
   if (field.dataType === "boolean") return field.value === "true" ? "Sì" : field.value === "false" ? "No" : "—";
-  if (field.dataType === "catalogo") return field.options?.find((o) => o.code === field.value)?.label ?? field.value;
+  if (field.dataType === "catalogo" || field.dataType === "scelta")
+    return field.options?.find((o) => o.code === field.value)?.label ?? field.value;
   return field.value;
 }
 
@@ -216,7 +217,7 @@ export function FieldRow({
             <SelectItem value="false">No</SelectItem>
           </SelectContent>
         </Select>
-      ) : field.dataType === "catalogo" ? (
+      ) : field.dataType === "catalogo" || field.dataType === "scelta" ? (
         <Select
           value={draftValue ? draftValue : "__non_disponibile__"}
           disabled={disabled}

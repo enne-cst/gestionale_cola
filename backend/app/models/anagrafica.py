@@ -556,6 +556,13 @@ class AnaOrganiControllo(Base):
     durata_incarico_data_bilancio: Mapped[date | None] = mapped_column(Date)
     durata_incarico_descrizione: Mapped[str | None] = mapped_column(Text)
 
+    # Correzione 14 (configurazione "Collegio sindacale"): solo 3 o 5,
+    # vincolo di dominio (CHECK in 043_ana_organi_controllo_collegio_sindacale.sql),
+    # non una classificazione estendibile — mai un catalogo. "Sindaci
+    # supplenti" (sempre 2) e "Numero componenti" (sindaci_effettivi + 2)
+    # non hanno colonna propria, calcolati lato backend.
+    sindaci_effettivi: Mapped[int | None] = mapped_column(Integer)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

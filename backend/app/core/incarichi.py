@@ -36,7 +36,14 @@ from sqlalchemy.orm import Session
 from app.core.deps import AziendaContext
 from app.core.registro_campi import STATO_API_TO_DB, STATO_DB_TO_API, registra_audit
 from app.models.anagrafica import AnaAmministrazioneControllo, AnaOrganiControllo, CatAssettoControllo, CatOrganoAmministrativo
-from app.models.personale import CatCaratteristicaIncarico, CatRuolo, PerIncarico, PerIncaricoValore, RelRuoloCaratteristica
+from app.models.personale import (
+    AnaPersone,
+    CatCaratteristicaIncarico,
+    CatRuolo,
+    PerIncarico,
+    PerIncaricoValore,
+    RelRuoloCaratteristica,
+)
 from app.models.sistema import SysRegistroStatoCampi, SysUtente
 from app.schemas.registro_campi import VerificationStatus
 
@@ -369,6 +376,316 @@ def verifica_sindaco_unico_disponibile(db: Session, azienda_id: UUID, ruolo_codi
             },
         )
     cessa_incarichi(db, attivi)
+
+
+# ===========================================================================
+# Revisore legale persona fisica: sostituzione confermata di un incarico
+# già in carica (Correzione 15) — stesso identico pattern di
+# `verifica_sindaco_unico_disponibile` sopra, per il ruolo REVISORE_LEGALE
+# e l'assetto "Revisore legale persona fisica".
+# ===========================================================================
+
+
+def verifica_revisore_legale_persona_fisica_disponibile(
+    db: Session, azienda_id: UUID, ruolo_codice: str, *, confermata: bool
+) -> None:
+    """§ Correzione 15: quando l'assetto di controllo in carica è "Revisore
+    legale persona fisica" e ne esiste già uno attivo, un nuovo inserimento
+    è una SOSTITUZIONE ("non permettere due revisori persone fisiche
+    contemporaneamente in carica" + "gestire un nuovo inserimento come
+    sostituzione quando esiste già un revisore attivo", § testo esplicito)
+    — stesso pattern a due tentativi di `verifica_sindaco_unico_disponibile`
+    (Correzione 13): richiede conferma esplicita del chiamante e, solo
+    allora, cessa il precedente (A02 = oggi) nella stessa transazione della
+    creazione del nuovo incarico.
+
+    No-op per ogni ruolo diverso da REVISORE_LEGALE e per ogni assetto
+    diverso da "Revisore legale persona fisica" (compreso "non
+    disponibile"). Conta solo i titolari persona FISICA (§ Correzione 16,
+    che introduce lo stesso ruolo REVISORE_LEGALE anche per un titolare
+    persona giuridica, "Società di revisione legale" — i due tipi di
+    titolare non competono tra loro per lo stesso conteggio, ciascuno ha la
+    propria configurazione)."""
+    if ruolo_codice != "REVISORE_LEGALE":
+        return
+
+    organi_controllo = db.scalars(
+        select(AnaOrganiControllo).where(AnaOrganiControllo.azienda_id == azienda_id)
+    ).first()
+    if organi_controllo is None or organi_controllo.assetto_controllo_id is None:
+        return
+    assetto = db.get(CatAssettoControllo, organi_controllo.assetto_controllo_id)
+    if assetto is None or assetto.codice != "REVISORE_LEGALE_PERSONA_FISICA":
+        return
+
+    attivi = [i for i in _incarichi_attivi(db, azienda_id, frozenset({"REVISORE_LEGALE"})) if i.persona_id is not None]
+    if not attivi:
+        return
+    if not confermata:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail={
+                "code": "SOSTITUZIONE_REVISORE_LEGALE_RICHIESTA",
+                "message": (
+                    "È già presente un revisore legale persona fisica in carica. Confermando, l'incarico "
+                    "esistente verrà cessato (data di cessazione impostata a oggi) e sostituito da questo "
+                    "nuovo incarico."
+                ),
+            },
+        )
+    cessa_incarichi(db, attivi)
+
+
+# ===========================================================================
+# Società di revisione legale: sostituzione confermata di un incarico già
+# in carica (Correzione 16) — stesso identico pattern di
+# `verifica_revisore_legale_persona_fisica_disponibile` sopra, per un
+# titolare persona GIURIDICA invece che fisica.
+# ===========================================================================
+
+
+def verifica_societa_revisione_disponibile(db: Session, azienda_id: UUID, ruolo_codice: str, *, confermata: bool) -> None:
+    """§ Correzione 16: quando l'assetto di controllo in carica è "Società
+    di revisione legale" e ne esiste già una attiva, un nuovo inserimento è
+    una SOSTITUZIONE E STORICIZZAZIONE del precedente ("non deve consentire
+    la presenza contemporanea di due società di revisione incaricate... un
+    nuovo inserimento deve essere gestito come sostituzione e
+    storicizzazione del precedente", § testo esplicito) — stesso pattern a
+    due tentativi già usato per Sindaco unico/Revisore legale persona
+    fisica.
+
+    No-op per ogni ruolo diverso da REVISORE_LEGALE e per ogni assetto
+    diverso da "Società di revisione legale" (compreso "non disponibile").
+    Conta solo i titolari persona GIURIDICA — vedi nota simmetrica in
+    `verifica_revisore_legale_persona_fisica_disponibile`."""
+    if ruolo_codice != "REVISORE_LEGALE":
+        return
+
+    organi_controllo = db.scalars(
+        select(AnaOrganiControllo).where(AnaOrganiControllo.azienda_id == azienda_id)
+    ).first()
+    if organi_controllo is None or organi_controllo.assetto_controllo_id is None:
+        return
+    assetto = db.get(CatAssettoControllo, organi_controllo.assetto_controllo_id)
+    if assetto is None or assetto.codice != "SOCIETA_REVISIONE_LEGALE":
+        return
+
+    attivi = [
+        i for i in _incarichi_attivi(db, azienda_id, frozenset({"REVISORE_LEGALE"})) if i.persona_giuridica_id is not None
+    ]
+    if not attivi:
+        return
+    if not confermata:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail={
+                "code": "SOSTITUZIONE_SOCIETA_REVISIONE_RICHIESTA",
+                "message": (
+                    "È già presente una società di revisione legale incaricata. Confermando, l'incarico "
+                    "esistente verrà cessato (data di cessazione impostata a oggi) e sostituito da questo "
+                    "nuovo incarico."
+                ),
+            },
+        )
+    cessa_incarichi(db, attivi)
+
+
+# ===========================================================================
+# Collegio sindacale: carica per riga (Presidente/Sindaco effettivo/Sindaco
+# supplente) e sostituzione confermata quando una carica è al completo
+# (Correzione 14)
+# ===========================================================================
+#
+# Nessuna nuova caratteristica: riusa A28 "Tipologia di incarico", già
+# associata al ruolo SINDACO (R033) nel catalogo condiviso ma mai
+# valorizzata finora (§ nota storica in registro_campi.py di
+# `correzione09-colonne-tabella-amministratori`: "A28 CATALOGO condiviso
+# con altri ruoli, valori NULL — valorizzarlo avrebbe contaminato altri usi
+# del motore incarichi"). Qui non si tocca `valori_ammessi` di A28 (resta
+# NULL, condiviso e senza restrizioni per tutti gli altri ruoli/usi): il
+# menu a 3 opzioni fisse (Presidente/Sindaco effettivo/Sindaco supplente)
+# è imposto solo lato frontend, nel form "Aggiungi riga" della card
+# Sindaci quando l'assetto è "Collegio sindacale" — nessuna contaminazione
+# di altri usi di A28.
+CARICA_PRESIDENTE = "PRESIDENTE"
+CARICA_SINDACO_EFFETTIVO = "SINDACO_EFFETTIVO"
+CARICA_SINDACO_SUPPLENTE = "SINDACO_SUPPLENTE"
+CARICHE_COLLEGIO_SINDACALE = frozenset({CARICA_PRESIDENTE, CARICA_SINDACO_EFFETTIVO, CARICA_SINDACO_SUPPLENTE})
+ETICHETTE_CARICHE_COLLEGIO_SINDACALE = {
+    CARICA_PRESIDENTE: "Presidente",
+    CARICA_SINDACO_EFFETTIVO: "Sindaco effettivo",
+    CARICA_SINDACO_SUPPLENTE: "Sindaco supplente",
+}
+
+
+def _incarichi_attivi_con_carica(db: Session, azienda_id: UUID, carica_codice: str) -> list[PerIncarico]:
+    """Incarichi SINDACO attivi (§ stessa nozione di "attivo" di
+    `_incarichi_attivi`: senza data di cessazione A02) la cui
+    caratteristica A28 vale `carica_codice` — ordinati per data di
+    creazione (usato sia per contare gli occupanti di uno slot sia per
+    scegliere, in modo deterministico, quali cessare quando si riduce
+    "Sindaci effettivi", § `verifica_riduzione_sindaci_effettivi`)."""
+    attivi = _incarichi_attivi(db, azienda_id, frozenset({"SINDACO"}))
+    if not attivi:
+        return []
+    ids = [i.id for i in attivi]
+    con_carica = set(
+        db.scalars(
+            select(PerIncaricoValore.incarico_id)
+            .join(CatCaratteristicaIncarico, CatCaratteristicaIncarico.id == PerIncaricoValore.caratteristica_id)
+            .where(
+                PerIncaricoValore.incarico_id.in_(ids),
+                CatCaratteristicaIncarico.codice == "A28",
+                PerIncaricoValore.valore_testo == carica_codice,
+            )
+        ).all()
+    )
+    return sorted((i for i in attivi if i.id in con_carica), key=lambda i: i.created_at)
+
+
+def _cap_carica_collegio_sindacale(carica_codice: str, sindaci_effettivi: int | None) -> int | None:
+    """Posti previsti per una carica, dato "Sindaci effettivi" (3 o 5): il
+    presidente è compreso nel numero dei sindaci effettivi (§ vincolo
+    esplicito), quindi gli altri "Sindaco effettivo" sono
+    `sindaci_effettivi - 1`; i supplenti sono sempre 2, indipendenti dalla
+    scelta. `None` se "Sindaci effettivi" non è ancora stato scelto (nessun
+    vincolo applicabile finché la configurazione non è completa)."""
+    if carica_codice == CARICA_PRESIDENTE:
+        return 1
+    if carica_codice == CARICA_SINDACO_SUPPLENTE:
+        return 2
+    if carica_codice == CARICA_SINDACO_EFFETTIVO:
+        return max(sindaci_effettivi - 1, 0) if sindaci_effettivi is not None else None
+    return None
+
+
+def verifica_carica_collegio_sindacale_disponibile(
+    db: Session,
+    azienda_id: UUID,
+    ruolo_codice: str,
+    *,
+    carica_codice: str | None,
+    sostituisci_incarico_id: UUID | None,
+) -> None:
+    """§ Correzione 14: quando l'assetto di controllo in carica è "Collegio
+    sindacale", ogni carica (Presidente/Sindaco effettivo/Sindaco
+    supplente) ha un numero di posti prescritto dalla scelta "Sindaci
+    effettivi" — "il pulsante 'Aggiungi riga' ... non deve consentire di
+    superare la composizione prevista. Se tutte le righe sono già
+    presenti, l'inserimento di una nuova persona deve essere gestito come
+    sostituzione di un componente" (§ testo esplicito).
+
+    A differenza di "Sindaco unico" (al più un titolare possibile, la
+    conferma basta da sola), qui più persone possono già occupare la
+    stessa carica: `sostituisci_incarico_id` indica QUALE cessare,
+    scelto dall'utente in un secondo tentativo dopo aver visto l'elenco
+    dei titolari attuali (§ decisione esplicita, non "il primo trovato").
+
+    No-op per ogni ruolo diverso da SINDACO e per ogni assetto diverso da
+    "Collegio sindacale"."""
+    if ruolo_codice != "SINDACO":
+        return
+
+    organi_controllo = db.scalars(
+        select(AnaOrganiControllo).where(AnaOrganiControllo.azienda_id == azienda_id)
+    ).first()
+    if organi_controllo is None or organi_controllo.assetto_controllo_id is None:
+        return
+    assetto = db.get(CatAssettoControllo, organi_controllo.assetto_controllo_id)
+    if assetto is None or assetto.codice != "COLLEGIO_SINDACALE":
+        return
+
+    if carica_codice not in CARICHE_COLLEGIO_SINDACALE:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Specifica la carica (Presidente, Sindaco effettivo o Sindaco supplente) per aggiungere un "
+            "componente del collegio sindacale.",
+        )
+    cap = _cap_carica_collegio_sindacale(carica_codice, organi_controllo.sindaci_effettivi)
+    if cap is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "Seleziona prima il numero dei sindaci effettivi del collegio."
+        )
+
+    attivi = _incarichi_attivi_con_carica(db, azienda_id, carica_codice)
+    if len(attivi) < cap:
+        return
+
+    if sostituisci_incarico_id is not None:
+        target = next((i for i in attivi if i.id == sostituisci_incarico_id), None)
+        if target is None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "L'incarico da sostituire non è più valido: ricarica la pagina e riprova.",
+            )
+        cessa_incarichi(db, [target])
+        return
+
+    persone = {
+        p.id: p for p in db.scalars(select(AnaPersone).where(AnaPersone.id.in_([i.persona_id for i in attivi]))).all()
+    }
+    raise HTTPException(
+        status.HTTP_409_CONFLICT,
+        detail={
+            "code": "SOSTITUZIONE_CARICA_COLLEGIO_RICHIESTA",
+            "message": (
+                f"Tutti i posti per \"{ETICHETTE_CARICHE_COLLEGIO_SINDACALE[carica_codice]}\" sono già occupati. "
+                "Scegli chi sostituire: l'incarico esistente verrà cessato (data di cessazione impostata a oggi) "
+                "e sostituito da questo nuovo incarico."
+            ),
+            "titolari": [
+                {"id": str(i.id), "nome": f"{persone[i.persona_id].cognome} {persone[i.persona_id].nome}"}
+                for i in attivi
+                if i.persona_id in persone
+            ],
+        },
+    )
+
+
+def verifica_riduzione_sindaci_effettivi(
+    db: Session,
+    azienda_id: UUID,
+    *,
+    precedente_effettivi: int | None,
+    nuovo_effettivi: int | None,
+    confermata: bool,
+) -> None:
+    """§ Correzione 14: "Passando da 5 a 3, eventuali righe già compilate
+    non devono essere eliminate senza conferma e corretta cessazione o
+    storicizzazione degli incarichi" — solo la carica "Sindaco effettivo"
+    è interessata (Presidente resta 1, Sindaco supplente resta 2 a
+    prescindere dalla scelta). Se la riduzione lascerebbe più titolari
+    attivi di quanti posti restano, richiede conferma esplicita (stesso
+    pattern a due tentativi di `verifica_transizione_nessun_organo_controllo`,
+    § Correzione 12) e, solo allora, cessa gli eccedenti — i più recenti
+    per anzianità di nomina (`_incarichi_attivi_con_carica` ordina per
+    data di creazione, si mantengono i primi `nuovo_cap`), nella stessa
+    transazione del salvataggio della sezione.
+
+    No-op se non è una vera riduzione (valore nuovo assente, precedente
+    assente/uguale/maggiore)."""
+    if nuovo_effettivi is None or precedente_effettivi is None or nuovo_effettivi >= precedente_effettivi:
+        return
+
+    nuovo_cap = max(nuovo_effettivi - 1, 0)
+    attivi = _incarichi_attivi_con_carica(db, azienda_id, CARICA_SINDACO_EFFETTIVO)
+    eccedenti = attivi[nuovo_cap:]
+    if not eccedenti:
+        return
+    if not confermata:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail={
+                "code": "RIDUZIONE_SINDACI_EFFETTIVI_RICHIESTA",
+                "message": (
+                    f"Il collegio ha già {len(attivi)} sindaci effettivi in carica. Riducendo a {nuovo_effettivi}, "
+                    f"{len(eccedenti)} di loro verranno cessati (data di cessazione impostata a oggi). Vuoi "
+                    "continuare?"
+                ),
+                "count": len(eccedenti),
+            },
+        )
+    cessa_incarichi(db, eccedenti)
 
 
 # ===========================================================================

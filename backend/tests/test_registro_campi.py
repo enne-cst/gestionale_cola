@@ -201,11 +201,34 @@ class TestSezioniRegistrate:
         # catalogo) e "durata_incarico_tipo" (a catalogo) con i suoi due
         # campi condizionali "durata_incarico_data_bilancio"/
         # "durata_incarico_descrizione".
+        # Correzione 14: seconda configurazione definita, "Collegio
+        # sindacale" — "numero_componenti_collegio" (derivato) rimpiazza
+        # "numero_componenti" per questo assetto, "sindaci_effettivi" (a
+        # scelta fissa, non catalogo) e "sindaci_supplenti" (derivato,
+        # costante) sono propri; funzioni/revisione/durata sono condivisi
+        # con "Sindaco unico" (nessuna chiave nuova per quei tre).
+        # Correzione 15: terza configurazione definita, "Revisore legale
+        # persona fisica" — "numero_componenti_revisore" (derivato,
+        # sincronizzato con la tabella come "Sindaco unico") rimpiazza
+        # "numero_componenti" per questo assetto; "Funzioni dell'organo
+        # interno" resta condizionato solo a Sindaco unico/Collegio
+        # sindacale (nessun organo interno qui), mentre
+        # "revisione_legale_affidata_a"/"durata_incarico_tipo" si estendono
+        # anche a questo assetto (nessuna chiave nuova per quei due).
+        # Correzione 16: quarta configurazione definita, "Società di
+        # revisione legale" — stesso identico schema di "Revisore legale
+        # persona fisica", "numero_componenti_societa" (derivato, per il
+        # titolare persona giuridica) è l'unica chiave propria.
         indice = _indice(SEZIONE_ORGANI_CONTROLLO)
         assert indice.chiavi == {
             "assetto_controllo_in_carica",
             "numero_componenti_organo",
+            "numero_componenti_collegio",
+            "numero_componenti_revisore",
+            "numero_componenti_societa",
             "numero_componenti",
+            "sindaci_effettivi",
+            "sindaci_supplenti",
             "funzioni_organo_interno",
             "revisione_legale_affidata_a",
             "titolo_nomina",
@@ -213,10 +236,26 @@ class TestSezioniRegistrate:
             "durata_incarico_data_bilancio",
             "durata_incarico_descrizione",
         }
-        assert indice.derivate == {"numero_componenti_organo"}
-        # § Correzione 13 punto esplicito: "Numero componenti" della
-        # configurazione "Sindaco unico" non è modificabile.
+        assert indice.derivate == {
+            "numero_componenti_organo",
+            "numero_componenti_collegio",
+            "sindaci_supplenti",
+            "numero_componenti_revisore",
+            "numero_componenti_societa",
+        }
+        # § Correzione 13/14/15/16 punto esplicito: "Numero componenti" non
+        # è modificabile in nessuna delle quattro configurazioni definite,
+        # né lo è "Sindaci supplenti" (sempre 2, per definizione).
         assert "numero_componenti_organo" not in indice.scrivibili
+        assert "numero_componenti_collegio" not in indice.scrivibili
+        assert "numero_componenti_revisore" not in indice.scrivibili
+        assert "numero_componenti_societa" not in indice.scrivibili
+        assert "sindaci_supplenti" not in indice.scrivibili
+        # § Correzione 14: "Sindaci effettivi" è a scelta fissa (3 o 5), non
+        # un catalogo — verificato sia il tipo che le opzioni esatte.
+        assert indice.tipo["sindaci_effettivi"] == "scelta"
+        assert indice.opzioni_fisse["sindaci_effettivi"] == (("3", "3"), ("5", "5"))
+        assert "sindaci_effettivi" in indice.scrivibili
 
     def test_catalogo_elenco_soci_estremi(self):
         indice = _indice(SEZIONE_ELENCO_SOCI_ESTREMI)
@@ -267,7 +306,7 @@ class TestSezioniRegistrate:
 
     def test_totale_applicabile_su_tutte_le_sezioni(self):
         # Stessa somma che `valuta_qualita`/`riepilogo_sezioni` usano per
-        # `totalApplicable` (22 + 4 + 3 + 15 + 9 + 5 + 12 + 12, il quarto per
+        # `totalApplicable` (22 + 4 + 3 + 15 + 14 + 5 + 12 + 12, il quarto per
         # "amministrazione-controllo": 6 campi originari, 11 dopo la
         # correzione 05 ("Amministratore unico"), 13 dopo la correzione 06
         # ("Consiglio di amministrazione", +2 campi propri), 14 dopo la
@@ -276,11 +315,17 @@ class TestSezioniRegistrate:
         # pluripersonale disgiuntiva", +1 campo proprio, ultima
         # configurazione dell'organo), il quinto per "organi-controllo"
         # (Correzione 11: 3 campi, Correzione 13 "Sindaco unico": +6 campi
-        # propri = 9), il penultimo per "elenco-soci-estremi" dopo la
-        # correzione 035, gli ultimi due per "sede"/"statuto", pilota su
-        # ana_sede_rev2/ana_statuto_rev2: un cambiamento qui e' un
-        # promemoria per aggiornare quel numero consapevolmente.
-        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 82
+        # propri = 9, Correzione 14 "Collegio sindacale": +3 campi propri
+        # "numero_componenti_collegio"/"sindaci_effettivi"/
+        # "sindaci_supplenti" = 12, Correzione 15 "Revisore legale persona
+        # fisica": +1 campo proprio "numero_componenti_revisore" = 13,
+        # Correzione 16 "Società di revisione legale": +1 campo proprio
+        # "numero_componenti_societa" = 14), il penultimo per
+        # "elenco-soci-estremi" dopo la correzione 035, gli ultimi due per
+        # "sede"/"statuto", pilota su ana_sede_rev2/ana_statuto_rev2: un
+        # cambiamento qui e' un promemoria per aggiornare quel numero
+        # consapevolmente.
+        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 87
 
 
 class TestValidaCampo:

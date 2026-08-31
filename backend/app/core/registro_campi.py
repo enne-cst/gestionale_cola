@@ -130,6 +130,16 @@ class CampoDef:
     # punto 4), a differenza di "Titolari di cariche" che resta >= 0 come
     # tutti gli altri campi numerici (§ punto 10, "non negativi").
     valore_minimo: int | None = None
+    # Solo per data_type "scelta": opzioni fisse (codice, etichetta) scritte
+    # qui invece che in un catalogo (§ Correzione 14, "Sindaci effettivi":
+    # solo 3 o 5, un vincolo di struttura, non una classificazione
+    # estendibile — "Non è necessaria una tabella di catalogo"). A
+    # differenza di un campo `catalogo` (`CampoCatalogo`, chiave esterna a
+    # una tabella), la colonna di dominio qui è un valore diretto (es.
+    # INTEGER): stesso trattamento di scrittura di "number", ma con un menu
+    # a scelta invece di un campo libero lato frontend (`options` valorizzato
+    # da queste coppie invece che da una query catalogo, § `costruisci_sezione`).
+    opzioni_fisse: tuple[tuple[str, str], ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -187,6 +197,8 @@ class _IndiceCampi:
     # Solo le chiavi con una soglia diversa dal default (0); vedi
     # `CampoDef.valore_minimo`.
     minimi: dict[str, int]
+    # Solo le chiavi con data_type "scelta"; vedi `CampoDef.opzioni_fisse`.
+    opzioni_fisse: dict[str, tuple[tuple[str, str], ...]]
 
 
 def _indice(sezione: SezioneRegistro) -> _IndiceCampi:
@@ -195,8 +207,15 @@ def _indice(sezione: SezioneRegistro) -> _IndiceCampi:
     chiavi = set(label)
     derivate = {c.key for g in sezione.gruppi for c in g.campi if c.derived}
     minimi = {c.key: c.valore_minimo for g in sezione.gruppi for c in g.campi if c.valore_minimo is not None}
+    opzioni_fisse = {c.key: c.opzioni_fisse for g in sezione.gruppi for c in g.campi if c.opzioni_fisse is not None}
     return _IndiceCampi(
-        label=label, tipo=tipo, chiavi=chiavi, derivate=derivate, scrivibili=chiavi - derivate, minimi=minimi
+        label=label,
+        tipo=tipo,
+        chiavi=chiavi,
+        derivate=derivate,
+        scrivibili=chiavi - derivate,
+        minimi=minimi,
+        opzioni_fisse=opzioni_fisse,
     )
 
 
@@ -270,6 +289,14 @@ def valida_campo(sezione: SezioneRegistro, campo: str, valore: str | None, db: S
             return "Usa il codice valuta ISO a 3 lettere maiuscole (es. EUR)"
     elif tipo == "boolean":
         if valore not in ("true", "false"):
+            return "Valore non valido"
+    elif tipo == "scelta":
+        # § Correzione 14: opzioni fisse scritte nel CampoDef, non in un
+        # catalogo (es. "Sindaci effettivi": solo 3 o 5) — stessa idea di
+        # `campi_catalogo` ma senza tabella/FK, quindi validata qui invece
+        # che con una query.
+        opzioni = indice.opzioni_fisse.get(campo)
+        if opzioni is not None and valore not in {codice for codice, _ in opzioni}:
             return "Valore non valido"
     return None
 
@@ -396,6 +423,89 @@ def _numero_componenti_sindaco_unico(db: Session, azienda_id: UUID) -> str | Non
         )
     )
     return str(numero or 0)
+
+
+def _sindaci_supplenti_collegio_sindacale(db: Session, azienda_id: UUID) -> str | None:
+    """"Sindaci supplenti" della configurazione "Collegio sindacale" (§
+    Correzione 14): nessuna colonna propria, sempre 2 per definizione del
+    modello collegiale — una costante, stessa costruzione di
+    `_numero_componenti_amministratore_unico` (non un conteggio reale come
+    `_numero_componenti_sindaco_unico`: qui il numero non dipende da quante
+    righe sono già state compilate)."""
+    return "2"
+
+
+def _numero_componenti_revisore_legale_persona_fisica(db: Session, azienda_id: UUID) -> str | None:
+    """"Numero componenti" della configurazione "Revisore legale persona
+    fisica" (§ Correzione 15): stessa costruzione di
+    `_numero_componenti_sindaco_unico` (conta davvero l'incarico attivo,
+    "rimanere sincronizzato con l'unica riga della tabella" § testo
+    esplicito) — qui per il ruolo REVISORE_LEGALE invece di SINDACO. Chiave
+    di campo propria (`numero_componenti_revisore`) invece di riusare
+    "numero_componenti_organo": stesso pattern già seguito da "Collegio
+    sindacale" (`numero_componenti_collegio`), una chiave per
+    configurazione, mai una condivisa tra ruoli diversi. Conta solo i
+    titolari persona FISICA (§ Correzione 16, stesso ruolo REVISORE_LEGALE
+    anche per un titolare persona giuridica — conteggi indipendenti, vedi
+    `_numero_componenti_societa_revisione_legale`)."""
+    sotto_query_cessati = (
+        select(PerIncaricoValore.incarico_id)
+        .join(CatCaratteristicaIncarico, CatCaratteristicaIncarico.id == PerIncaricoValore.caratteristica_id)
+        .where(CatCaratteristicaIncarico.codice == "A02", PerIncaricoValore.valore_data.is_not(None))
+    )
+    numero = db.scalar(
+        select(func.count())
+        .select_from(PerIncarico)
+        .join(CatRuolo, CatRuolo.id == PerIncarico.ruolo_id)
+        .where(
+            PerIncarico.azienda_id == azienda_id,
+            CatRuolo.codice == "REVISORE_LEGALE",
+            PerIncarico.persona_id.is_not(None),
+            PerIncarico.id.not_in(sotto_query_cessati),
+        )
+    )
+    return str(numero or 0)
+
+
+def _numero_componenti_societa_revisione_legale(db: Session, azienda_id: UUID) -> str | None:
+    """"Numero componenti" della configurazione "Società di revisione
+    legale" (§ Correzione 16): stessa costruzione di
+    `_numero_componenti_revisore_legale_persona_fisica` — "rappresentare un
+    unico soggetto giuridico incaricato... rimanere sincronizzato con
+    l'unica riga della tabella" (§ testo esplicito) — ma conta solo i
+    titolari persona GIURIDICA."""
+    sotto_query_cessati = (
+        select(PerIncaricoValore.incarico_id)
+        .join(CatCaratteristicaIncarico, CatCaratteristicaIncarico.id == PerIncaricoValore.caratteristica_id)
+        .where(CatCaratteristicaIncarico.codice == "A02", PerIncaricoValore.valore_data.is_not(None))
+    )
+    numero = db.scalar(
+        select(func.count())
+        .select_from(PerIncarico)
+        .join(CatRuolo, CatRuolo.id == PerIncarico.ruolo_id)
+        .where(
+            PerIncarico.azienda_id == azienda_id,
+            CatRuolo.codice == "REVISORE_LEGALE",
+            PerIncarico.persona_giuridica_id.is_not(None),
+            PerIncarico.id.not_in(sotto_query_cessati),
+        )
+    )
+    return str(numero or 0)
+
+
+def _numero_componenti_collegio_sindacale(db: Session, azienda_id: UUID) -> str | None:
+    """"Numero componenti" della configurazione "Collegio sindacale" (§
+    Correzione 14): sindaci effettivi (3 o 5, scelta dell'utente) + i 2
+    supplenti fissi — calcolato dalla struttura prescritta, non contando le
+    righe già compilate della tabella (a differenza di "Sindaco unico": qui
+    la tabella si riempie progressivamente fino alla capienza prevista, il
+    numero mostrato è quello a cui la composizione deve arrivare, non
+    quanto è già stato inserito). Vuoto finché "Sindaci effettivi" non è
+    stato scelto."""
+    riga = db.scalars(select(AnaOrganiControllo).where(AnaOrganiControllo.azienda_id == azienda_id)).first()
+    if riga is None or riga.sindaci_effettivi is None:
+        return None
+    return str(riga.sindaci_effettivi + 2)
 
 
 def _opzioni_catalogo(db: Session, catalogo: CampoCatalogo) -> list[FieldOptionRead]:
@@ -564,7 +674,18 @@ def costruisci_sezione(
             )
 
             catalogo = sezione.campi_catalogo.get(campo.key)
-            opzioni = _opzioni_catalogo(db, catalogo) if catalogo is not None else None
+            opzioni = (
+                _opzioni_catalogo(db, catalogo)
+                if catalogo is not None
+                # § Correzione 14: data_type "scelta" — opzioni fisse dal
+                # CampoDef, non da una query catalogo (vedi commento su
+                # `CampoDef.opzioni_fisse`).
+                else (
+                    [FieldOptionRead(code=codice, label=etichetta) for codice, etichetta in campo.opzioni_fisse]
+                    if campo.opzioni_fisse is not None
+                    else None
+                )
+            )
 
             campo_letto = FieldStateRead(
                 key=campo.key,
@@ -655,6 +776,11 @@ def applica_modifiche_sezione(
         elif tipo == "importo":
             setattr(row, campo, Decimal(nuovo) if nuovo is not None else None)
         elif tipo == "number":
+            setattr(row, campo, int(nuovo) if nuovo is not None else None)
+        elif tipo == "scelta":
+            # § Correzione 14: colonna diretta (es. INTEGER), non una FK —
+            # stessa scrittura di "number", il vincolo alle sole opzioni
+            # fisse è già stato verificato da `valida_campo`.
             setattr(row, campo, int(nuovo) if nuovo is not None else None)
         elif tipo == "boolean":
             setattr(row, campo, (nuovo == "true") if nuovo is not None else None)
@@ -1391,9 +1517,48 @@ _ASSETTI_CON_ORGANO_CONTROLLO = frozenset(
 # generico-in-attesa-di-definizione, è "impostazioni generali" fin dalla
 # Correzione 11.
 _SINDACO_UNICO = frozenset({"SINDACO_UNICO"})
-_ASSETTI_ORGANO_CONTROLLO_NON_DEFINITI = _ASSETTI_CON_ORGANO_CONTROLLO - _SINDACO_UNICO
+# Correzione 14: seconda configurazione definita, "Collegio sindacale" —
+# esce anch'essa da `_ASSETTI_ORGANO_CONTROLLO_NON_DEFINITI` e riceve i
+# propri campi. I 3 campi condivisi (funzioni dell'organo interno,
+# revisione legale affidata a, durata dell'incarico) usano ora
+# `_SINDACO_UNICO_O_COLLEGIO_SINDACALE`: stesso comportamento già definito
+# per "Sindaco unico" (§ richiesta esplicita "I valori e i campi
+# condizionali devono mantenere il comportamento definito per la
+# configurazione Sindaco unico"), nessun catalogo nuovo (§ richiesta
+# esplicita "Devono essere riutilizzati senza creare nuovi cataloghi").
+_COLLEGIO_SINDACALE = frozenset({"COLLEGIO_SINDACALE"})
+_SINDACO_UNICO_O_COLLEGIO_SINDACALE = _SINDACO_UNICO | _COLLEGIO_SINDACALE
+# Correzione 15: terza configurazione definita, "Revisore legale persona
+# fisica" — a differenza di Sindaco Unico/Collegio Sindacale (un organo
+# INTERNO, che può facoltativamente delegare la revisione legale
+# all'esterno), qui non c'è alcun organo interno: il revisore è l'intero
+# assetto, quindi "Funzioni dell'organo interno" non compare (resta
+# condizionato solo a `_SINDACO_UNICO_O_COLLEGIO_SINDACALE`, invariato),
+# mentre "Revisione legale affidata a"/"Durata dell'incarico" sono
+# condivisi (§ richiesta esplicita, stesso pattern di Correzione 14) ma
+# con un vincolo in più: per questo assetto il valore di "Revisione legale
+# affidata a" DEVE coincidere con l'assetto stesso, verificato da
+# `verifica_coerenza_affidatario_revisione_legale` al salvataggio — non
+# un semplice suggerimento come per gli altri due.
+_REVISORE_LEGALE_PERSONA_FISICA = frozenset({"REVISORE_LEGALE_PERSONA_FISICA"})
+# Correzione 16: quarta configurazione definita, "Società di revisione
+# legale" — stesso identico schema di "Revisore legale persona fisica"
+# (nessun organo interno, coerenza vincolante con "Revisione legale
+# affidata a"), qui per un titolare persona GIURIDICA (§
+# `verifica_societa_revisione_disponibile`/`ana_persone_giuridiche`)
+# invece che fisica.
+_SOCIETA_REVISIONE_LEGALE = frozenset({"SOCIETA_REVISIONE_LEGALE"})
+_ASSETTI_REVISORE_ESTERNO_STANDALONE = _REVISORE_LEGALE_PERSONA_FISICA | _SOCIETA_REVISIONE_LEGALE
+_ASSETTI_CON_REVISIONE_ESTERNA_CONDIVISA = _SINDACO_UNICO_O_COLLEGIO_SINDACALE | _ASSETTI_REVISORE_ESTERNO_STANDALONE
+_ASSETTI_ORGANO_CONTROLLO_NON_DEFINITI = (
+    _ASSETTI_CON_ORGANO_CONTROLLO - _SINDACO_UNICO_O_COLLEGIO_SINDACALE - _ASSETTI_REVISORE_ESTERNO_STANDALONE
+)
 _DURATA_FINO_APPROVAZIONE_BILANCIO = frozenset({"FINO_APPROVAZIONE_BILANCIO"})
 _DURATA_ALTRA = frozenset({"ALTRA_DURATA"})
+# "Sindaci effettivi": solo 3 o 5, opzioni fisse (§ CampoDef.opzioni_fisse)
+# non un catalogo — vincolo di struttura del collegio, non una
+# classificazione estendibile (§ richiesta esplicita dell'utente).
+_OPZIONI_SINDACI_EFFETTIVI: tuple[tuple[str, str], ...] = (("3", "3"), ("5", "5"))
 
 SEZIONE_ORGANI_CONTROLLO = SezioneRegistro(
     section_key="organi-controllo",
@@ -1403,6 +1568,10 @@ SEZIONE_ORGANI_CONTROLLO = SezioneRegistro(
     campo_completamento="assetto_controllo_in_carica",
     campi_derivati={
         "numero_componenti_organo": _numero_componenti_sindaco_unico,
+        "numero_componenti_collegio": _numero_componenti_collegio_sindacale,
+        "sindaci_supplenti": _sindaci_supplenti_collegio_sindacale,
+        "numero_componenti_revisore": _numero_componenti_revisore_legale_persona_fisica,
+        "numero_componenti_societa": _numero_componenti_societa_revisione_legale,
     },
     campi_catalogo={
         "assetto_controllo_in_carica": CampoCatalogo(
@@ -1439,23 +1608,78 @@ SEZIONE_ORGANI_CONTROLLO = SezioneRegistro(
                     dipende_da="assetto_controllo_in_carica", valori_dipendenza=_SINDACO_UNICO,
                 ),
                 CampoDef(
+                    # Correzione 14: "sincronizzato con le righe della
+                    # tabella" (§ punto esplicito, stesso testo di Sindaco
+                    # unico) — qui però calcolato dalla struttura prescritta
+                    # (sindaci effettivi + 2), non contando le righe già
+                    # compilate (che si riempiono progressivamente fino
+                    # alla capienza), § `_numero_componenti_collegio_sindacale`.
+                    "numero_componenti_collegio", "Numero componenti", "number",
+                    derived=True, derived_note="Allineato all'assetto selezionato e alle righe della tabella",
+                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_COLLEGIO_SINDACALE,
+                ),
+                CampoDef(
+                    # Correzione 15: come "numero_componenti_organo" di
+                    # Sindaco unico — "rimanere sincronizzato con l'unica
+                    # riga della tabella" (§ punto esplicito), qui per il
+                    # ruolo REVISORE_LEGALE. Impostato "automaticamente a 1"
+                    # (§ testo) nel senso che, una volta registrato il
+                    # revisore, il conteggio reale vale 1 per costruzione
+                    # (`verifica_revisore_legale_persona_fisica_disponibile`
+                    # impedisce un secondo incarico attivo in parallelo);
+                    # vale 0 finché la riga non è ancora stata compilata,
+                    # stesso comportamento di "Sindaco unico".
+                    "numero_componenti_revisore", "Numero componenti", "number",
+                    derived=True, derived_note="Allineato all'assetto selezionato e alle righe della tabella",
+                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_REVISORE_LEGALE_PERSONA_FISICA,
+                ),
+                CampoDef(
+                    # Correzione 16: stesso identico schema di
+                    # "numero_componenti_revisore" sopra, per il titolare
+                    # persona giuridica — "rappresentare un unico soggetto
+                    # giuridico incaricato" (§ testo esplicito), non il
+                    # numero di persone che lavorano per la società.
+                    "numero_componenti_societa", "Numero componenti", "number",
+                    derived=True, derived_note="Allineato all'assetto selezionato e alle righe della tabella",
+                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_SOCIETA_REVISIONE_LEGALE,
+                ),
+                CampoDef(
                     "numero_componenti", "Numero componenti", "number",
                     dipende_da="assetto_controllo_in_carica",
                     valori_dipendenza=_ASSETTI_ORGANO_CONTROLLO_NON_DEFINITI,
                 ),
                 CampoDef(
+                    # § Correzione 14: menu a due valori, non un catalogo (§
+                    # richiesta esplicita — "non è una classificazione
+                    # estendibile"). Il presidente è compreso nel numero
+                    # (verificato/applicato lato incarichi.py: 1 Presidente +
+                    # (effettivi-1) Sindaci effettivi + 2 Sindaci supplenti).
+                    "sindaci_effettivi", "Sindaci effettivi", "scelta",
+                    opzioni_fisse=_OPZIONI_SINDACI_EFFETTIVI,
+                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_COLLEGIO_SINDACALE,
+                ),
+                CampoDef(
+                    "sindaci_supplenti", "Sindaci supplenti", "number",
+                    derived=True, derived_note="Due supplenti nel modello collegiale",
+                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_COLLEGIO_SINDACALE,
+                ),
+                CampoDef(
                     "funzioni_organo_interno", "Funzioni dell'organo interno", "catalogo",
-                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_SINDACO_UNICO,
+                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_SINDACO_UNICO_O_COLLEGIO_SINDACALE,
                 ),
                 CampoDef(
                     # Correzione 13: catalogo condiviso (§ richiesta
-                    # esplicita) — il campo stesso è per ora visibile solo
-                    # per "Sindaco unico", si estenderà alle altre
-                    # configurazioni quando verranno definite (stesso
-                    # pattern di `modalita_esercizio_poteri` per
-                    # Amministratori).
+                    # esplicita) — esteso dalla Correzione 14 a "Collegio
+                    # sindacale" e dalla Correzione 15 a "Revisore legale
+                    # persona fisica" (`_ASSETTI_CON_REVISIONE_ESTERNA_CONDIVISA`),
+                    # si estenderà alle altre configurazioni quando
+                    # verranno definite (stesso pattern di
+                    # `modalita_esercizio_poteri` per Amministratori). Solo
+                    # per gli assetti "revisore esterno standalone" il
+                    # valore è vincolante, non un semplice suggerimento —
+                    # vedi `verifica_coerenza_affidatario_revisione_legale`.
                     "revisione_legale_affidata_a", "Revisione legale affidata a", "catalogo",
-                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_SINDACO_UNICO,
+                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_ASSETTI_CON_REVISIONE_ESTERNA_CONDIVISA,
                 ),
                 CampoDef(
                     "titolo_nomina", "Titolo della nomina", "catalogo",
@@ -1463,7 +1687,7 @@ SEZIONE_ORGANI_CONTROLLO = SezioneRegistro(
                 ),
                 CampoDef(
                     "durata_incarico_tipo", "Durata dell'incarico", "catalogo",
-                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_SINDACO_UNICO,
+                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_ASSETTI_CON_REVISIONE_ESTERNA_CONDIVISA,
                 ),
                 CampoDef(
                     # Mai una data dentro la denominazione del catalogo (§
@@ -1494,6 +1718,51 @@ def normalizza_numero_componenti_nessun_organo_controllo(db: Session, row: objec
     assetto = db.get(CatAssettoControllo, row.assetto_controllo_id)
     if assetto is not None and assetto.codice == "NESSUN_ORGANO_CONTROLLO" and row.numero_componenti != 0:
         row.numero_componenti = 0
+
+
+def verifica_coerenza_affidatario_revisione_legale(
+    db: Session,
+    ctx: AziendaContext,
+    sezione: SezioneRegistro,
+    *,
+    row: object | None,
+    cambiamenti: dict[str, str | None],
+) -> str | None:
+    """§ Correzione 15: per le configurazioni "revisore esterno standalone"
+    (`_ASSETTI_REVISORE_ESTERNO_STANDALONE` — nessun organo interno, il
+    revisore stesso è l'intero organo di controllo) "Revisione legale
+    affidata a" non è un'informazione facoltativa come per Sindaco
+    Unico/Collegio Sindacale (dove lo stesso campo è solo un suggerimento
+    di passaggio non vincolante, § Correzione 13/14): deve coincidere
+    ESATTAMENTE con l'assetto stesso — i due cataloghi condividono di
+    proposito lo stesso codice per questi valori (vedi
+    `023_cat_affidatari_revisione_legale.sql`), quindi il confronto è una
+    semplice uguaglianza di stringhe. "Non deve essere possibile salvare
+    una combinazione incoerente" (§ testo esplicito): ritorna il messaggio
+    di errore da associare al campo nel payload 422 del salvataggio della
+    sezione, None se la combinazione è coerente o non applicabile
+    all'assetto risolto.
+
+    Risolve i valori EFFETTIVI di entrambi i campi (dal payload di questo
+    salvataggio se presenti, altrimenti dall'ultimo valore salvato) — il
+    contratto di `SectionUpdateRequest.fields` non garantisce un payload
+    completo (anche se il frontend oggi invia sempre l'intera bozza), un
+    campo assente da `cambiamenti` significa "non toccato in questo
+    salvataggio", non "vuoto"."""
+
+    def _valore_effettivo(campo: str) -> str | None:
+        if campo in cambiamenti:
+            return cambiamenti[campo]
+        return _valore_campo(db, ctx, sezione, row, campo)
+
+    assetto_codice = _valore_effettivo("assetto_controllo_in_carica")
+    if assetto_codice not in _ASSETTI_REVISORE_ESTERNO_STANDALONE:
+        return None
+    affidatario_codice = _valore_effettivo("revisione_legale_affidata_a")
+    if affidatario_codice == assetto_codice:
+        return None
+    return "Deve coincidere con l'assetto di controllo selezionato."
+
 
 # Nuova (mappatura CCIAA §4.2, decisione D-H): estremi di testata
 # dell'elenco soci depositato, 1:1 con l'azienda come capitale sociale. Non

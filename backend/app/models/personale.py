@@ -85,6 +85,33 @@ class AnaPersone(Base):
     )
 
 
+class AnaPersonaGiuridica(Base):
+    """Anagrafica delle persone giuridiche (società, enti) collegate a
+    un'azienda (§ Correzione 16) — titolare alternativo di un incarico
+    (`PerIncarico.persona_giuridica_id`) per i ruoli affidabili a un
+    soggetto esterno, primo caso "Società di revisione legale". Nessun
+    campo proprio di una persona fisica: solo i dati identificativi del
+    soggetto giuridico, il resto (caratteristiche dell'incarico, verifica,
+    audit) è condiviso e invariato con `AnaPersone`."""
+
+    __tablename__ = "ana_persone_giuridiche"
+    __table_args__ = (UniqueConstraint("azienda_id", "codice_fiscale"),)
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+
+    denominazione: Mapped[str] = mapped_column(String(300))
+    codice_fiscale: Mapped[str] = mapped_column(String(32))
+    partita_iva: Mapped[str | None] = mapped_column(String(20))
+    sede: Mapped[str | None] = mapped_column(Text)
+    note: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class CatRuolo(Base):
     """Catalogo estendibile dei ruoli utilizzabili negli incarichi (34 ruoli
     iniziali R001-R034, esteso con SOCIO/R035 per la relazione camerale di
@@ -159,13 +186,21 @@ class PerIncarico(Base):
     esclusivamente in `PerIncaricoValore`, non su questa riga, per non
     duplicare ciò che il catalogo caratteristiche già rappresenta (es. date
     di assegnazione/cessazione sono le caratteristiche A01/A02, non colonne
-    qui)."""
+    qui).
+
+    Titolare: esattamente uno tra `persona_id` (persona fisica) e
+    `persona_giuridica_id` (persona giuridica, § Correzione 16) è
+    valorizzato — vincolo `chk_per_incarichi_titolare_esclusivo` a livello
+    DB, non verificabile qui a livello di colonna."""
 
     __tablename__ = "per_incarichi"
 
     id: Mapped[uuid.UUID] = _id_col()
     azienda_id: Mapped[uuid.UUID] = _azienda_fk()
-    persona_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_persone.id"))
+    persona_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_persone.id"))
+    persona_giuridica_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("ana_persone_giuridiche.id")
+    )
     ruolo_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("cat_ruoli.id"))
     note: Mapped[str | None] = mapped_column(Text)
 

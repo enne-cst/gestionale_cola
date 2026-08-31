@@ -46,6 +46,22 @@ type CessazioneOrganoControlloState = {
   error: string | null;
 } | null;
 
+// § Correzione 14: stesso pattern e stesso significato di
+// `CessazioneOrganoControlloState` sopra ("procedere cesserebbe degli
+// incarichi attivi, confermi?"), ma per la riduzione di "Sindaci
+// effettivi" nella configurazione "Collegio sindacale" invece che per il
+// passaggio a "Nessun organo di controllo". Duplicato apposta invece di
+// generalizzare i due in un unico stato: evita di rischiare una
+// regressione della Correzione 12 già verificata per estendere un
+// meccanismo a un caso quasi identico ma non uguale.
+type RiduzioneSindaciEffettiviState = {
+  sectionKey: string;
+  messaggio: string;
+  count: number;
+  saving: boolean;
+  error: string | null;
+} | null;
+
 // Richiesta esplicita dell'utente (31/08/2026): a differenza del principio
 // generale "il cambio di configurazione non elimina dati" (§ Correzione
 // 11/12, i valori restano nelle colonne nascoste), il passaggio a "Nessun
@@ -59,6 +75,48 @@ type CessazioneOrganoControlloState = {
 // dialogo (si applica solo alla conferma, vedi `confermaCancellazioneConfigurazione`).
 type CancellazioneConfigurazioneState = { sectionKey: string } | null;
 
+// § Correzione 15/16: assetti "revisore esterno standalone" — nessun
+// organo interno (il revisore è l'intero assetto), quindi "Revisione
+// legale affidata a" deve restare coerente con l'assetto stesso: non un
+// suggerimento facoltativo come per Sindaco unico/Collegio sindacale (§
+// Correzione 13/14, `AFFIDATARI_REVISORE_ESTERNO` in
+// `cciaa-section-panel.tsx`, un insieme diverso con un significato
+// diverso), ma un vincolo bidirezionale applicato qui.
+const ASSETTI_REVISORE_ESTERNO_STANDALONE = new Set(["REVISORE_LEGALE_PERSONA_FISICA", "SOCIETA_REVISIONE_LEGALE"]);
+
+// § Correzione 15: i codici di cat_affidatari_revisione_legale che hanno
+// un assetto corrispondente in cat_assetti_controllo — stesso codice in
+// entrambi i cataloghi per costruzione (vedi
+// 023_cat_affidatari_revisione_legale.sql). Esclude solo "Non attribuita",
+// che non corrisponde a nessun assetto: sceglierlo mentre l'assetto è
+// "revisore esterno standalone" lascia una combinazione temporaneamente
+// incoerente, bloccata solo al salvataggio (§ "non deve essere possibile
+// salvare una combinazione incoerente", verificato lato backend), senza un
+// dialogo di conferma qui — non c'è una destinazione sensata a cui
+// proporre di passare.
+const AFFIDATARI_CON_ASSETTO_CORRISPONDENTE = new Set([
+  "SINDACO_UNICO",
+  "COLLEGIO_SINDACALE",
+  "REVISORE_LEGALE_PERSONA_FISICA",
+  "SOCIETA_REVISIONE_LEGALE",
+]);
+
+// Come `CancellazioneConfigurazioneState` sopra (nessun round-trip al
+// backend: mutazione della sola bozza, "Annulla" non deve annullare nulla
+// perché il cambiamento non è ancora stato applicato quando compare il
+// dialogo) — ma nella direzione OPPOSTA e con una conseguenza opposta:
+// cambiare "Revisione legale affidata a" mentre l'assetto è uno di
+// `ASSETTI_REVISORE_ESTERNO_STANDALONE` aggiorna anche "Assetto di
+// controllo in carica" per restare coerente (§ testo esplicito "dopo aver
+// richiesto conferma e senza perdere i dati già inseriti") SENZA
+// cancellare nessun altro campo — la cancellazione verso "Nessun organo di
+// controllo" resta un caso a parte, mai la stessa struttura.
+type CambioAssettoAffidatarioState = {
+  sectionKey: string;
+  nuovoAssetto: string;
+  nuovoAssettoLabel: string;
+} | null;
+
 type State = {
   mode: WorkspaceMode;
   openSectionKey: string | null;
@@ -68,7 +126,9 @@ type State = {
   overview: RegistryOverview;
   confirm: ConfirmState;
   cessazioneOrganoControllo: CessazioneOrganoControlloState;
+  riduzioneSindaciEffettivi: RiduzioneSindaciEffettiviState;
   cancellazioneConfigurazione: CancellazioneConfigurazioneState;
+  cambioAssettoAffidatario: CambioAssettoAffidatarioState;
 };
 
 function sectionValues(section: Section): Record<string, string | null> {
@@ -124,8 +184,14 @@ type Action =
   | { type: "CANCEL_CESSAZIONE_CONFIRM" }
   | { type: "CESSAZIONE_CONFIRM_START" }
   | { type: "CESSAZIONE_CONFIRM_ERROR"; message: string }
+  | { type: "REQUEST_RIDUZIONE_SINDACI_EFFETTIVI_CONFIRM"; riduzione: NonNullable<RiduzioneSindaciEffettiviState> }
+  | { type: "CANCEL_RIDUZIONE_SINDACI_EFFETTIVI_CONFIRM" }
+  | { type: "RIDUZIONE_SINDACI_EFFETTIVI_CONFIRM_START" }
+  | { type: "RIDUZIONE_SINDACI_EFFETTIVI_CONFIRM_ERROR"; message: string }
   | { type: "REQUEST_CANCELLAZIONE_CONFIGURAZIONE_CONFIRM"; sectionKey: string }
-  | { type: "CANCEL_CANCELLAZIONE_CONFIGURAZIONE_CONFIRM" };
+  | { type: "CANCEL_CANCELLAZIONE_CONFIGURAZIONE_CONFIRM" }
+  | { type: "REQUEST_CAMBIO_ASSETTO_AFFIDATARIO_CONFIRM"; cambio: NonNullable<CambioAssettoAffidatarioState> }
+  | { type: "CANCEL_CAMBIO_ASSETTO_AFFIDATARIO_CONFIRM" };
 
 function withSection(state: State, sectionKey: string, patch: Partial<SectionEntry>): State {
   const attuale = state.sections[sectionKey] ?? nuovaSectionEntry();
@@ -233,10 +299,26 @@ function reducer(state: State, action: Action): State {
       return state.cessazioneOrganoControllo
         ? { ...state, cessazioneOrganoControllo: { ...state.cessazioneOrganoControllo, saving: false, error: action.message } }
         : state;
+    case "REQUEST_RIDUZIONE_SINDACI_EFFETTIVI_CONFIRM":
+      return { ...state, riduzioneSindaciEffettivi: action.riduzione };
+    case "CANCEL_RIDUZIONE_SINDACI_EFFETTIVI_CONFIRM":
+      return { ...state, riduzioneSindaciEffettivi: null };
+    case "RIDUZIONE_SINDACI_EFFETTIVI_CONFIRM_START":
+      return state.riduzioneSindaciEffettivi
+        ? { ...state, riduzioneSindaciEffettivi: { ...state.riduzioneSindaciEffettivi, saving: true, error: null } }
+        : state;
+    case "RIDUZIONE_SINDACI_EFFETTIVI_CONFIRM_ERROR":
+      return state.riduzioneSindaciEffettivi
+        ? { ...state, riduzioneSindaciEffettivi: { ...state.riduzioneSindaciEffettivi, saving: false, error: action.message } }
+        : state;
     case "REQUEST_CANCELLAZIONE_CONFIGURAZIONE_CONFIRM":
       return { ...state, cancellazioneConfigurazione: { sectionKey: action.sectionKey } };
     case "CANCEL_CANCELLAZIONE_CONFIGURAZIONE_CONFIRM":
       return { ...state, cancellazioneConfigurazione: null };
+    case "REQUEST_CAMBIO_ASSETTO_AFFIDATARIO_CONFIRM":
+      return { ...state, cambioAssettoAffidatario: action.cambio };
+    case "CANCEL_CAMBIO_ASSETTO_AFFIDATARIO_CONFIRM":
+      return { ...state, cambioAssettoAffidatario: null };
     default:
       return state;
   }
@@ -256,7 +338,10 @@ type WorkspaceApi = {
   enterEdit: (sectionKey: string) => void;
   updateField: (sectionKey: string, field: string, value: string | null) => void;
   requestDiscard: (sectionKey: string) => void;
-  save: (sectionKey: string, opts?: { confermaCessazioneOrganoControllo?: boolean }) => Promise<boolean>;
+  save: (
+    sectionKey: string,
+    opts?: { confermaCessazioneOrganoControllo?: boolean; confermaRiduzioneSindaciEffettivi?: boolean },
+  ) => Promise<boolean>;
   toggleVisibility: (sectionKey: string, fieldKey: string, visible: boolean) => void;
   toggleGroupVisibility: (sectionKey: string, fieldKeys: string[], visible: boolean) => void;
   submitReview: (
@@ -271,8 +356,12 @@ type WorkspaceApi = {
   confirmDiscardAndExit: () => void;
   cancelCessazioneOrganoControllo: () => void;
   confermaCessazioneOrganoControllo: () => void;
+  cancelRiduzioneSindaciEffettivi: () => void;
+  confermaRiduzioneSindaciEffettivi: () => void;
   cancelCancellazioneConfigurazione: () => void;
   confermaCancellazioneConfigurazione: () => void;
+  cancelCambioAssettoAffidatario: () => void;
+  confermaCambioAssettoAffidatario: () => void;
 };
 
 const WorkspaceContext = createContext<WorkspaceApi | null>(null);
@@ -295,7 +384,9 @@ export function WorkspaceProvider({
     overview: overviewIniziale,
     confirm: null,
     cessazioneOrganoControllo: null,
+    riduzioneSindaciEffettivi: null,
     cancellazioneConfigurazione: null,
+    cambioAssettoAffidatario: null,
   });
 
   // Evita richieste duplicate quando piu' componenti montano nello stesso
@@ -412,6 +503,58 @@ export function WorkspaceProvider({
           }
         }
       }
+      // § Correzione 15: entrare in un assetto "revisore esterno
+      // standalone" forza subito "Revisione legale affidata a" allo
+      // stesso codice (§ testo esplicito "il valore deve essere impostato
+      // su..."). Direzione primaria, nessuna conferma necessaria: nessun
+      // dato perso, solo un secondo campo che si autoimposta insieme al
+      // primo — a differenza della cancellazione sopra, che invece azzera
+      // gli altri campi e per questo richiede conferma.
+      if (
+        sectionKey === "organi-controllo" &&
+        field === "assetto_controllo_in_carica" &&
+        value !== null &&
+        ASSETTI_REVISORE_ESTERNO_STANDALONE.has(value)
+      ) {
+        dispatch({
+          type: "BULK_UPDATE_FIELDS",
+          sectionKey,
+          values: { assetto_controllo_in_carica: value, revisione_legale_affidata_a: value },
+        });
+        return;
+      }
+      // § Correzione 15: direzione inversa — cambiare "Revisione legale
+      // affidata a" mentre l'assetto in bozza è già uno di questi stessi
+      // assetti richiede conferma prima di aggiornare anche l'assetto (§
+      // testo esplicito "dopo aver richiesto conferma e senza perdere i
+      // dati già inseriti", quindi nessun azzeramento degli altri campi
+      // qui). Nessuna interruzione se il nuovo valore non ha un assetto
+      // corrispondente (es. "Non attribuita"): resta una combinazione
+      // temporaneamente incoerente, bloccata solo al salvataggio lato
+      // backend — non c'è una destinazione sensata a cui proporre di
+      // passare, quindi nessun dialogo per quel caso.
+      if (sectionKey === "organi-controllo" && field === "revisione_legale_affidata_a") {
+        const entry = state.sections[sectionKey];
+        const assettoCorrente = entry?.draft?.["assetto_controllo_in_carica"] ?? null;
+        if (
+          assettoCorrente &&
+          ASSETTI_REVISORE_ESTERNO_STANDALONE.has(assettoCorrente) &&
+          value !== null &&
+          value !== assettoCorrente &&
+          AFFIDATARI_CON_ASSETTO_CORRISPONDENTE.has(value)
+        ) {
+          const nuovoAssettoLabel =
+            entry?.server?.groups
+              .flatMap((g) => g.fields)
+              .find((f) => f.key === "assetto_controllo_in_carica")
+              ?.options?.find((o) => o.code === value)?.label ?? value;
+          dispatch({
+            type: "REQUEST_CAMBIO_ASSETTO_AFFIDATARIO_CONFIRM",
+            cambio: { sectionKey, nuovoAssetto: value, nuovoAssettoLabel },
+          });
+          return;
+        }
+      }
       dispatch({ type: "UPDATE_FIELD", sectionKey, field, value });
     },
     [state.sections],
@@ -441,8 +584,31 @@ export function WorkspaceProvider({
     dispatch({ type: "CANCEL_CANCELLAZIONE_CONFIGURAZIONE_CONFIRM" });
   }, []);
 
+  // § Correzione 15: applica insieme sia "Assetto di controllo in carica"
+  // sia "Revisione legale affidata a" (stesso codice, § coerenza
+  // vincolante per questi assetti) — senza toccare nessun altro campo
+  // della bozza, a differenza di `confermaCancellazioneConfigurazione`
+  // sopra: qui non c'è nulla da perdere, solo due campi da tenere allineati.
+  const confermaCambioAssettoAffidatario = useCallback(() => {
+    if (!state.cambioAssettoAffidatario) return;
+    const { sectionKey, nuovoAssetto } = state.cambioAssettoAffidatario;
+    dispatch({
+      type: "BULK_UPDATE_FIELDS",
+      sectionKey,
+      values: { assetto_controllo_in_carica: nuovoAssetto, revisione_legale_affidata_a: nuovoAssetto },
+    });
+    dispatch({ type: "CANCEL_CAMBIO_ASSETTO_AFFIDATARIO_CONFIRM" });
+  }, [state.cambioAssettoAffidatario]);
+
+  const cancelCambioAssettoAffidatario = useCallback(() => {
+    dispatch({ type: "CANCEL_CAMBIO_ASSETTO_AFFIDATARIO_CONFIRM" });
+  }, []);
+
   const save = useCallback(
-    async (sectionKey: string, opts?: { confermaCessazioneOrganoControllo?: boolean }): Promise<boolean> => {
+    async (
+      sectionKey: string,
+      opts?: { confermaCessazioneOrganoControllo?: boolean; confermaRiduzioneSindaciEffettivi?: boolean },
+    ): Promise<boolean> => {
       const entry = state.sections[sectionKey];
       if (!entry?.draft) return false;
       dispatch({ type: "SAVE_START", sectionKey });
@@ -468,6 +634,15 @@ export function WorkspaceProvider({
         dispatch({
           type: "REQUEST_CESSAZIONE_CONFIRM",
           cessazione: { sectionKey, messaggio: esito.messaggio, count: esito.count, saving: false, error: null },
+        });
+        return false;
+      }
+      if (esito.esito === "conferma_riduzione_sindaci_effettivi") {
+        // § Correzione 14: stesso trattamento di "conferma_cessazione_organo_controllo".
+        dispatch({ type: "SAVE_ERROR", sectionKey, message: "" });
+        dispatch({
+          type: "REQUEST_RIDUZIONE_SINDACI_EFFETTIVI_CONFIRM",
+          riduzione: { sectionKey, messaggio: esito.messaggio, count: esito.count, saving: false, error: null },
         });
         return false;
       }
@@ -604,6 +779,22 @@ export function WorkspaceProvider({
     dispatch({ type: "CANCEL_CESSAZIONE_CONFIRM" });
   }, []);
 
+  // § Correzione 14: stesso pattern di `confermaCessazioneOrganoControllo`
+  // sopra, per la riduzione di "Sindaci effettivi".
+  const confermaRiduzioneSindaciEffettivi = useCallback(() => {
+    if (!state.riduzioneSindaciEffettivi) return;
+    const { sectionKey } = state.riduzioneSindaciEffettivi;
+    dispatch({ type: "RIDUZIONE_SINDACI_EFFETTIVI_CONFIRM_START" });
+    save(sectionKey, { confermaRiduzioneSindaciEffettivi: true }).then((ok) => {
+      if (ok) dispatch({ type: "CANCEL_RIDUZIONE_SINDACI_EFFETTIVI_CONFIRM" });
+      else dispatch({ type: "RIDUZIONE_SINDACI_EFFETTIVI_CONFIRM_ERROR", message: "Impossibile salvare: riprova." });
+    });
+  }, [state.riduzioneSindaciEffettivi, save]);
+
+  const cancelRiduzioneSindaciEffettivi = useCallback(() => {
+    dispatch({ type: "CANCEL_RIDUZIONE_SINDACI_EFFETTIVI_CONFIRM" });
+  }, []);
+
   const api = useMemo<WorkspaceApi>(
     () => ({
       state,
@@ -628,8 +819,12 @@ export function WorkspaceProvider({
       confirmDiscardAndExit,
       cancelCessazioneOrganoControllo,
       confermaCessazioneOrganoControllo,
+      cancelRiduzioneSindaciEffettivi,
+      confermaRiduzioneSindaciEffettivi,
       cancelCancellazioneConfigurazione,
       confermaCancellazioneConfigurazione,
+      cancelCambioAssettoAffidatario,
+      confermaCambioAssettoAffidatario,
     }),
     [
       state,
@@ -648,8 +843,12 @@ export function WorkspaceProvider({
       confirmDiscardAndExit,
       cancelCessazioneOrganoControllo,
       confermaCessazioneOrganoControllo,
+      cancelRiduzioneSindaciEffettivi,
+      confermaRiduzioneSindaciEffettivi,
       cancelCancellazioneConfigurazione,
       confermaCancellazioneConfigurazione,
+      cancelCambioAssettoAffidatario,
+      confermaCambioAssettoAffidatario,
     ],
   );
 

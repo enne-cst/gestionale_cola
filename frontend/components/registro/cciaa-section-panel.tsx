@@ -86,6 +86,39 @@ const TITOLO_TABELLA_AMMINISTRATORI: Partial<Record<string, string>> = {
 // (NESSUN_ORGANO_CONTROLLO non arriva qui, la tabella non è renderizzata).
 const TITOLO_TABELLA_SINDACI: Partial<Record<string, string>> = {
   SINDACO_UNICO: "Sindaco unico in carica",
+  // § Correzione 14 punto sul titolo dinamico: il conteggio (sindaci
+  // effettivi + 2) viene dal prop `count` di `IncaricoTable`, non da
+  // questa etichetta — vedi `collegioSindacale` in `ContenutoVista` sotto.
+  COLLEGIO_SINDACALE: "Componenti del collegio sindacale",
+  REVISORE_LEGALE_PERSONA_FISICA: "Revisore legale incaricato",
+  SOCIETA_REVISIONE_LEGALE: "Società di revisione incaricata",
+};
+
+// § Correzione 15/16: a differenza di Sindaco unico/Collegio sindacale
+// (dove la tabella accetta sia SINDACO sia REVISORE_LEGALE — un
+// sindaco/collegio può comunque avere un revisore esterno registrato come
+// riga a parte), "Revisore legale persona fisica"/"Società di revisione
+// legale" non hanno alcun organo interno: la riga "deve accettare
+// esclusivamente... il ruolo di revisore legale" (§ testo esplicito),
+// quindi qui SINDACO non è nemmeno un'opzione nel dialogo "Aggiungi riga".
+// Le due configurazioni condividono lo stesso ruolo REVISORE_LEGALE (§
+// Correzione 16: il Registro dei Revisori Legali italiano contiene sia
+// singoli sia società) — è `TIPO_TITOLARE_TABELLA_SINDACI` sotto a
+// distinguerle per tipo di titolare, non un ruolo diverso. Fallback
+// invariato (`["SINDACO", "REVISORE_LEGALE"]`, definito dove usato) per
+// ogni assetto non in questa mappa.
+const RUOLI_TABELLA_SINDACI: Partial<Record<string, string[]>> = {
+  REVISORE_LEGALE_PERSONA_FISICA: ["REVISORE_LEGALE"],
+  SOCIETA_REVISIONE_LEGALE: ["REVISORE_LEGALE"],
+};
+
+// § Correzione 16: quale tipo di titolare (persona fisica o giuridica)
+// questa tabella deve mostrare/accettare — vedi `IncaricoTable.tipoTitolare`.
+// Necessario solo per i due assetti che condividono il ruolo REVISORE_LEGALE
+// sopra; `undefined` per ogni altro assetto (nessun filtro).
+const TIPO_TITOLARE_TABELLA_SINDACI: Partial<Record<string, "FISICA" | "GIURIDICA">> = {
+  REVISORE_LEGALE_PERSONA_FISICA: "FISICA",
+  SOCIETA_REVISIONE_LEGALE: "GIURIDICA",
 };
 
 // § Correzione 13, "assetti combinati": scegliere un revisore esterno
@@ -96,6 +129,16 @@ const TITOLO_TABELLA_SINDACI: Partial<Record<string, string>> = {
 // mentre l'assetto è SINDACO_UNICO, fanno comparire il suggerimento di
 // passaggio (§ "proporre", non bloccare: nessuna validazione backend).
 const AFFIDATARI_REVISORE_ESTERNO = new Set(["REVISORE_LEGALE_PERSONA_FISICA", "SOCIETA_REVISIONE_LEGALE"]);
+
+// § Correzione 14: stesso suggerimento "assetti combinati", esteso a
+// "Collegio sindacale" (che ha il proprio assetto combinato dedicato,
+// COLLEGIO_SINDACALE_REVISORE_ESTERNO) — mappa assetto attuale -> assetto
+// combinato proposto, cosi' `ContenutoVista` non deve distinguere i due
+// casi con logica duplicata.
+const ASSETTO_COMBINATO_CON_REVISORE_ESTERNO: Partial<Record<string, string>> = {
+  SINDACO_UNICO: "SINDACO_UNICO_REVISORE_ESTERNO",
+  COLLEGIO_SINDACALE: "COLLEGIO_SINDACALE_REVISORE_ESTERNO",
+};
 
 function SediSecondarieTable({ sedi, recordIdsInPanoramica }: { sedi: Sede[]; recordIdsInPanoramica: string[] }) {
   const secondarie = sedi.filter((s) => !s.tipo_sede.toLowerCase().includes("legale"));
@@ -164,19 +207,31 @@ function ContenutoVista({
         </>
       );
     case "sindaci": {
-      // § Correzione 13, "assetti combinati": suggerimento di passaggio a
-      // SINDACO_UNICO_REVISORE_ESTERNO quando il revisore scelto è esterno
+      // § Correzione 13/14, "assetti combinati": suggerimento di passaggio
+      // all'assetto combinato dedicato (Sindaco unico o Collegio
+      // sindacale + revisore esterno) quando il revisore scelto è esterno
       // — ha senso solo mentre si sta effettivamente scegliendo (bozza in
       // modifica), non un divieto lato backend (§ "proporre").
       const entryOrganiControllo = state.sections["organi-controllo"];
       const revisioneLegaleAffidataA = entryOrganiControllo?.editing
         ? (entryOrganiControllo.draft?.["revisione_legale_affidata_a"] ?? null)
         : null;
+      const assettoCombinato = campoPrincipale ? ASSETTO_COMBINATO_CON_REVISORE_ESTERNO[campoPrincipale] : undefined;
       const proponiAssettoCombinato =
         entryOrganiControllo?.editing &&
-        campoPrincipale === "SINDACO_UNICO" &&
+        assettoCombinato !== undefined &&
         revisioneLegaleAffidataA !== null &&
         AFFIDATARI_REVISORE_ESTERNO.has(revisioneLegaleAffidataA);
+      // § Correzione 14: "Sindaci effettivi" (3 o 5) determina la
+      // composizione prescritta del collegio sindacale — letto dalla
+      // bozza in modifica, dal salvato altrimenti, stessa reattività di
+      // `campoPrincipale` sopra.
+      const sindaciEffettiviRaw = entryOrganiControllo?.editing
+        ? (entryOrganiControllo.draft?.["sindaci_effettivi"] ?? null)
+        : (entryOrganiControllo?.server?.groups
+            .flatMap((g) => g.fields)
+            .find((f) => f.key === "sindaci_effettivi")?.value ?? null);
+      const sindaciEffettivi = sindaciEffettiviRaw ? Number(sindaciEffettiviRaw) : null;
       return (
         <>
           {/* § Correzione 11: sezione propria "organi-controllo" — il
@@ -187,12 +242,13 @@ function ContenutoVista({
           {proponiAssettoCombinato && (
             <div className="mt-3 flex items-center justify-between gap-3 rounded-[8px] border border-[#cedaf0] bg-[#f5f8ff] px-4 py-3 text-sm text-[var(--az-ink)]">
               <span>
-                Un revisore esterno insieme al sindaco unico corrisponde all&apos;assetto &quot;Sindaco unico + revisore
-                esterno&quot;.
+                Un revisore esterno insieme a{" "}
+                {campoPrincipale === "COLLEGIO_SINDACALE" ? "un collegio sindacale" : "un sindaco unico"} corrisponde
+                all&apos;assetto combinato dedicato.
               </span>
               <button
                 type="button"
-                onClick={() => updateField("organi-controllo", "assetto_controllo_in_carica", "SINDACO_UNICO_REVISORE_ESTERNO")}
+                onClick={() => updateField("organi-controllo", "assetto_controllo_in_carica", assettoCombinato!)}
                 className="shrink-0 rounded-[6px] bg-[var(--az-blue)] px-3 py-1.5 text-xs font-bold text-white hover:bg-[var(--az-blue-dark)]"
               >
                 Passa a questo assetto
@@ -215,11 +271,13 @@ function ContenutoVista({
                 // TITOLO_TABELLA_AMMINISTRATORI).
                 titolo={TITOLO_TABELLA_SINDACI[campoPrincipale] ?? "Sindaci e revisori"}
                 icon={ShieldCheckIcon}
-                ruoliCodici={["SINDACO", "REVISORE_LEGALE"]}
+                ruoliCodici={RUOLI_TABELLA_SINDACI[campoPrincipale] ?? ["SINDACO", "REVISORE_LEGALE"]}
                 etichettaVuoto="Nessun sindaco o revisore registrato."
                 sectionKey="organi-controllo"
                 addRowLabel="Aggiungi riga"
                 variante="cariche"
+                collegioSindacale={campoPrincipale === "COLLEGIO_SINDACALE" ? { sindaciEffettivi } : undefined}
+                tipoTitolare={TIPO_TITOLARE_TABELLA_SINDACI[campoPrincipale]}
               />
             </section>
           )}

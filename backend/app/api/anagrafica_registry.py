@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.deps import AziendaContext, get_current_azienda
-from app.core.incarichi import verifica_transizione_nessun_organo_controllo
+from app.core.incarichi import verifica_riduzione_sindaci_effettivi, verifica_transizione_nessun_organo_controllo
 from app.core.moduli import require_modulo
 from app.core.registro_campi import (
     SEZIONI,
@@ -27,6 +27,7 @@ from app.core.registro_campi import (
     ultime_modifiche,
     valida_campo,
     valuta_qualita,
+    verifica_coerenza_affidatario_revisione_legale,
 )
 from app.database import get_db
 from app.schemas.registro_campi import (
@@ -103,6 +104,10 @@ def salva_sezione(
     # sezione: non generalizzato ad altre, e' un caso specifico di questa
     # sola sezione.
     confirm_cessazione_organo_controllo: bool = False,
+    # § Correzione 14: solo per section_key "organi-controllo", quando si
+    # riduce "Sindaci effettivi" (5 -> 3) e ci sono più titolari attivi di
+    # quanti posti restano — vedi `verifica_riduzione_sindaci_effettivi`.
+    confirm_riduzione_sindaci_effettivi: bool = False,
 ):
     sezione = _sezione_o_404(section_key)
     row = _carica_record(db, ctx, sezione)
@@ -117,6 +122,18 @@ def salva_sezione(
         raise HTTPException(status.HTTP_409_CONFLICT, "I dati sono stati modificati nel frattempo: ricaricare la sezione")
 
     errori = {campo: msg for campo, msg in ((c, valida_campo(sezione, c, v, db)) for c, v in payload.fields.items()) if msg}
+    if section_key == "organi-controllo":
+        # § Correzione 15: "non deve essere possibile salvare una
+        # combinazione incoerente tra assetto e affidatario della
+        # revisione" — controllo cross-campo, quindi non esprimibile da
+        # `valida_campo` (che valida un campo alla volta); nello stesso
+        # dict di `errori` per restare un unico 422 con la stessa forma di
+        # ogni altro errore di campo.
+        errore_coerenza = verifica_coerenza_affidatario_revisione_legale(
+            db, ctx, sezione, row=row, cambiamenti=payload.fields
+        )
+        if errore_coerenza:
+            errori["revisione_legale_affidata_a"] = errore_coerenza
     if errori:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -131,6 +148,15 @@ def salva_sezione(
             nuovo_codice=payload.fields.get("assetto_controllo_in_carica"),
             confermata=confirm_cessazione_organo_controllo,
         )
+        if "sindaci_effettivi" in payload.fields:
+            nuovo_effettivi_raw = payload.fields["sindaci_effettivi"]
+            verifica_riduzione_sindaci_effettivi(
+                db,
+                ctx.azienda_id,
+                precedente_effettivi=getattr(row, "sindaci_effettivi", None) if row is not None else None,
+                nuovo_effettivi=int(nuovo_effettivi_raw) if nuovo_effettivi_raw else None,
+                confermata=confirm_riduzione_sindaci_effettivi,
+            )
 
     if row is None:
         row = sezione.model(azienda_id=ctx.azienda_id)

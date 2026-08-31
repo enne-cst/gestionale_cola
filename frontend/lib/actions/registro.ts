@@ -27,6 +27,7 @@ export type EsitoSalvaSezione =
   | { esito: "validazione"; errori: Record<string, string> }
   | { esito: "conflitto"; sezione: Section }
   | { esito: "conferma_cessazione_organo_controllo"; messaggio: string; count: number }
+  | { esito: "conferma_riduzione_sindaci_effettivi"; messaggio: string; count: number }
   | { esito: "errore"; messaggio: string };
 
 /** Salvataggio a batch della sezione (§15.3): `version` e' il valore letto
@@ -40,14 +41,22 @@ export type EsitoSalvaSezione =
  * organo di controllo o revisore" cesserebbe sindaci/revisori ancora
  * attivi — l'utente ha confermato nel dialogo dedicato, questo secondo
  * tentativo lo comunica al backend, che cessa gli incarichi nella stessa
- * transazione del salvataggio. Ignorato da ogni altra sezione. */
+ * transazione del salvataggio. Ignorato da ogni altra sezione.
+ *
+ * `opts.confermaRiduzioneSindaciEffettivi` (§ Correzione 14): stesso
+ * pattern a due tentativi, solo per la sezione "organi-controllo" quando
+ * si riduce "Sindaci effettivi" (5 -> 3) e ci sono più titolari attivi di
+ * quanti posti restano. */
 export async function salvaSezioneRegistro(
   sectionKey: string,
   version: string | null,
   campi: Record<string, string | null>,
-  opts?: { confermaCessazioneOrganoControllo?: boolean },
+  opts?: { confermaCessazioneOrganoControllo?: boolean; confermaRiduzioneSindaciEffettivi?: boolean },
 ): Promise<EsitoSalvaSezione> {
-  const query = opts?.confermaCessazioneOrganoControllo ? "?confirm_cessazione_organo_controllo=true" : "";
+  const params = new URLSearchParams();
+  if (opts?.confermaCessazioneOrganoControllo) params.set("confirm_cessazione_organo_controllo", "true");
+  if (opts?.confermaRiduzioneSindaciEffettivi) params.set("confirm_riduzione_sindaci_effettivi", "true");
+  const query = params.size > 0 ? `?${params.toString()}` : "";
   const result = await apiFetchResult<Section>(`/api/anagrafica/registro/sections/${sectionKey}${query}`, {
     method: "PATCH",
     headers: version ? { "If-Match": version } : undefined,
@@ -65,15 +74,14 @@ export async function salvaSezioneRegistro(
     return { esito: "validazione", errori };
   }
 
-  if (
-    result.status === 409 &&
-    result.detail !== null &&
-    typeof result.detail === "object" &&
-    !Array.isArray(result.detail) &&
-    (result.detail as { code?: string }).code === "CESSAZIONE_ORGANO_CONTROLLO_RICHIESTA"
-  ) {
-    const detail = result.detail as { message: string; count: number };
-    return { esito: "conferma_cessazione_organo_controllo", messaggio: detail.message, count: detail.count };
+  if (result.status === 409 && result.detail !== null && typeof result.detail === "object" && !Array.isArray(result.detail)) {
+    const detail = result.detail as { code?: string; message: string; count: number };
+    if (detail.code === "CESSAZIONE_ORGANO_CONTROLLO_RICHIESTA") {
+      return { esito: "conferma_cessazione_organo_controllo", messaggio: detail.message, count: detail.count };
+    }
+    if (detail.code === "RIDUZIONE_SINDACI_EFFETTIVI_RICHIESTA") {
+      return { esito: "conferma_riduzione_sindaci_effettivi", messaggio: detail.message, count: detail.count };
+    }
   }
 
   if (result.status === 409) {

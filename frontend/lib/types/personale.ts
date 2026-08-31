@@ -1,7 +1,10 @@
 // Tipi del motore generico "incarico" (persona + ruolo + caratteristiche,
 // vedi backend/app/schemas/personale.py e backend/app/core/incarichi.py):
 // sostituisce le tabelle qual_* per le card Soci/Amministratori/Sindaci
-// della griglia CCIAA (solo persone fisiche, decisione utente 2026-08-26).
+// della griglia CCIAA. Solo persone fisiche fino alla Correzione 16
+// (decisione utente 2026-08-26); da quella correzione un incarico può
+// avere anche un titolare persona GIURIDICA (`AnaPersonaGiuridica`) — vedi
+// `persona_giuridica_id`/`persona_giuridica` su `Incarico` sotto.
 
 import type { VerificationStatus } from "@/lib/types/registro";
 
@@ -40,6 +43,39 @@ export type PersonaSummary = {
   residenza: string | null;
 };
 
+// § Correzione 16: persona giuridica (società, ente) — titolare alternativo
+// di un incarico quando il ruolo può essere affidato a un soggetto esterno
+// anziché a una persona fisica (primo caso: "Società di revisione legale").
+// Nessun campo di persona fisica (nascita, cittadinanza): solo i dati
+// identificativi del soggetto giuridico.
+export type AnaPersonaGiuridica = {
+  id: string;
+  azienda_id: string;
+  denominazione: string;
+  codice_fiscale: string;
+  partita_iva: string | null;
+  sede: string | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PersonaGiuridicaCreatePayload = {
+  denominazione: string;
+  codice_fiscale: string;
+  partita_iva?: string | null;
+  sede?: string | null;
+  note?: string | null;
+};
+
+export type PersonaGiuridicaSummary = {
+  id: string;
+  denominazione: string;
+  codice_fiscale: string;
+  partita_iva: string | null;
+  sede: string | null;
+};
+
 export type RuoloSummary = {
   id: string;
   codice: string;
@@ -76,11 +112,16 @@ export type ValoreIncarico = string | boolean | string[] | null;
 export type Incarico = {
   id: string;
   azienda_id: string;
-  persona_id: string;
+  // § Correzione 16: esattamente uno dei due è valorizzato (mai entrambi,
+  // mai nessuno) — stesso vincolo di chk_per_incarichi_titolare_esclusivo
+  // lato backend.
+  persona_id: string | null;
+  persona_giuridica_id: string | null;
   ruolo_id: string;
   note: string | null;
   valori: Record<string, ValoreIncarico>;
-  persona: PersonaSummary;
+  persona: PersonaSummary | null;
+  persona_giuridica: PersonaGiuridicaSummary | null;
   ruolo: RuoloSummary;
   created_at: string;
   updated_at: string;
@@ -95,7 +136,10 @@ export type Incarico = {
 };
 
 export type IncaricoPayload = {
-  persona_id: string;
+  // § Correzione 16: esattamente uno dei due, mai entrambi — verificato sia
+  // qui (chi costruisce il payload) sia lato backend (IncaricoCreate).
+  persona_id?: string | null;
+  persona_giuridica_id?: string | null;
   ruolo_id: string;
   note?: string | null;
   valori: Record<string, ValoreIncarico>;
