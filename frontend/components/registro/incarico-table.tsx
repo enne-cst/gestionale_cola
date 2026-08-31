@@ -72,8 +72,8 @@ export function IncaricoTable({
   // restano solo nel form completo (pulsante Modifica, in modalità
   // modifica).
   // "amministratori": vista riepilogativa Correzione 09 (Persona/Ruolo/
-  // Carica/Data di nomina/Durata/Stato della carica/Conferma consulente),
-  // stessa struttura per tutte e 4 le configurazioni dell'organo — solo il
+  // Carica/Data di nomina/Durata/Stato della carica/Verifica), stessa
+  // struttura per tutte e 4 le configurazioni dell'organo — solo il
   // titolo della tabella cambia (vedi TITOLO_TABELLA_AMMINISTRATORI in
   // cciaa-section-panel.tsx). "Carica" mostra lo stesso valore di "Ruolo"
   // (incarico.ruolo.denominazione): decisione esplicita dell'utente, non
@@ -229,7 +229,7 @@ export function IncaricoTable({
                   <TableHead className="text-center">Data di nomina</TableHead>
                   <TableHead className="text-center">Durata</TableHead>
                   <TableHead className="text-center">Stato della carica</TableHead>
-                  <TableHead className="text-center">Conferma consulente</TableHead>
+                  <TableHead className="text-center">Verifica</TableHead>
                   <TableHead className="w-24" />
                 </TableRow>
               </TableHeader>
