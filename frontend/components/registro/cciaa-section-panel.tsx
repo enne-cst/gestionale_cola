@@ -123,7 +123,7 @@ function ContenutoVista({
                 etichettaVuoto="Nessun amministratore registrato."
                 sectionKey="amministrazione-controllo"
                 addRowLabel="Aggiungi riga"
-                variante="amministratori"
+                variante="cariche"
               />
             </section>
           )}
@@ -146,6 +146,7 @@ function ContenutoVista({
                 ruoliCodici={["SINDACO", "REVISORE_LEGALE"]}
                 etichettaVuoto="Nessun sindaco o revisore registrato."
                 sectionKey="amministrazione-controllo"
+                variante="cariche"
               />
             </section>
           )}
