@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from "react";
 
 import { FieldRow } from "@/components/registro/field-row";
 import { NumeroComponentiOrganoField } from "@/components/registro/numero-componenti-organo-field";
+import { NumeroSociField } from "@/components/registro/numero-soci-field";
 import { SectionFooter } from "@/components/registro/section-footer";
 import { StatoPill } from "@/components/registro/stato-pill";
 import { useWorkspace } from "@/components/registro/workspace-provider";
@@ -276,6 +277,11 @@ export function SectionContent({
                     // read-only, come ogni altro campo della sezione.
                     sectionKey === "amministrazione-controllo" && field.key === "numero_amministratori_in_carica" ? (
                       <NumeroComponentiOrganoField key={field.key} sectionKey={sectionKey} field={field} />
+                    ) : // § richiesta esplicita (31/08/2026, seguito): stesso
+                    // identico meccanismo per "Numero dei soci" — vedi
+                    // NumeroSociField.
+                    sectionKey === "elenco-soci-estremi" && field.key === "numero_soci" ? (
+                      <NumeroSociField key={field.key} sectionKey={sectionKey} field={field} />
                     ) : (
                       <FieldRow
                         key={field.key}

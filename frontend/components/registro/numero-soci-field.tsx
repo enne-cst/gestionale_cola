@@ -5,31 +5,26 @@ import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FieldVerificationPopover } from "@/components/registro/field-verification-popover";
-import { RiduzioneAmministratoriDialog } from "@/components/registro/riduzione-amministratori-dialog";
+import { RiduzioneSociDialog } from "@/components/registro/riduzione-soci-dialog";
 import { VisibilityToggle } from "@/components/registro/visibility-toggle";
 import { useWorkspace } from "@/components/registro/workspace-provider";
-import { impostaNumeroComponentiAmministratori, type TitolareIncarico } from "@/lib/actions/registro";
+import { impostaNumeroComponentiSoci, type TitolareIncarico } from "@/lib/actions/registro";
 import type { FieldState } from "@/lib/types/registro";
 
-/** "Numero componenti" dell'organo amministrativo pluripersonale (Consiglio
- * di amministrazione, Amministrazione pluripersonale congiuntiva/
- * disgiuntiva) — § richiesta esplicita dell'utente (31/08/2026):
- * sincronizzazione bidirezionale con le righe della tabella "Titolari di
- * cariche" (`IncaricoTable`, che aggiorna/decrementa questo stesso valore
- * lato backend ad ogni riga aggiunta/eliminata, vedi
- * `app.core.incarichi.sincronizza_numero_amministratori_dopo_aggiunta/
- * _eliminazione`). Il campo si scrive SUBITO tramite un endpoint dedicato
- * (`impostaNumeroComponentiAmministratori`), non tramite la bozza/"Salva
- * modifiche" della sezione come ogni altro campo (sarebbe incoerente con la
- * tabella, le cui righe sono già immediate). Precisazione dell'utente
- * (31/08/2026, seguito): l'incremento/decremento resta comunque possibile
- * SOLO col banner "Modifica dati" attivo — per questo `SectionContent`
- * monta questo componente solo nel ramo "in modifica" (mai in quello di
- * sola lettura, dove il campo torna un normale `FieldRow` in sola
- * lettura); l'immediatezza del salvataggio non cambia, cambia solo quando
- * il campo è raggiungibile. Sostituisce il rendering generico di
- * `FieldRow` solo per questa chiave di campo. */
-export function NumeroComponentiOrganoField({ sectionKey, field }: { sectionKey: string; field: FieldState }) {
+/** "Numero dei soci" — § richiesta esplicita dell'utente (31/08/2026,
+ * seguito): stesso identico comportamento di `NumeroComponentiOrganoField`
+ * (Amministratori), qui per la tabella soci: sincronizzazione bidirezionale
+ * con le righe della tabella (`IncaricoTable`, che aggiorna/decrementa
+ * questo stesso valore lato backend ad ogni riga aggiunta/eliminata, vedi
+ * `app.core.incarichi.sincronizza_numero_soci_dopo_aggiunta/_eliminazione`).
+ * Il campo si scrive SUBITO tramite un endpoint dedicato
+ * (`impostaNumeroComponentiSoci`), non tramite la bozza/"Salva modifiche"
+ * della sezione — ma resta raggiungibile SOLO col banner "Modifica dati"
+ * attivo, per questo `SectionContent` monta questo componente solo nel
+ * ramo "in modifica" (mai in quello di sola lettura, dove il campo torna
+ * un normale `FieldRow`). Sostituisce il rendering generico di `FieldRow`
+ * solo per questa chiave di campo. */
+export function NumeroSociField({ sectionKey, field }: { sectionKey: string; field: FieldState }) {
   const { ruolo, toggleVisibility, refreshSectionSnapshot } = useWorkspace();
   const consulente = ruolo === "CONSULENTE";
   const [valore, setValore] = useState(field.value ?? "");
@@ -50,7 +45,7 @@ export function NumeroComponentiOrganoField({ sectionKey, field }: { sectionKey:
   async function applica(nuovoValore: number, incarichiDaEliminare?: string[]) {
     setSalvando(true);
     setErrore(null);
-    const esito = await impostaNumeroComponentiAmministratori(nuovoValore, incarichiDaEliminare);
+    const esito = await impostaNumeroComponentiSoci(nuovoValore, incarichiDaEliminare);
     setSalvando(false);
     if (esito.esito === "ok") {
       refreshSectionSnapshot(sectionKey, esito.sezione);
@@ -73,7 +68,7 @@ export function NumeroComponentiOrganoField({ sectionKey, field }: { sectionKey:
       return;
     }
     if (numero < 1) {
-      setErrore("Il numero componenti deve essere almeno 1");
+      setErrore("Il numero dei soci deve essere almeno 1");
       setValore(field.value ?? "");
       return;
     }
@@ -110,7 +105,7 @@ export function NumeroComponentiOrganoField({ sectionKey, field }: { sectionKey:
         onBlur={onBlur}
       />
       {errore && <p className="text-xs text-destructive">{errore}</p>}
-      <RiduzioneAmministratoriDialog
+      <RiduzioneSociDialog
         stato={riduzione}
         salvando={salvando}
         errore={errore}

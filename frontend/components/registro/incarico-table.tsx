@@ -136,6 +136,7 @@ export function IncaricoTable({
   tipoTitolare,
   sindacoRevisoreEsterno,
   capienzaAmministratori,
+  capienzaSoci,
 }: {
   titolo: string;
   icon: LucideIcon;
@@ -230,6 +231,14 @@ export function IncaricoTable({
   // dopo ogni `onSaved`/eliminazione si limita a rileggere la sezione
   // aggiornata tramite il refresh del pannello che la ospita.
   capienzaAmministratori?: { target: number };
+  // § richiesta esplicita (31/08/2026, seguito): stesso identico
+  // meccanismo di `capienzaAmministratori` sopra, per la card Soci —
+  // `target` è il valore corrente di "Numero dei soci". Mutuamente
+  // esclusivo con `capienzaAmministratori` (una tabella è sempre l'una o
+  // l'altra variante, mai entrambe): `etichettaCapienza` più sotto sceglie
+  // il testo giusto ("amministratore"/"socio") in base a quale dei due è
+  // presente.
+  capienzaSoci?: { target: number };
 }) {
   const { ruolo, state, reload } = useWorkspace();
   const consulente = ruolo === "CONSULENTE";
@@ -253,16 +262,17 @@ export function IncaricoTable({
     carica();
   }, [carica]);
 
-  // § richiesta esplicita (31/08/2026): un'aggiunta/eliminazione di riga
-  // cambia anche "Numero componenti" lato backend (vedi
-  // `capienzaAmministratori` sopra) — solo per quella card la sezione va
-  // ricaricata insieme alla tabella, cosi' il campo mostra subito il nuovo
-  // valore senza aspettare che l'utente riapra la scheda. No-op per ogni
-  // altra card (Soci, Sindaci): `capienzaAmministratori` è assente lì.
+  // § richiesta esplicita (31/08/2026, estesa a Soci il 31/08/2026): un
+  // aggiunta/eliminazione di riga cambia anche "Numero componenti"/"Numero
+  // dei soci" lato backend (vedi `capienzaAmministratori`/`capienzaSoci`
+  // sopra) — solo per quelle due card la sezione va ricaricata insieme
+  // alla tabella, cosi' il campo mostra subito il nuovo valore senza
+  // aspettare che l'utente riapra la scheda. No-op per Sindaci:
+  // `capienzaAmministratori`/`capienzaSoci` sono entrambi assenti lì.
   const ricaricaDopoModifica = useCallback(() => {
     carica();
-    if (capienzaAmministratori && sectionKey) reload(sectionKey);
-  }, [carica, capienzaAmministratori, sectionKey, reload]);
+    if ((capienzaAmministratori || capienzaSoci) && sectionKey) reload(sectionKey);
+  }, [carica, capienzaAmministratori, capienzaSoci, sectionKey, reload]);
 
   async function onElimina(incarico: Incarico) {
     if (!confirm(`Rimuovere l'incarico di ${nomeTitolare(incarico)}?`)) return;
@@ -409,23 +419,25 @@ export function IncaricoTable({
           },
         ]
       : [];
-  // § richiesta esplicita (31/08/2026): posti liberi fino a "Numero
-  // componenti" per Consiglio di amministrazione/Amministrazione
-  // pluripersonale — a differenza dei segnaposto sopra, qui non c'è una
-  // carica specifica da preselezionare (§ Correzione 09: "Carica" coincide
-  // col ruolo), quindi `ruoloId` resta sempre assente ma il "+" deve
-  // comunque aprirsi (apre il dialogo generico, l'utente sceglie tra i 3
-  // ruoli ammessi) — `sempreApribile` distingue questo caso dal posto
-  // "Revisore esterno" sopra ancora senza tipo, dove invece il "+" resta
-  // volutamente disattivo.
+  // § richiesta esplicita (31/08/2026, estesa a Soci il 31/08/2026): posti
+  // liberi fino a "Numero componenti"/"Numero dei soci" — a differenza dei
+  // segnaposto sopra, qui non c'è una carica specifica da preselezionare
+  // (§ Correzione 09: per gli amministratori "Carica" coincide col ruolo;
+  // per i soci c'è un solo ruolo possibile, SOCIO), quindi `ruoloId` resta
+  // sempre assente ma il "+" deve comunque aprirsi — `sempreApribile`
+  // distingue questo caso dal posto "Revisore esterno" sopra ancora senza
+  // tipo, dove invece il "+" resta volutamente disattivo. `capienza`
+  // unifica le due fonti (mai valorizzate insieme, una tabella è sempre
+  // "cariche" o "soci"), `etichettaCapienza` sceglie il testo del pulsante
+  // in base a quale delle due è presente.
   // Mai meno delle righe reali già presenti (capienza sarebbe incoerente
-  // solo se il campo "Numero componenti" non fosse ancora allineato, es.
-  // dato storico mai toccato da questo meccanismo): il conteggio/i posti
-  // liberi si basano su questo valore corretto, mai su quello grezzo del
-  // campo quando è inferiore alle righe reali.
-  const capienzaTarget = capienzaAmministratori
-    ? Math.max(capienzaAmministratori.target, incarichiFiltrati.length)
-    : null;
+  // solo se il campo non fosse ancora allineato, es. dato storico mai
+  // toccato da questo meccanismo): il conteggio/i posti liberi si basano
+  // su questo valore corretto, mai su quello grezzo del campo quando è
+  // inferiore alle righe reali.
+  const capienza = capienzaAmministratori ?? capienzaSoci;
+  const etichettaCapienza = capienzaSoci ? "socio" : "amministratore";
+  const capienzaTarget = capienza ? Math.max(capienza.target, incarichiFiltrati.length) : null;
   const segnapostoCapienza = capienzaTarget !== null
     ? Array.from(
         { length: Math.max(capienzaTarget - incarichiFiltrati.length, 0) },
@@ -527,6 +539,38 @@ export function IncaricoTable({
                     </TableRow>
                   );
                 })}
+                {/* § richiesta esplicita (31/08/2026, seguito): posti
+                 * liberi fino a "Numero dei soci" — stesso `segnaposto`
+                 * calcolato sopra (qui saranno sempre e solo quelli di
+                 * `segnapostoCapienza`, un socio non ha collegio/sindaco
+                 * unico), solo il "+" compare (e solo in modifica, come le
+                 * altre azioni di questa variante): nessuna carica da
+                 * mostrare in questa tabella. */}
+                {segnaposto.map((posto) => (
+                  <TableRow key={posto.key} className="text-muted-foreground">
+                    <TableCell className="italic">Posto libero</TableCell>
+                    <TableCell className="text-center">—</TableCell>
+                    <TableCell className="text-center">—</TableCell>
+                    <TableCell className="text-center">—</TableCell>
+                    <TableCell className="text-center">—</TableCell>
+                    <TableCell className="text-center">—</TableCell>
+                    <TableCell className="text-center">—</TableCell>
+                    <TableCell className="text-center">—</TableCell>
+                    {editingScheda && (
+                      <TableCell className="flex justify-end gap-1">
+                        <IncaricoFormDialog
+                          ruoli={ruoli}
+                          onSaved={ricaricaDopoModifica}
+                          trigger={
+                            <Button variant="ghost" size="icon" aria-label={`Aggiungi ${etichettaCapienza}`}>
+                              <PlusIcon className="size-4" />
+                            </Button>
+                          }
+                        />
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
               </TableBody>
             </>
           ) : (
@@ -642,7 +686,7 @@ export function IncaricoTable({
                             <Button
                               variant="ghost"
                               size="icon"
-                              aria-label={posto.sempreApribile ? "Aggiungi amministratore" : `Aggiungi ${posto.caricaEtichetta.toLowerCase()}`}
+                              aria-label={posto.sempreApribile ? `Aggiungi ${etichettaCapienza}` : `Aggiungi ${posto.caricaEtichetta.toLowerCase()}`}
                             >
                               <PlusIcon className="size-4" />
                             </Button>

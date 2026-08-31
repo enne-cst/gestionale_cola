@@ -372,21 +372,6 @@ def _codice_nace_di(db: Session, azienda_id: UUID) -> str | None:
     return riga.codice_nace if riga else None
 
 
-def _numero_soci_di(db: Session, azienda_id: UUID) -> str | None:
-    """"Numero dei soci" della card omonima: mai una colonna propria, perché
-    disallineerebbe dalla tabella soci mostrata nella stessa card (§18 del
-    protocollo: "non hard-codificare conteggi"). Conta gli incarichi con
-    ruolo SOCIO, storicizzati compresi (nessun filtro su cessazione: non
-    richiesto, la tabella non nasconde i soci cessati)."""
-    numero = db.scalar(
-        select(func.count())
-        .select_from(PerIncarico)
-        .join(CatRuolo, CatRuolo.id == PerIncarico.ruolo_id)
-        .where(PerIncarico.azienda_id == azienda_id, CatRuolo.codice == "SOCIO")
-    )
-    return str(numero or 0)
-
-
 def _capitale_rappresentato_di(db: Session, azienda_id: UUID) -> str | None:
     """"Capitale sociale rappresentato" della card "Soci": derivato dal
     capitale sottoscritto della sezione "Capitale sociale" invece di una
@@ -1941,27 +1926,38 @@ def verifica_coerenza_affidatario_revisione_legale(
 # Corretta il 27/08/2026 per allinearla esattamente alla card "Soci e
 # titolari di diritti su azioni e quote" del prototipo HTML (migrazione
 # 035): rimossi data_atto/data_protocollo (non previsti), etichette
-# allineate al testo del prototipo, "numero_soci" aggiunto come campo
-# derivato (contato dagli incarichi ruolo SOCIO, mai una colonna propria:
-# non deve poter disallinearsi dalla tabella soci sotto la stessa card) e
-# "capitale_sociale_dichiarato" reso derivato da
-# ana_capitale_sociale.capitale_sottoscritto invece che una colonna
-# propria, per non duplicare un dato già verificabile in "Capitale
+# allineate al testo del prototipo, e "capitale_sociale_dichiarato" reso
+# derivato da ana_capitale_sociale.capitale_sottoscritto invece che una
+# colonna propria, per non duplicare un dato già verificabile in "Capitale
 # sociale". Ordine campi allineato a `cciaaSections` del prototipo.
+#
+# § richiesta esplicita (31/08/2026, migrazione 044): "numero_soci" non è
+# più un campo puramente calcolato (quello era stato deciso qui il
+# 27/08/2026, "non deve poter disallinearsi dalla tabella soci") — ora è
+# una capienza dichiarata modificabile, sincronizzata con la tabella soci
+# esattamente come "Numero componenti" dell'organo amministrativo
+# pluripersonale (§ `numero_amministratori_in_carica` sopra, stesso
+# significato di `derived=True` qui: esclude il campo da `scrivibili`/dal
+# PATCH generico della sezione, `_valore_campo` legge direttamente la
+# colonna perché non c'è più un `campi_derivati` per questa chiave — mai
+# "calcolato da una formula"). Si scrive subito tramite un endpoint
+# dedicato (`imposta_numero_soci`), solo con la scheda in modifica — vedi
+# NumeroSociField nel frontend.
 SEZIONE_ELENCO_SOCI_ESTREMI = SezioneRegistro(
     section_key="elenco-soci-estremi",
     sezione_codice="ANAGRAFICA_AZIENDALE.ELENCO_SOCI_ESTREMI",
     title="Estremi dell'elenco soci",
     model=AnaElencoSociEstremi,
-    campi_derivati={"numero_soci": _numero_soci_di, "capitale_sociale_dichiarato": _capitale_rappresentato_di},
+    campi_derivati={"capitale_sociale_dichiarato": _capitale_rappresentato_di},
     gruppi=[
         GruppoDef(
             key="elenco-soci-estremi",
             title="Estremi dell'elenco soci",
             campi=[
                 CampoDef(
-                    "numero_soci", "Numero dei soci", "number", derived=True,
-                    source_label="dai soci registrati nella tabella qui sotto",
+                    "numero_soci", "Numero dei soci", "number",
+                    valore_minimo=1, derived=True,
+                    derived_note="Si scrive subito, sincronizzato con la tabella dei soci",
                 ),
                 CampoDef("data_riferimento", "Data di riferimento dell'assetto", "date"),
                 CampoDef("data_deposito", "Data deposito elenco soci", "date"),

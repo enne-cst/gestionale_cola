@@ -30,13 +30,14 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.deps import AziendaContext
 from app.core.registro_campi import STATO_API_TO_DB, STATO_DB_TO_API, registra_audit
 from app.models.anagrafica import (
     AnaAmministrazioneControllo,
+    AnaElencoSociEstremi,
     AnaOrganiControllo,
     CatAffidatarioRevisioneLegale,
     CatAssettoControllo,
@@ -432,6 +433,144 @@ def imposta_numero_amministratori(
     for incarico_id in scelti:
         db.delete(attivi_per_id[incarico_id])
     amministrazione.numero_amministratori_in_carica = nuovo_valore
+
+
+# ===========================================================================
+# Soci: sincronizzazione bidirezionale tra "Numero dei soci" (capienza
+# dichiarata, campo modificabile) e le righe della tabella soci —
+# richiesta esplicita dell'utente (31/08/2026), stesso identico
+# comportamento della sezione sopra per l'organo amministrativo
+# pluripersonale. Due differenze strutturali, non di comportamento:
+# - "Estremi dell'elenco soci" è un singleton semplice (nessun organo da
+#   scegliere prima): niente equivalente di
+#   `_amministrazione_con_numero_modificabile`, la riga si crea al volo se
+#   non esiste ancora quando serve (§ funzioni sotto), non c'è un 422 "non
+#   configurato" come per l'organo amministrativo.
+# - "reale" qui conta TUTTI gli incarichi ruolo SOCIO, storicizzati
+#   compresi (§ decisione già presa il 27/08/2026, invariata: la tabella
+#   soci non nasconde i soci cessati, a differenza degli amministratori),
+#   non solo quelli "attivi" secondo A02 — niente `_incarichi_attivi` qui.
+# ===========================================================================
+
+
+def _soci_conteggio_reale(db: Session, azienda_id: UUID) -> int:
+    return (
+        db.scalar(
+            select(func.count())
+            .select_from(PerIncarico)
+            .join(CatRuolo, CatRuolo.id == PerIncarico.ruolo_id)
+            .where(PerIncarico.azienda_id == azienda_id, CatRuolo.codice == "SOCIO")
+        )
+        or 0
+    )
+
+
+def sincronizza_numero_soci_dopo_aggiunta(db: Session, azienda_id: UUID, ruolo_codice: str) -> None:
+    """Chiamata da `create_incarico` dopo aver salvato il nuovo incarico
+    (stessa transazione, prima del commit) — stesso identico comportamento
+    di `sincronizza_numero_amministratori_dopo_aggiunta`: se il nuovo socio
+    occupa un posto già previsto da "Numero dei soci", non cambia nulla;
+    solo se supera la capienza la alza fino al nuovo conteggio reale. Crea
+    la riga se non esiste ancora (nessun campo "organo" da scegliere prima
+    per questa sezione, a differenza dell'organo amministrativo)."""
+    if ruolo_codice != "SOCIO":
+        return
+    riga = db.scalars(select(AnaElencoSociEstremi).where(AnaElencoSociEstremi.azienda_id == azienda_id)).first()
+    reale = _soci_conteggio_reale(db, azienda_id)
+    if riga is None:
+        db.add(AnaElencoSociEstremi(azienda_id=azienda_id, numero_soci=reale))
+        return
+    attuale = riga.numero_soci or 0
+    if reale > attuale:
+        riga.numero_soci = reale
+
+
+def sincronizza_numero_soci_dopo_eliminazione(db: Session, azienda_id: UUID, ruolo_codice: str) -> None:
+    """Simmetrica a `sincronizza_numero_soci_dopo_aggiunta`: chiamata da
+    `delete_incarico` dopo la cancellazione fisica della riga (stessa
+    transazione, prima del commit, con la riga già cancellata — `reale`
+    riflette il conteggio dopo la cancellazione). La riga eliminata non
+    diventa un posto vuoto: "Numero dei soci" scende sempre di 1."""
+    if ruolo_codice != "SOCIO":
+        return
+    riga = db.scalars(select(AnaElencoSociEstremi).where(AnaElencoSociEstremi.azienda_id == azienda_id)).first()
+    if riga is None or riga.numero_soci is None:
+        return
+    reale = _soci_conteggio_reale(db, azienda_id)
+    riga.numero_soci = max(riga.numero_soci - 1, reale, 1)
+
+
+def imposta_numero_soci(
+    db: Session,
+    azienda_id: UUID,
+    *,
+    nuovo_valore: int,
+    incarichi_da_eliminare: list[UUID] | None,
+) -> None:
+    """Scrittura diretta di "Numero dei soci" (§ non passa dalla bozza
+    della sezione, vedi commento di testa a questa sezione del modulo) —
+    stesso identico comportamento di `imposta_numero_amministratori`:
+    aumentare (o ridurre eliminando solo posti ancora vuoti) è sempre
+    permesso senza conferma; ridurre sotto al numero di soci già
+    registrati richiede di scegliere ESPLICITAMENTE chi eliminare (409 con
+    l'elenco dei titolari attuali quando la scelta manca o non corrisponde
+    esattamente al numero richiesto), poi elimina fisicamente i soci scelti
+    (mai una cessazione: i soci cessati restano visibili in tabella, § nota
+    di modulo, quindi "eliminare" qui significa correggere un inserimento
+    errato, non far uscire un socio) e il nuovo valore nella stessa
+    transazione."""
+    if nuovo_valore < 1:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Il numero dei soci deve essere almeno 1")
+
+    soci = list(
+        db.scalars(
+            select(PerIncarico)
+            .join(CatRuolo, CatRuolo.id == PerIncarico.ruolo_id)
+            .where(PerIncarico.azienda_id == azienda_id, CatRuolo.codice == "SOCIO")
+        ).all()
+    )
+
+    def _riga_soci() -> AnaElencoSociEstremi:
+        riga = db.scalars(select(AnaElencoSociEstremi).where(AnaElencoSociEstremi.azienda_id == azienda_id)).first()
+        if riga is None:
+            riga = AnaElencoSociEstremi(azienda_id=azienda_id)
+            db.add(riga)
+        return riga
+
+    if nuovo_valore >= len(soci):
+        _riga_soci().numero_soci = nuovo_valore
+        return
+
+    eccedenza = len(soci) - nuovo_valore
+    scelti = set(incarichi_da_eliminare or [])
+    soci_per_id = {i.id: i for i in soci}
+    if len(scelti) != eccedenza or not scelti <= soci_per_id.keys():
+        persone = {
+            p.id: p
+            for p in db.scalars(
+                select(AnaPersone).where(AnaPersone.id.in_([i.persona_id for i in soci if i.persona_id]))
+            ).all()
+        }
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail={
+                "code": "RIDUZIONE_SOCI_RICHIESTA",
+                "message": (
+                    f'"{nuovo_valore}" è inferiore ai {len(soci)} soci attualmente registrati. '
+                    f"Seleziona quali {eccedenza} eliminare per ridurre il numero dei soci."
+                ),
+                "count": eccedenza,
+                "titolari": [
+                    {"id": str(i.id), "nome": f"{persone[i.persona_id].cognome} {persone[i.persona_id].nome}"}
+                    for i in soci
+                    if i.persona_id in persone
+                ],
+            },
+        )
+
+    for incarico_id in scelti:
+        db.delete(soci_per_id[incarico_id])
+    _riga_soci().numero_soci = nuovo_valore
 
 
 # ===========================================================================

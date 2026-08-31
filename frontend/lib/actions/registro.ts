@@ -1,6 +1,6 @@
 "use server";
 
-import { apiFetch, apiFetchResult } from "@/lib/api";
+import { apiFetch, apiFetchResult, type ApiResult } from "@/lib/api";
 import type { RegistryOverview, Section, SectionSummary } from "@/lib/types/registro";
 
 export async function getRegistroOverview(): Promise<RegistryOverview> {
@@ -91,12 +91,28 @@ export async function salvaSezioneRegistro(
   return { esito: "errore", messaggio: messaggioGenerico(result.detail) };
 }
 
-export type TitolareAmministratore = { id: string; nome: string };
+// § richiesta esplicita (31/08/2026, seguito): stesso identico meccanismo
+// per due sezioni diverse (Amministratori/Soci) — il tipo del titolare tra
+// cui scegliere in caso di riduzione è identico in entrambe (id/nome), qui
+// generalizzato per non duplicarlo; le due funzioni sotto restano invece
+// separate (una per endpoint), stesso stile del resto del file.
+export type TitolareIncarico = { id: string; nome: string };
 
-export type EsitoNumeroComponentiAmministratori =
+export type EsitoNumeroComponenti =
   | { esito: "ok"; sezione: Section }
-  | { esito: "riduzione_richiesta"; messaggio: string; count: number; titolari: TitolareAmministratore[] }
+  | { esito: "riduzione_richiesta"; messaggio: string; count: number; titolari: TitolareIncarico[] }
   | { esito: "errore"; messaggio: string };
+
+function leggiEsitoNumeroComponenti(result: ApiResult<Section>, codiceRiduzione: string): EsitoNumeroComponenti {
+  if (result.ok) return { esito: "ok", sezione: result.data };
+  if (result.status === 409 && result.detail !== null && typeof result.detail === "object" && !Array.isArray(result.detail)) {
+    const detail = result.detail as { code?: string; message: string; count: number; titolari?: TitolareIncarico[] };
+    if (detail.code === codiceRiduzione) {
+      return { esito: "riduzione_richiesta", messaggio: detail.message, count: detail.count, titolari: detail.titolari ?? [] };
+    }
+  }
+  return { esito: "errore", messaggio: messaggioGenerico(result.detail) };
+}
 
 /** Scrittura immediata di "Numero componenti" dell'organo amministrativo
  * pluripersonale (§ richiesta esplicita 31/08/2026): a differenza di
@@ -109,19 +125,26 @@ export type EsitoNumeroComponentiAmministratori =
 export async function impostaNumeroComponentiAmministratori(
   valore: number,
   incarichiDaEliminare?: string[],
-): Promise<EsitoNumeroComponentiAmministratori> {
+): Promise<EsitoNumeroComponenti> {
   const result = await apiFetchResult<Section>("/api/anagrafica/registro/sections/amministrazione-controllo/numero-componenti", {
     method: "PATCH",
     body: JSON.stringify({ valore, incarichiDaEliminare: incarichiDaEliminare ?? null }),
   });
-  if (result.ok) return { esito: "ok", sezione: result.data };
-  if (result.status === 409 && result.detail !== null && typeof result.detail === "object" && !Array.isArray(result.detail)) {
-    const detail = result.detail as { code?: string; message: string; count: number; titolari?: TitolareAmministratore[] };
-    if (detail.code === "RIDUZIONE_AMMINISTRATORI_RICHIESTA") {
-      return { esito: "riduzione_richiesta", messaggio: detail.message, count: detail.count, titolari: detail.titolari ?? [] };
-    }
-  }
-  return { esito: "errore", messaggio: messaggioGenerico(result.detail) };
+  return leggiEsitoNumeroComponenti(result, "RIDUZIONE_AMMINISTRATORI_RICHIESTA");
+}
+
+/** Stesso identico comportamento di `impostaNumeroComponentiAmministratori`
+ * sopra, per "Numero dei soci" (§ richiesta esplicita 31/08/2026, seguito)
+ * — vedi `app.core.incarichi.imposta_numero_soci`. */
+export async function impostaNumeroComponentiSoci(
+  valore: number,
+  incarichiDaEliminare?: string[],
+): Promise<EsitoNumeroComponenti> {
+  const result = await apiFetchResult<Section>("/api/anagrafica/registro/sections/elenco-soci-estremi/numero-componenti", {
+    method: "PATCH",
+    body: JSON.stringify({ valore, incarichiDaEliminare: incarichiDaEliminare ?? null }),
+  });
+  return leggiEsitoNumeroComponenti(result, "RIDUZIONE_SOCI_RICHIESTA");
 }
 
 export type EsitoMutazioneSezione = { esito: "ok"; sezione: Section } | { esito: "errore"; messaggio: string };

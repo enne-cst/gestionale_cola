@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import AziendaContext, get_current_azienda
 from app.core.incarichi import (
     imposta_numero_amministratori,
+    imposta_numero_soci,
     verifica_riduzione_sindaci_effettivi,
     verifica_transizione_nessun_organo_controllo,
 )
@@ -35,7 +36,7 @@ from app.core.registro_campi import (
 )
 from app.database import get_db
 from app.schemas.registro_campi import (
-    NumeroComponentiAmministratoriUpdateRequest,
+    NumeroComponentiUpdateRequest,
     OverviewRead,
     ReviewDecisionRequest,
     SectionRead,
@@ -177,7 +178,7 @@ def salva_sezione(
 
 @router.patch("/sections/amministrazione-controllo/numero-componenti", response_model=SectionRead)
 def imposta_numero_componenti_amministratori(
-    payload: NumeroComponentiAmministratoriUpdateRequest,
+    payload: NumeroComponentiUpdateRequest,
     db: Session = Depends(get_db),
     ctx: AziendaContext = Depends(get_current_azienda),
     _modulo: None = Depends(_modulo_dep),
@@ -197,6 +198,28 @@ def imposta_numero_componenti_amministratori(
     )
     db.commit()
     db.refresh(row)
+    return costruisci_sezione(db, ctx, sezione, row=row)
+
+
+@router.patch("/sections/elenco-soci-estremi/numero-componenti", response_model=SectionRead)
+def imposta_numero_soci_endpoint(
+    payload: NumeroComponentiUpdateRequest,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    """§ richiesta esplicita (31/08/2026, seguito): stesso identico
+    comportamento di `imposta_numero_componenti_amministratori` sopra, per
+    "Numero dei soci" (vedi `app.core.incarichi.imposta_numero_soci`). A
+    differenza dell'organo amministrativo la sezione qui non richiede una
+    scelta preliminare (nessun 404 "non ancora compilata"): la riga si crea
+    da sola alla prima scrittura, se non esiste ancora."""
+    sezione = _sezione_o_404("elenco-soci-estremi")
+    imposta_numero_soci(
+        db, ctx.azienda_id, nuovo_valore=payload.valore, incarichi_da_eliminare=payload.incarichiDaEliminare
+    )
+    db.commit()
+    row = _carica_record(db, ctx, sezione)
     return costruisci_sezione(db, ctx, sezione, row=row)
 
 

@@ -1117,6 +1117,15 @@ class AnaElencoSociEstremi(Base):
     data_deposito: Mapped[date | None]
     numero_protocollo: Mapped[str | None] = mapped_column(String(50))
 
+    # § richiesta esplicita (31/08/2026, migrazione 044): "Numero dei soci"
+    # diventa una capienza dichiarata modificabile, sincronizzata con gli
+    # incarichi ruolo SOCIO — stesso comportamento di
+    # AnaAmministrazioneControllo.numero_amministratori_in_carica, non più
+    # un puro conteggio calcolato senza colonna propria (§ superata la
+    # decisione della migrazione 035 solo per questo campo, vedi
+    # app/core/incarichi.py::imposta_numero_soci).
+    numero_soci: Mapped[int | None] = mapped_column(Integer)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

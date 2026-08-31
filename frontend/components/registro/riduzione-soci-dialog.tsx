@@ -8,16 +8,17 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import type { TitolareIncarico } from "@/lib/actions/registro";
 
-/** Dialogo di riduzione di "Numero componenti" dell'organo amministrativo
- * pluripersonale (§ richiesta esplicita 31/08/2026), quando il nuovo valore
- * è inferiore agli amministratori già in carica: a differenza di
- * `RiduzioneSindaciEffettiviDialog` (che cessa automaticamente i più
- * recenti), qui l'utente sceglie ESPLICITAMENTE chi eliminare tra i
- * titolari attuali — la stessa identica cancellazione fisica del cestino
- * della tabella (mai una cessazione), eseguita in un'unica chiamata insieme
- * al nuovo valore. "Annulla" non ha nulla da disfare: finché non si conferma
- * qui, il backend non ha ancora scritto nulla. */
-export function RiduzioneAmministratoriDialog({
+/** Dialogo di riduzione di "Numero dei soci" — § richiesta esplicita
+ * dell'utente (31/08/2026, seguito): stesso identico comportamento di
+ * `RiduzioneAmministratoriDialog`, qui per la tabella soci. L'utente
+ * sceglie ESPLICITAMENTE chi eliminare tra i soci attuali — la stessa
+ * identica cancellazione fisica del cestino della tabella (mai una
+ * cessazione: i soci cessati restano visibili in tabella, non sono
+ * "eliminati" da questo flusso a meno che l'utente non li scelga proprio
+ * qui), eseguita in un'unica chiamata insieme al nuovo valore. "Annulla"
+ * non ha nulla da disfare: finché non si conferma qui, il backend non ha
+ * ancora scritto nulla. */
+export function RiduzioneSociDialog({
   stato,
   salvando,
   errore,
@@ -58,9 +59,9 @@ export function RiduzioneAmministratoriDialog({
               Seleziona chi eliminare
             </DialogTitle>
             <DialogDescription className="text-sm leading-[1.7] text-[#41558c]">
-              Per ridurre il numero componenti a {stato?.obiettivo}, seleziona esattamente {count}{" "}
-              {count === 1 ? "amministratore" : "amministratori"} da eliminare tra quelli attualmente in carica.
-              L&apos;eliminazione è definitiva.
+              Per ridurre il numero dei soci a {stato?.obiettivo}, seleziona esattamente {count}{" "}
+              {count === 1 ? "socio" : "soci"} da eliminare tra quelli attualmente registrati. L&apos;eliminazione è
+              definitiva.
             </DialogDescription>
           </div>
         </div>

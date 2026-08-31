@@ -184,7 +184,16 @@ function ContenutoVista({
   switch (vistaKey) {
     case "sintesi":
       return <SintesiPanel />;
-    case "soci":
+    case "soci": {
+      // § richiesta esplicita (31/08/2026, seguito): stesso identico
+      // meccanismo di "Numero componenti" per Amministratori (vedi sotto)
+      // — valore CORRENTE (sempre quello salvato: "Numero dei soci" non
+      // passa più dalla bozza, si scrive subito, vedi NumeroSociField) di
+      // "Numero dei soci", per i posti liberi/il conteggio della tabella.
+      const entrySoci = state.sections["elenco-soci-estremi"];
+      const numeroSociRaw =
+        entrySoci?.server?.groups.flatMap((g) => g.fields).find((f) => f.key === "numero_soci")?.value ?? null;
+      const numeroSoci = numeroSociRaw ? Number(numeroSociRaw) : 0;
       return (
         <>
           <SectionContent sectionKey="elenco-soci-estremi" embedded hideFooter />
@@ -196,10 +205,12 @@ function ContenutoVista({
               etichettaVuoto="Nessun socio registrato."
               sectionKey="elenco-soci-estremi"
               variante="soci"
+              capienzaSoci={{ target: numeroSoci }}
             />
           </section>
         </>
       );
+    }
     case "amministratori": {
       // § richiesta esplicita (31/08/2026): valore CORRENTE (sempre quello
       // salvato — a differenza degli altri campi della sezione, "Numero

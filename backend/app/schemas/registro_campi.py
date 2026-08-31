@@ -97,14 +97,16 @@ class VisibilityUpdateRequest(BaseModel):
     visibleToCompany: bool
 
 
-class NumeroComponentiAmministratoriUpdateRequest(BaseModel):
-    """§ richiesta esplicita (31/08/2026): scrittura immediata di "Numero
-    componenti" per l'organo amministrativo pluripersonale, fuori dal ciclo
-    bozza/"Salva modifiche" della sezione — vedi
-    `app.core.incarichi.imposta_numero_amministratori`. `incarichiDaEliminare`
-    è valorizzato solo al secondo tentativo, dopo che il primo (senza
-    questo campo) ha risposto con un 409 che elenca i titolari attuali tra
-    cui scegliere."""
+class NumeroComponentiUpdateRequest(BaseModel):
+    """§ richiesta esplicita (31/08/2026): scrittura immediata di una
+    capienza dichiarata sincronizzata con una tabella di incarichi — "Numero
+    componenti" per l'organo amministrativo pluripersonale
+    (`imposta_numero_amministratori`) e "Numero dei soci"
+    (`imposta_numero_soci`, stesso identico comportamento), entrambi in
+    `app.core.incarichi`, fuori dal ciclo bozza/"Salva modifiche" della
+    sezione. `incarichiDaEliminare` è valorizzato solo al secondo tentativo,
+    dopo che il primo (senza questo campo) ha risposto con un 409 che
+    elenca i titolari attuali tra cui scegliere."""
 
     valore: int
     incarichiDaEliminare: list[UUID] | None = None
