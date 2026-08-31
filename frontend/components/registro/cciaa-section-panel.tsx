@@ -123,6 +123,7 @@ function ContenutoVista({
                 etichettaVuoto="Nessun amministratore registrato."
                 sectionKey="amministrazione-controllo"
                 addRowLabel="Aggiungi riga"
+                variante="amministratori"
               />
             </section>
           )}

@@ -70,8 +70,21 @@ export function IncaricoTable({
   // nomina/Quota/Valore nominale/Versamento/Stato di carica/Verifica,
   // colonna azioni solo in modifica) — nascita/cittadinanza/domicilio
   // restano solo nel form completo (pulsante Modifica, in modalità
-  // modifica). Omesso per Amministratori/Sindaci: colonne invariate.
-  variante?: "soci";
+  // modifica).
+  // "amministratori": vista riepilogativa Correzione 09 (Persona/Ruolo/
+  // Carica/Data di nomina/Durata/Stato della carica/Conferma consulente),
+  // stessa struttura per tutte e 4 le configurazioni dell'organo — solo il
+  // titolo della tabella cambia (vedi TITOLO_TABELLA_AMMINISTRATORI in
+  // cciaa-section-panel.tsx). "Carica" mostra lo stesso valore di "Ruolo"
+  // (incarico.ruolo.denominazione): decisione esplicita dell'utente, non
+  // esiste in piattaforma un campo distinto per la carica specifica
+  // (Presidente/Consigliere) e non se ne crea uno nuovo per questa
+  // correzione. Colonna azioni sempre visibile, non gated dalla modifica
+  // scheda: invariato rispetto al comportamento precedente di questa card
+  // (mai stato esteso il gating di Correzione 02, § quella correzione,
+  // "non generalizzare senza conferma").
+  // Omesso per Sindaci: colonne invariate (ramo di default sotto).
+  variante?: "soci" | "amministratori";
   // Testo del pulsante di inserimento riga, solo per il ramo con
   // `sectionKey` (§ Correzione 05 punto 10: "Aggiungi riga" per la card
   // Amministratori). Default invariato per gli altri chiamanti (Soci).
@@ -201,6 +214,71 @@ export function IncaricoTable({
                           </Button>
                         </TableCell>
                       )}
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </>
+          ) : variante === "amministratori" ? (
+            <>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Persona</TableHead>
+                  <TableHead className="text-center">Ruolo</TableHead>
+                  <TableHead className="text-center">Carica</TableHead>
+                  <TableHead className="text-center">Data di nomina</TableHead>
+                  <TableHead className="text-center">Durata</TableHead>
+                  <TableHead className="text-center">Stato della carica</TableHead>
+                  <TableHead className="text-center">Conferma consulente</TableHead>
+                  <TableHead className="w-24" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {incarichi.map((incarico) => {
+                  const statoCarica = valoreCaratteristica(incarico, "A25");
+                  const durata = valoreCaratteristica(incarico, "A29");
+                  const nomeIncarico = `${incarico.ruolo.denominazione} ${incarico.persona.cognome} ${incarico.persona.nome}`;
+                  return (
+                    <TableRow key={incarico.id}>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium text-foreground">
+                            {incarico.persona.cognome} {incarico.persona.nome}
+                          </span>
+                          <span className="text-xs text-muted-foreground">{incarico.persona.codice_fiscale}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">{incarico.ruolo.denominazione}</TableCell>
+                      <TableCell className="text-center">{incarico.ruolo.denominazione}</TableCell>
+                      <TableCell className="text-center">{primaData(incarico, ["A49", "A01"])}</TableCell>
+                      <TableCell className="text-center">{durata ?? "—"}</TableCell>
+                      <TableCell className="text-center">{statoCarica ?? "—"}</TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center">
+                          <IncaricoVerificationPopover
+                            incarico={incarico}
+                            nomeIncarico={nomeIncarico}
+                            consulente={consulente}
+                            onDecided={carica}
+                            disabled={editingScheda === true}
+                          />
+                        </div>
+                      </TableCell>
+                      <TableCell className="flex justify-end gap-1">
+                        <IncaricoFormDialog
+                          ruoli={ruoli}
+                          incarico={incarico}
+                          onSaved={carica}
+                          trigger={
+                            <Button variant="ghost" size="icon" aria-label="Modifica">
+                              <PencilIcon className="size-4" />
+                            </Button>
+                          }
+                        />
+                        <Button variant="ghost" size="icon" aria-label="Elimina" onClick={() => onElimina(incarico)}>
+                          <Trash2Icon className="size-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   );
                 })}
