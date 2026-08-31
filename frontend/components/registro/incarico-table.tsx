@@ -31,6 +31,27 @@ function etichettaCarica(incarico: Incarico): string {
   return (carica && ETICHETTE_CARICA_COLLEGIO[carica]) || incarico.ruolo.denominazione;
 }
 
+// § Correzione 17: "Carica" per la tabella "Sindaco unico + revisore
+// esterno" — a differenza di `etichettaCarica` sopra (che per un titolare
+// persona giuridica mostrerebbe "Società di revisione legale", § Correzione
+// 16), qui il testo dipende solo dal ruolo, mai dal tipo di titolare del
+// revisore esterno (persona fisica o società, § testo esplicito "le
+// informazioni complete... nei rispettivi form", non nella colonna Carica).
+function etichettaCaricaSindacoRevisoreEsterno(incarico: Incarico): string {
+  return incarico.ruolo.codice === "SINDACO" ? "Sindaco unico" : "Revisore esterno";
+}
+
+// § Correzione 18: "Carica" per la tabella "Collegio sindacale + revisore
+// esterno" — a differenza della funzione sopra, qui le righe SINDACO
+// restano etichettate dalla carica del collegio (Presidente/Sindaco
+// effettivo/Sindaco supplente, via `etichettaCarica`/A28, invariato);
+// solo il ruolo REVISORE_LEGALE ha l'etichetta fissa "Revisore esterno"
+// (mai "Società di revisione legale" per un titolare persona giuridica,
+// stesso principio di `etichettaCaricaSindacoRevisoreEsterno`).
+function etichettaCaricaCollegioRevisoreEsterno(incarico: Incarico): string {
+  return incarico.ruolo.codice === "REVISORE_LEGALE" ? "Revisore esterno" : etichettaCarica(incarico);
+}
+
 // § Correzione 16: nome/identificativo del titolare, qualunque sia il tipo
 // (persona fisica o giuridica) — evita di ripetere il controllo
 // `incarico.persona ?? incarico.persona_giuridica` in ogni punto che ne ha
@@ -113,6 +134,8 @@ export function IncaricoTable({
   addRowLabel = "Aggiungi",
   collegioSindacale,
   tipoTitolare,
+  sindacoRevisoreEsterno,
+  capienzaAmministratori,
 }: {
   titolo: string;
   icon: LucideIcon;
@@ -157,7 +180,15 @@ export function IncaricoTable({
   // righe segnaposto per i posti ancora non occupati. Assente per ogni
   // altra card/configurazione (Soci, Amministratori, le altre
   // configurazioni dell'organo di controllo).
-  collegioSindacale?: { sindaciEffettivi: number | null };
+  // § Correzione 18: `revisoreEsterno` opzionale — solo per l'assetto
+  // "Collegio sindacale + revisore esterno", aggiunge una terza carica
+  // predisposta (Revisore esterno, ruolo REVISORE_LEGALE, cap 1) alle
+  // cariche del collegio (Presidente/Sindaco effettivo/Sindaco supplente),
+  // sia nel conteggio "Numero componenti"/"N righe" sia nei segnaposto —
+  // stessa semantica di `tipoRevisore` di `sindacoRevisoreEsterno` sotto
+  // (null finché "Revisione legale affidata a" non è stato ancora scelto).
+  // Assente per il puro "Collegio sindacale" (Correzione 14, invariato).
+  collegioSindacale?: { sindaciEffettivi: number | null; revisoreEsterno?: { tipoRevisore: "FISICA" | "GIURIDICA" | null } };
   // § Correzione 16: quando `ruoliCodici` include REVISORE_LEGALE ma la
   // card deve mostrare solo un tipo di titolare (persona fisica per
   // "Revisore legale persona fisica", giuridica per "Società di revisione
@@ -168,8 +199,39 @@ export function IncaricoTable({
   // ogni card che mescola i due tipi (Soci, Amministratori, Sindaco
   // unico/Collegio sindacale, tabella generica "Sindaci e revisori").
   tipoTitolare?: "FISICA" | "GIURIDICA";
+  // § Correzione 17: solo per la card Sindaci quando l'assetto è "Sindaco
+  // unico + revisore esterno" — la tabella accetta esattamente 2 cariche
+  // predisposte (Sindaco unico/ruolo SINDACO, Revisore esterno/ruolo
+  // REVISORE_LEGALE), mai i placeholder/il conteggio a composizione
+  // variabile di `collegioSindacale` sopra. `tipoRevisore` è il valore
+  // corrente (bozza se in modifica) di "Revisione legale affidata a" —
+  // determina se la seconda riga accetta una persona fisica o una società
+  // (§ testo esplicito "il form completo deve cambiare in funzione della
+  // tipologia del soggetto"); `null` finché non è stato ancora scelto,
+  // nessun placeholder/riga per il revisore in quel caso (stesso
+  // comportamento di "Sindaci effettivi" non ancora scelto per il
+  // collegio). Mutuamente esclusivo con `tipoTitolare`/`collegioSindacale`
+  // sopra (mai passati insieme).
+  sindacoRevisoreEsterno?: { tipoRevisore: "FISICA" | "GIURIDICA" | null };
+  // § richiesta esplicita (31/08/2026): solo per la card Amministratori
+  // quando l'organo è Consiglio di amministrazione/Amministrazione
+  // pluripersonale congiuntiva/disgiuntiva (le 3 configurazioni con
+  // "Numero componenti" modificabile, § `_ORGANI_NUMERO_COMPONENTI_
+  // MODIFICABILE` in incarichi.py) — `target` è il valore corrente del
+  // campo "Numero componenti" della sezione. Stesso meccanismo di
+  // segnaposto già in uso per il collegio sindacale (righe "Posto libero"
+  // per la capienza non ancora occupata), ma senza carica/ruolo
+  // predisposti (per gli amministratori "Carica" coincide col ruolo, §
+  // Correzione 09: nessuna carica specifica da preselezionare) — il "+" di
+  // ogni posto libero apre lo stesso dialogo generico del pulsante header.
+  // L'aggiornamento di "Numero componenti" quando si aggiunge/elimina una
+  // riga è fatto dal backend (vedi `sincronizza_numero_amministratori_
+  // dopo_aggiunta/_eliminazione`), non da questo componente: `carica()`
+  // dopo ogni `onSaved`/eliminazione si limita a rileggere la sezione
+  // aggiornata tramite il refresh del pannello che la ospita.
+  capienzaAmministratori?: { target: number };
 }) {
-  const { ruolo, state } = useWorkspace();
+  const { ruolo, state, reload } = useWorkspace();
   const consulente = ruolo === "CONSULENTE";
   const editingScheda = sectionKey ? (state.sections[sectionKey]?.editing ?? false) : undefined;
   const [ruoli, setRuoli] = useState<RuoloSummary[] | null>(null);
@@ -191,10 +253,21 @@ export function IncaricoTable({
     carica();
   }, [carica]);
 
+  // § richiesta esplicita (31/08/2026): un'aggiunta/eliminazione di riga
+  // cambia anche "Numero componenti" lato backend (vedi
+  // `capienzaAmministratori` sopra) — solo per quella card la sezione va
+  // ricaricata insieme alla tabella, cosi' il campo mostra subito il nuovo
+  // valore senza aspettare che l'utente riapra la scheda. No-op per ogni
+  // altra card (Soci, Sindaci): `capienzaAmministratori` è assente lì.
+  const ricaricaDopoModifica = useCallback(() => {
+    carica();
+    if (capienzaAmministratori && sectionKey) reload(sectionKey);
+  }, [carica, capienzaAmministratori, sectionKey, reload]);
+
   async function onElimina(incarico: Incarico) {
     if (!confirm(`Rimuovere l'incarico di ${nomeTitolare(incarico)}?`)) return;
     const esito = await eliminaIncarico(incarico.id);
-    if (esito.esito === "ok") carica();
+    if (esito.esito === "ok") ricaricaDopoModifica();
   }
 
   if (errore) {
@@ -225,16 +298,32 @@ export function IncaricoTable({
   // tipo (es. un revisore persona fisica storico, mentre l'assetto
   // corrente è "Società di revisione legale") restano nel database, non
   // spariscono: semplicemente non compaiono in QUESTA tabella.
+  // § Correzione 17/18: per "Sindaco unico + revisore esterno" e "Collegio
+  // sindacale + revisore esterno" il ruolo SINDACO resta sempre mostrato,
+  // il ruolo REVISORE_LEGALE solo se del tipo atteso da `tipoRevisore`
+  // (nessuna riga finché non è stato scelto — stesso principio del filtro
+  // persona/persona giuridica di `tipoTitolare` sopra, qui condizionato al
+  // ruolo invece che applicato a tutte le righe). `tipoRevisoreEsterno`
+  // unifica le due fonti (mai valorizzate insieme, § tipi sopra).
+  const tipoRevisoreEsterno = sindacoRevisoreEsterno?.tipoRevisore ?? collegioSindacale?.revisoreEsterno?.tipoRevisore;
   const incarichiFiltrati =
     tipoTitolare === "GIURIDICA"
       ? incarichi.filter((i) => i.persona_giuridica !== null)
       : tipoTitolare === "FISICA"
         ? incarichi.filter((i) => i.persona !== null)
-        : incarichi;
+        : sindacoRevisoreEsterno || collegioSindacale?.revisoreEsterno
+          ? incarichi.filter(
+              (i) =>
+                i.ruolo.codice !== "REVISORE_LEGALE" ||
+                (tipoRevisoreEsterno === "GIURIDICA"
+                  ? i.persona_giuridica !== null
+                  : tipoRevisoreEsterno === "FISICA" && i.persona !== null),
+            )
+          : incarichi;
   const addTrigger = sectionKey ? (
     <IncaricoFormDialog
       ruoli={ruoli}
-      onSaved={carica}
+      onSaved={ricaricaDopoModifica}
       caricheDisponibili={caricheOpzioni}
       tipoTitolare={tipoTitolare === "GIURIDICA" ? "GIURIDICA" : undefined}
       trigger={<AddRowButton icon={PlusIcon} label={addRowLabel} />}
@@ -244,12 +333,17 @@ export function IncaricoTable({
   );
 
   // § Correzione 14: righe segnaposto per i posti del collegio sindacale
-  // ancora non occupati — solo UI, mai righe reali nel database (§
-  // decisione esplicita, AskUserQuestion: `PerIncarico.persona_id` NOT
-  // NULL rende impossibile crearle davvero). Ognuna apre lo stesso
-  // dialogo "Aggiungi riga" con ruolo/carica già preselezionati.
+  // (o, § Correzione 17, per le 2 cariche predisposte di "Sindaco unico +
+  // revisore esterno") ancora non occupati — solo UI, mai righe reali nel
+  // database (§ decisione esplicita, AskUserQuestion: `PerIncarico.persona_id`
+  // NOT NULL rende impossibile crearle davvero). Ognuna apre lo stesso
+  // dialogo "Aggiungi riga" con ruolo/carica già preselezionati. Forma
+  // condivisa dai due meccanismi (`SegnapostoRiga` inline sotto): solo il
+  // collegio sindacale usa `caricheDisponibili`/`caricaCodice` (il
+  // selettore "Carica" derivato da A28); "Sindaco unico + revisore
+  // esterno" distingue le 2 righe per ruolo, non per carica.
   const ruoloSindaco = collegioSindacale ? ruoli.find((r) => r.codice === "SINDACO") : undefined;
-  const segnaposto =
+  const segnapostoCollegio =
     collegioSindacale && ruoloSindaco
       ? CARICHE_COLLEGIO_SINDACALE.flatMap((c) => {
           const cap = capCaricaCollegio(c.codice, collegioSindacale.sindaciEffettivi);
@@ -257,16 +351,114 @@ export function IncaricoTable({
           const occupati = incarichi.filter(
             (i) => i.ruolo.codice === "SINDACO" && valoreCaratteristica(i, "A28") === c.codice,
           ).length;
-          return Array.from({ length: Math.max(cap - occupati, 0) }, (_, idx) => ({ carica: c, key: `${c.codice}-${idx}` }));
+          return Array.from({ length: Math.max(cap - occupati, 0) }, (_, idx) => ({
+            key: `${c.codice}-${idx}`,
+            ruoloId: ruoloSindaco.id,
+            ruoloEtichetta: ruoloSindaco.denominazione,
+            caricaEtichetta: c.etichetta,
+            caricaCodice: c.codice,
+            caricheDisponibili: CARICHE_COLLEGIO_SINDACALE,
+            tipoTitolarePredefinito: undefined as "GIURIDICA" | undefined,
+            sempreApribile: false,
+          }));
         })
       : [];
-  // § Correzione 14: il conteggio del titolo segue la composizione
-  // prescritta (sindaciEffettivi + 2), non le sole righe già compilate —
+  // § Correzione 17: le 2 cariche predisposte — "Sindaco unico" (sempre,
+  // cap 1) e "Revisore esterno" (cap 1) — sempre visibili quando il posto
+  // non è occupato, "Numero componenti" vale sempre 2 per questo assetto
+  // (§ testo esplicito, nessuna condizione), quindi anche il conteggio
+  // "2 righe" della tabella resta coerente indipendentemente da cosa è già
+  // stato scelto. Finché "Revisione legale affidata a" non indica ancora
+  // persona fisica o società, il posto "Revisore esterno" resta visibile
+  // ma senza un pulsante "+" attivo (nessun picker sensato da preaprire
+  // senza saperlo).
+  const ruoloSindacoUnico = sindacoRevisoreEsterno ? ruoli.find((r) => r.codice === "SINDACO") : undefined;
+  const segnapostoSindacoUnico = ruoloSindacoUnico && incarichiFiltrati.every((i) => i.ruolo.codice !== "SINDACO")
+    ? [
+        {
+          key: "sindaco-unico",
+          ruoloId: ruoloSindacoUnico.id as string | undefined,
+          ruoloEtichetta: ruoloSindacoUnico.denominazione,
+          caricaEtichetta: "Sindaco unico",
+          caricaCodice: undefined as string | undefined,
+          caricheDisponibili: undefined as { codice: string; etichetta: string }[] | undefined,
+          tipoTitolarePredefinito: undefined as "GIURIDICA" | undefined,
+          sempreApribile: false,
+        },
+      ]
+    : [];
+  // § Correzione 18: stesso identico posto "Revisore esterno" (cap 1),
+  // condiviso tra "Sindaco unico + revisore esterno" (Correzione 17) e
+  // "Collegio sindacale + revisore esterno" — riusato cosi' com'è, la sola
+  // differenza tra i due assetti è quali ALTRE cariche compaiono accanto
+  // (`segnapostoSindacoUnico` sopra vs `segnapostoCollegio` sotto).
+  const ruoloRevisoreLegale =
+    sindacoRevisoreEsterno || collegioSindacale?.revisoreEsterno ? ruoli.find((r) => r.codice === "REVISORE_LEGALE") : undefined;
+  const segnapostoRevisoreEsterno =
+    ruoloRevisoreLegale && incarichiFiltrati.every((i) => i.ruolo.codice !== "REVISORE_LEGALE")
+      ? [
+          {
+            key: "revisore-esterno",
+            ruoloId: (tipoRevisoreEsterno ? ruoloRevisoreLegale.id : undefined) as string | undefined,
+            ruoloEtichetta: ruoloRevisoreLegale.denominazione,
+            caricaEtichetta: "Revisore esterno",
+            caricaCodice: undefined as string | undefined,
+            caricheDisponibili: undefined as { codice: string; etichetta: string }[] | undefined,
+            tipoTitolarePredefinito: tipoRevisoreEsterno === "GIURIDICA" ? ("GIURIDICA" as const) : undefined,
+            sempreApribile: false,
+          },
+        ]
+      : [];
+  // § richiesta esplicita (31/08/2026): posti liberi fino a "Numero
+  // componenti" per Consiglio di amministrazione/Amministrazione
+  // pluripersonale — a differenza dei segnaposto sopra, qui non c'è una
+  // carica specifica da preselezionare (§ Correzione 09: "Carica" coincide
+  // col ruolo), quindi `ruoloId` resta sempre assente ma il "+" deve
+  // comunque aprirsi (apre il dialogo generico, l'utente sceglie tra i 3
+  // ruoli ammessi) — `sempreApribile` distingue questo caso dal posto
+  // "Revisore esterno" sopra ancora senza tipo, dove invece il "+" resta
+  // volutamente disattivo.
+  // Mai meno delle righe reali già presenti (capienza sarebbe incoerente
+  // solo se il campo "Numero componenti" non fosse ancora allineato, es.
+  // dato storico mai toccato da questo meccanismo): il conteggio/i posti
+  // liberi si basano su questo valore corretto, mai su quello grezzo del
+  // campo quando è inferiore alle righe reali.
+  const capienzaTarget = capienzaAmministratori
+    ? Math.max(capienzaAmministratori.target, incarichiFiltrati.length)
+    : null;
+  const segnapostoCapienza = capienzaTarget !== null
+    ? Array.from(
+        { length: Math.max(capienzaTarget - incarichiFiltrati.length, 0) },
+        (_, idx) => ({
+          key: `capienza-${idx}`,
+          ruoloId: undefined as string | undefined,
+          ruoloEtichetta: "—",
+          caricaEtichetta: "—",
+          caricaCodice: undefined as string | undefined,
+          caricheDisponibili: undefined as { codice: string; etichetta: string }[] | undefined,
+          tipoTitolarePredefinito: undefined as "GIURIDICA" | undefined,
+          sempreApribile: true,
+        }),
+      )
+    : [];
+  const segnaposto = [...segnapostoCollegio, ...segnapostoSindacoUnico, ...segnapostoRevisoreEsterno, ...segnapostoCapienza];
+  // § Correzione 14/17/18: il conteggio del titolo segue la composizione
+  // prescritta (sindaciEffettivi + 2 per il collegio puro, + 1 in più per
+  // il revisore esterno quando presente — § Correzione 18 "il totale deve
+  // comprendere anche il revisore esterno", 3→6/5→8 —, sempre 2 per
+  // "Sindaco unico + revisore esterno"), non le sole righe già compilate —
   // coerente con "Numero componenti" della sezione, che conta allo stesso
-  // modo. Invariato (righe compilate, ora filtrate per tipo di titolare §
+  // modo. Invariato (righe compilate, filtrate per tipo di titolare §
   // Correzione 16) per ogni altra card/configurazione.
   const numeroComponenti =
-    collegioSindacale?.sindaciEffettivi != null ? collegioSindacale.sindaciEffettivi + 2 : incarichiFiltrati.length;
+    collegioSindacale?.sindaciEffettivi != null
+      ? collegioSindacale.sindaciEffettivi + 2 + (collegioSindacale.revisoreEsterno ? 1 : 0)
+      : sindacoRevisoreEsterno
+        ? 2
+        : // § richiesta esplicita (31/08/2026): come sopra, il conteggio
+          // segue "Numero componenti" (righe compilate + posti liberi), non
+          // le sole righe già compilate.
+          (capienzaTarget ?? incarichiFiltrati.length);
   const vuoto = incarichiFiltrati.length === 0 && segnaposto.length === 0;
   return (
     <DataTableCard title={titolo} count={numeroComponenti} editing={editingScheda} addTrigger={addTrigger}>
@@ -362,7 +554,13 @@ export function IncaricoTable({
                         <CellaTitolare incarico={incarico} />
                       </TableCell>
                       <TableCell className="text-center">{incarico.ruolo.denominazione}</TableCell>
-                      <TableCell className="text-center">{etichettaCarica(incarico)}</TableCell>
+                      <TableCell className="text-center">
+                        {sindacoRevisoreEsterno
+                          ? etichettaCaricaSindacoRevisoreEsterno(incarico)
+                          : collegioSindacale?.revisoreEsterno
+                            ? etichettaCaricaCollegioRevisoreEsterno(incarico)
+                            : etichettaCarica(incarico)}
+                      </TableCell>
                       <TableCell className="text-center">{primaData(incarico, ["A49", "A01"])}</TableCell>
                       <TableCell className="text-center">{durata ?? "—"}</TableCell>
                       <TableCell className="text-center">{statoCarica ?? "—"}</TableCell>
@@ -382,43 +580,84 @@ export function IncaricoTable({
                           ruoli={ruoli}
                           incarico={incarico}
                           onSaved={carica}
-                          tipoTitolare={tipoTitolare === "GIURIDICA" ? "GIURIDICA" : undefined}
+                          tipoTitolare={
+                            sindacoRevisoreEsterno || collegioSindacale?.revisoreEsterno
+                              ? incarico.persona_giuridica
+                                ? "GIURIDICA"
+                                : undefined
+                              : tipoTitolare === "GIURIDICA"
+                                ? "GIURIDICA"
+                                : undefined
+                          }
                           trigger={
                             <Button variant="ghost" size="icon" aria-label="Modifica">
                               <PencilIcon className="size-4" />
                             </Button>
                           }
                         />
-                        <Button variant="ghost" size="icon" aria-label="Elimina" onClick={() => onElimina(incarico)}>
-                          <Trash2Icon className="size-4" />
-                        </Button>
+                        {/* § richiesta esplicita (31/08/2026): eliminare una
+                         * riga cambia anche "Numero componenti" (vedi
+                         * `capienzaAmministratori`), quindi per questa card
+                         * il pulsante compare solo col banner "Modifica
+                         * dati" attivo — invariato (sempre visibile) per
+                         * ogni altra card (Soci con la propria gating già
+                         * esistente, Sindaci), dove eliminare una riga non
+                         * tocca alcun conteggio della sezione. */}
+                        {(!capienzaAmministratori || editingScheda) && (
+                          <Button variant="ghost" size="icon" aria-label="Elimina" onClick={() => onElimina(incarico)}>
+                            <Trash2Icon className="size-4" />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
                 })}
-                {segnaposto.map(({ carica: opzioneCarica, key }) => (
-                  <TableRow key={key} className="text-muted-foreground">
+                {segnaposto.map((posto) => (
+                  <TableRow key={posto.key} className="text-muted-foreground">
                     <TableCell className="italic">Posto libero</TableCell>
-                    <TableCell className="text-center">{ruoloSindaco?.denominazione ?? "Sindaco"}</TableCell>
-                    <TableCell className="text-center">{opzioneCarica.etichetta}</TableCell>
+                    <TableCell className="text-center">{posto.ruoloEtichetta}</TableCell>
+                    <TableCell className="text-center">{posto.caricaEtichetta}</TableCell>
                     <TableCell className="text-center">—</TableCell>
                     <TableCell className="text-center">—</TableCell>
                     <TableCell className="text-center">—</TableCell>
                     <TableCell className="text-center">—</TableCell>
                     <TableCell className="flex justify-end gap-1">
-                      {ruoloSindaco && (
+                      {posto.sempreApribile && !editingScheda ? (
+                        // § richiesta esplicita (31/08/2026): un posto libero
+                        // di "Numero componenti" (capienza, § sempreApribile)
+                        // si può occupare solo col banner "Modifica dati"
+                        // attivo (occuparlo cambierebbe la tabella, anche se
+                        // non il conteggio, § regola sul riempimento posti) —
+                        // nessun "+" fuori da quella modalità, cella vuota.
+                        null
+                      ) : posto.ruoloId || posto.sempreApribile ? (
                         <IncaricoFormDialog
                           ruoli={ruoli}
-                          onSaved={carica}
-                          caricheDisponibili={caricheOpzioni}
-                          caricaPredefinita={opzioneCarica.codice}
-                          ruoloIdPredefinito={ruoloSindaco.id}
+                          onSaved={ricaricaDopoModifica}
+                          caricheDisponibili={posto.caricheDisponibili}
+                          caricaPredefinita={posto.caricaCodice}
+                          ruoloIdPredefinito={posto.ruoloId}
+                          tipoTitolare={posto.tipoTitolarePredefinito}
                           trigger={
-                            <Button variant="ghost" size="icon" aria-label={`Aggiungi ${opzioneCarica.etichetta.toLowerCase()}`}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={posto.sempreApribile ? "Aggiungi amministratore" : `Aggiungi ${posto.caricaEtichetta.toLowerCase()}`}
+                            >
                               <PlusIcon className="size-4" />
                             </Button>
                           }
                         />
+                      ) : (
+                        // § Correzione 17: il posto "Revisore esterno" è
+                        // visibile ma non ancora aggiungibile finché
+                        // "Revisione legale affidata a" non indica persona
+                        // fisica o società (nessun picker sensato da
+                        // preaprire senza saperlo, stesso principio di
+                        // "Seleziona prima il numero dei sindaci effettivi"
+                        // per il collegio, qui verificato in anteprima
+                        // lato frontend invece che al salvataggio).
+                        <span className="text-xs italic text-muted-foreground">Scegli il tipo di revisore</span>
                       )}
                     </TableCell>
                   </TableRow>

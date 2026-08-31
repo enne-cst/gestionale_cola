@@ -219,6 +219,20 @@ class TestSezioniRegistrate:
         # revisione legale" — stesso identico schema di "Revisore legale
         # persona fisica", "numero_componenti_societa" (derivato, per il
         # titolare persona giuridica) è l'unica chiave propria.
+        # Correzione 17: quinta configurazione definita, "Sindaco unico +
+        # revisore esterno" — "numero_componenti_sindaco_revisore"
+        # (derivato, costante "2") è l'unica chiave propria; "Funzioni
+        # dell'organo interno" torna ad applicarsi (organo interno presente,
+        # a differenza di Revisore legale persona fisica/Società di
+        # revisione legale) e "revisione_legale_affidata_a"/
+        # "durata_incarico_tipo" si estendono anche a questo assetto
+        # (nessuna chiave nuova per quei tre).
+        # Correzione 18: sesta configurazione definita, "Collegio sindacale
+        # + revisore esterno" — "numero_componenti_collegio_revisore"
+        # (derivato, sindaci_effettivi + 3) è l'unica chiave propria;
+        # "sindaci_effettivi"/"sindaci_supplenti" si estendono anche a
+        # questo assetto (nessuna chiave nuova, stesso campo di Correzione
+        # 14).
         indice = _indice(SEZIONE_ORGANI_CONTROLLO)
         assert indice.chiavi == {
             "assetto_controllo_in_carica",
@@ -226,6 +240,8 @@ class TestSezioniRegistrate:
             "numero_componenti_collegio",
             "numero_componenti_revisore",
             "numero_componenti_societa",
+            "numero_componenti_sindaco_revisore",
+            "numero_componenti_collegio_revisore",
             "numero_componenti",
             "sindaci_effettivi",
             "sindaci_supplenti",
@@ -242,14 +258,18 @@ class TestSezioniRegistrate:
             "sindaci_supplenti",
             "numero_componenti_revisore",
             "numero_componenti_societa",
+            "numero_componenti_sindaco_revisore",
+            "numero_componenti_collegio_revisore",
         }
-        # § Correzione 13/14/15/16 punto esplicito: "Numero componenti" non
-        # è modificabile in nessuna delle quattro configurazioni definite,
-        # né lo è "Sindaci supplenti" (sempre 2, per definizione).
+        # § Correzione 13/14/15/16/17/18 punto esplicito: "Numero
+        # componenti" non è modificabile in nessuna delle sei configurazioni
+        # definite, né lo è "Sindaci supplenti" (sempre 2, per definizione).
         assert "numero_componenti_organo" not in indice.scrivibili
         assert "numero_componenti_collegio" not in indice.scrivibili
         assert "numero_componenti_revisore" not in indice.scrivibili
         assert "numero_componenti_societa" not in indice.scrivibili
+        assert "numero_componenti_sindaco_revisore" not in indice.scrivibili
+        assert "numero_componenti_collegio_revisore" not in indice.scrivibili
         assert "sindaci_supplenti" not in indice.scrivibili
         # § Correzione 14: "Sindaci effettivi" è a scelta fissa (3 o 5), non
         # un catalogo — verificato sia il tipo che le opzioni esatte.
@@ -320,12 +340,16 @@ class TestSezioniRegistrate:
         # "sindaci_supplenti" = 12, Correzione 15 "Revisore legale persona
         # fisica": +1 campo proprio "numero_componenti_revisore" = 13,
         # Correzione 16 "Società di revisione legale": +1 campo proprio
-        # "numero_componenti_societa" = 14), il penultimo per
+        # "numero_componenti_societa" = 14, Correzione 17 "Sindaco unico +
+        # revisore esterno": +1 campo proprio
+        # "numero_componenti_sindaco_revisore" = 15, Correzione 18
+        # "Collegio sindacale + revisore esterno": +1 campo proprio
+        # "numero_componenti_collegio_revisore" = 16), il penultimo per
         # "elenco-soci-estremi" dopo la correzione 035, gli ultimi due per
         # "sede"/"statuto", pilota su ana_sede_rev2/ana_statuto_rev2: un
         # cambiamento qui e' un promemoria per aggiornare quel numero
         # consapevolmente.
-        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 87
+        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 89
 
 
 class TestValidaCampo:
@@ -418,7 +442,13 @@ class TestStatoCompletamento:
         completa = AnaAmministrazioneControllo(organo_amministrativo_id=uuid4())
         assert stato_completamento(SEZIONE_AMMINISTRAZIONE_CONTROLLO, completa) == "COMPLETE"
 
-        in_corso = AnaAmministrazioneControllo(organo_amministrativo_id=None, numero_amministratori_in_carica=1)
+        # § richiesta esplicita (31/08/2026, seguito): "numero_amministratori_
+        # in_carica" è ora `derived=True` (solo per escluderlo dal PATCH
+        # generico della sezione, si scrive tramite un endpoint dedicato —
+        # vedi il commento sulla sua `CampoDef`), quindi non conta più come
+        # "campo scrivibile compilato" qui: usa un altro campo scrivibile
+        # (`durata_in_carica_organo`) per lo stesso controllo generico.
+        in_corso = AnaAmministrazioneControllo(organo_amministrativo_id=None, durata_in_carica_organo="a tempo indeterminato")
         assert stato_completamento(SEZIONE_AMMINISTRAZIONE_CONTROLLO, in_corso) == "IN_PROGRESS"
 
     def test_organi_controllo_usa_assetto_come_campo_guida(self):

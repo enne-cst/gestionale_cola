@@ -1,0 +1,127 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { FieldVerificationPopover } from "@/components/registro/field-verification-popover";
+import { RiduzioneAmministratoriDialog } from "@/components/registro/riduzione-amministratori-dialog";
+import { VisibilityToggle } from "@/components/registro/visibility-toggle";
+import { useWorkspace } from "@/components/registro/workspace-provider";
+import { impostaNumeroComponentiAmministratori, type TitolareAmministratore } from "@/lib/actions/registro";
+import type { FieldState } from "@/lib/types/registro";
+
+/** "Numero componenti" dell'organo amministrativo pluripersonale (Consiglio
+ * di amministrazione, Amministrazione pluripersonale congiuntiva/
+ * disgiuntiva) — § richiesta esplicita dell'utente (31/08/2026):
+ * sincronizzazione bidirezionale con le righe della tabella "Titolari di
+ * cariche" (`IncaricoTable`, che aggiorna/decrementa questo stesso valore
+ * lato backend ad ogni riga aggiunta/eliminata, vedi
+ * `app.core.incarichi.sincronizza_numero_amministratori_dopo_aggiunta/
+ * _eliminazione`). Il campo si scrive SUBITO tramite un endpoint dedicato
+ * (`impostaNumeroComponentiAmministratori`), non tramite la bozza/"Salva
+ * modifiche" della sezione come ogni altro campo (sarebbe incoerente con la
+ * tabella, le cui righe sono già immediate). Precisazione dell'utente
+ * (31/08/2026, seguito): l'incremento/decremento resta comunque possibile
+ * SOLO col banner "Modifica dati" attivo — per questo `SectionContent`
+ * monta questo componente solo nel ramo "in modifica" (mai in quello di
+ * sola lettura, dove il campo torna un normale `FieldRow` in sola
+ * lettura); l'immediatezza del salvataggio non cambia, cambia solo quando
+ * il campo è raggiungibile. Sostituisce il rendering generico di
+ * `FieldRow` solo per questa chiave di campo. */
+export function NumeroComponentiOrganoField({ sectionKey, field }: { sectionKey: string; field: FieldState }) {
+  const { ruolo, toggleVisibility, refreshSectionSnapshot } = useWorkspace();
+  const consulente = ruolo === "CONSULENTE";
+  const [valore, setValore] = useState(field.value ?? "");
+  const [salvando, setSalvando] = useState(false);
+  const [errore, setErrore] = useState<string | null>(null);
+  const [riduzione, setRiduzione] = useState<{ obiettivo: number; count: number; titolari: TitolareAmministratore[] } | null>(
+    null,
+  );
+
+  // Il valore reale vive sul server (scritto anche dalla tabella, fuori dal
+  // controllo di questo componente): quando la sezione viene ricaricata o
+  // la tabella lo cambia, riallinea il campo — mai mentre l'utente sta
+  // ancora scrivendo un valore diverso non ancora salvato/in dialogo.
+  useEffect(() => {
+    if (!salvando && riduzione === null) setValore(field.value ?? "");
+  }, [field.value, salvando, riduzione]);
+
+  async function applica(nuovoValore: number, incarichiDaEliminare?: string[]) {
+    setSalvando(true);
+    setErrore(null);
+    const esito = await impostaNumeroComponentiAmministratori(nuovoValore, incarichiDaEliminare);
+    setSalvando(false);
+    if (esito.esito === "ok") {
+      refreshSectionSnapshot(sectionKey, esito.sezione);
+      setRiduzione(null);
+      return;
+    }
+    if (esito.esito === "riduzione_richiesta") {
+      setRiduzione({ obiettivo: nuovoValore, count: esito.count, titolari: esito.titolari });
+      return;
+    }
+    setErrore(esito.messaggio);
+    setValore(field.value ?? "");
+  }
+
+  function onBlur() {
+    const attuale = field.value ? Number(field.value) : null;
+    const numero = valore.trim() === "" ? NaN : Number(valore);
+    if (!Number.isFinite(numero) || numero === attuale) {
+      setValore(field.value ?? "");
+      return;
+    }
+    if (numero < 1) {
+      setErrore("Il numero componenti deve essere almeno 1");
+      setValore(field.value ?? "");
+      return;
+    }
+    applica(Math.trunc(numero));
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="mb-[7px] flex min-h-[23px] items-center gap-2">
+        <Label htmlFor={`campo-${sectionKey}-${field.key}`} className="text-xs font-semibold text-[#43588e]">
+          {field.label}
+        </Label>
+        {(consulente || field.verificationStatus) && (
+          <span className="ml-auto inline-flex items-center gap-[5px]">
+            {consulente && (
+              <VisibilityToggle
+                label={field.label}
+                visible={field.visibleToCompany}
+                onToggle={() => toggleVisibility(sectionKey, field.key, !field.visibleToCompany)}
+              />
+            )}
+            {field.verificationStatus && <FieldVerificationPopover sectionKey={sectionKey} field={field} />}
+          </span>
+        )}
+      </div>
+      <Input
+        id={`campo-${sectionKey}-${field.key}`}
+        type="number"
+        min={1}
+        value={valore}
+        disabled={salvando}
+        aria-invalid={Boolean(errore)}
+        onChange={(e) => setValore(e.target.value)}
+        onBlur={onBlur}
+      />
+      {errore && <p className="text-xs text-destructive">{errore}</p>}
+      <RiduzioneAmministratoriDialog
+        stato={riduzione}
+        salvando={salvando}
+        errore={errore}
+        onAnnulla={() => {
+          setRiduzione(null);
+          setValore(field.value ?? "");
+        }}
+        onConferma={(incarichiDaEliminare) => {
+          if (riduzione) applica(riduzione.obiettivo, incarichiDaEliminare);
+        }}
+      />
+    </div>
+  );
+}

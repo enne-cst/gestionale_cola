@@ -91,6 +91,39 @@ export async function salvaSezioneRegistro(
   return { esito: "errore", messaggio: messaggioGenerico(result.detail) };
 }
 
+export type TitolareAmministratore = { id: string; nome: string };
+
+export type EsitoNumeroComponentiAmministratori =
+  | { esito: "ok"; sezione: Section }
+  | { esito: "riduzione_richiesta"; messaggio: string; count: number; titolari: TitolareAmministratore[] }
+  | { esito: "errore"; messaggio: string };
+
+/** Scrittura immediata di "Numero componenti" dell'organo amministrativo
+ * pluripersonale (§ richiesta esplicita 31/08/2026): a differenza di
+ * `salvaSezioneRegistro`, non passa dalla bozza/"Salva modifiche" della
+ * sezione — coerente con la tabella "Titolari di cariche", le cui righe
+ * sono già immediate (vedi `app.core.incarichi.imposta_numero_amministratori`).
+ * `incarichiDaEliminare` va valorizzato solo al secondo tentativo, dopo che
+ * il primo (senza questo campo) ha risposto "riduzione_richiesta" con
+ * l'elenco dei titolari attuali tra cui scegliere. */
+export async function impostaNumeroComponentiAmministratori(
+  valore: number,
+  incarichiDaEliminare?: string[],
+): Promise<EsitoNumeroComponentiAmministratori> {
+  const result = await apiFetchResult<Section>("/api/anagrafica/registro/sections/amministrazione-controllo/numero-componenti", {
+    method: "PATCH",
+    body: JSON.stringify({ valore, incarichiDaEliminare: incarichiDaEliminare ?? null }),
+  });
+  if (result.ok) return { esito: "ok", sezione: result.data };
+  if (result.status === 409 && result.detail !== null && typeof result.detail === "object" && !Array.isArray(result.detail)) {
+    const detail = result.detail as { code?: string; message: string; count: number; titolari?: TitolareAmministratore[] };
+    if (detail.code === "RIDUZIONE_AMMINISTRATORI_RICHIESTA") {
+      return { esito: "riduzione_richiesta", messaggio: detail.message, count: detail.count, titolari: detail.titolari ?? [] };
+    }
+  }
+  return { esito: "errore", messaggio: messaggioGenerico(result.detail) };
+}
+
 export type EsitoMutazioneSezione = { esito: "ok"; sezione: Section } | { esito: "errore"; messaggio: string };
 
 /** Configurazione autonoma (§13.3), non tocca la bozza del modulo dati:

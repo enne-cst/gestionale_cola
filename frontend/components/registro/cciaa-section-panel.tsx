@@ -79,6 +79,17 @@ const TITOLO_TABELLA_AMMINISTRATORI: Partial<Record<string, string>> = {
   AMMINISTRAZIONE_PLURIPERSONALE_DISGIUNTIVA: "Amministratori in carica",
 };
 
+// § richiesta esplicita (31/08/2026): le 3 configurazioni la cui "Numero
+// componenti" è un campo modificabile (non derivato, a differenza di
+// "Amministratore unico" che vale sempre 1, § `IncaricoTable.
+// capienzaAmministratori`) — stessi 3 codici di
+// `_ORGANI_NUMERO_COMPONENTI_MODIFICABILE` in backend/app/core/incarichi.py.
+const ORGANI_NUMERO_COMPONENTI_MODIFICABILE = new Set([
+  "CONSIGLIO_AMMINISTRAZIONE",
+  "AMMINISTRAZIONE_PLURIPERSONALE_CONGIUNTIVA",
+  "AMMINISTRAZIONE_PLURIPERSONALE_DISGIUNTIVA",
+]);
+
 // Stesso pattern per la tabella incarichi della card "Sindaci", per codice
 // del catalogo cat_assetti_controllo (§ Correzione 13 punto sul titolo
 // "Sindaco unico in carica"): un solo assetto definito finora, il
@@ -92,6 +103,16 @@ const TITOLO_TABELLA_SINDACI: Partial<Record<string, string>> = {
   COLLEGIO_SINDACALE: "Componenti del collegio sindacale",
   REVISORE_LEGALE_PERSONA_FISICA: "Revisore legale incaricato",
   SOCIETA_REVISIONE_LEGALE: "Società di revisione incaricata",
+  // § Correzione 17: "Il titolo deve diventare: Organo di controllo e
+  // revisione legale" (§ testo esplicito) — il conteggio "2 righe" viene
+  // dal prop `count`, sempre 2 per questo assetto (vedi
+  // `sindacoRevisoreEsterno` in `ContenutoVista` sotto).
+  SINDACO_UNICO_REVISORE_ESTERNO: "Organo di controllo e revisione legale",
+  // § Correzione 18: stesso identico titolo di Correzione 17 (§ testo
+  // esplicito, letteralmente lo stesso) — il conteggio "6"/"8 righe" viene
+  // dal prop `count`, calcolato da `collegioSindacale` esteso con
+  // `revisoreEsterno` (vedi `ContenutoVista` sotto).
+  COLLEGIO_SINDACALE_REVISORE_ESTERNO: "Organo di controllo e revisione legale",
 };
 
 // § Correzione 15/16: a differenza di Sindaco unico/Collegio sindacale
@@ -179,7 +200,18 @@ function ContenutoVista({
           </section>
         </>
       );
-    case "amministratori":
+    case "amministratori": {
+      // § richiesta esplicita (31/08/2026): valore CORRENTE (sempre quello
+      // salvato — a differenza degli altri campi della sezione, "Numero
+      // componenti" per queste 3 configurazioni non passa più dalla bozza,
+      // si scrive subito, vedi NumeroComponentiOrganoField) di "Numero
+      // componenti", per i posti liberi/il conteggio della tabella.
+      const entryAmministrazione = state.sections["amministrazione-controllo"];
+      const numeroComponentiRaw =
+        entryAmministrazione?.server?.groups
+          .flatMap((g) => g.fields)
+          .find((f) => f.key === "numero_amministratori_in_carica")?.value ?? null;
+      const numeroComponenti = numeroComponentiRaw ? Number(numeroComponentiRaw) : 0;
       return (
         <>
           <SectionContent
@@ -201,11 +233,15 @@ function ContenutoVista({
                 sectionKey="amministrazione-controllo"
                 addRowLabel="Aggiungi riga"
                 variante="cariche"
+                capienzaAmministratori={
+                  ORGANI_NUMERO_COMPONENTI_MODIFICABILE.has(campoPrincipale) ? { target: numeroComponenti } : undefined
+                }
               />
             </section>
           )}
         </>
       );
+    }
     case "sindaci": {
       // § Correzione 13/14, "assetti combinati": suggerimento di passaggio
       // all'assetto combinato dedicato (Sindaco unico o Collegio
@@ -232,6 +268,22 @@ function ContenutoVista({
             .flatMap((g) => g.fields)
             .find((f) => f.key === "sindaci_effettivi")?.value ?? null);
       const sindaciEffettivi = sindaciEffettiviRaw ? Number(sindaciEffettiviRaw) : null;
+      // § Correzione 17: valore CORRENTE (bozza se in modifica, salvato
+      // altrimenti — a differenza di `revisioneLegaleAffidataA` sopra, che
+      // resta null fuori modifica perché serve solo al banner di
+      // suggerimento) di "Revisione legale affidata a", per determinare se
+      // la seconda riga della tabella "Sindaco unico + revisore esterno"
+      // accetta una persona fisica o una società. Stessi 2 codici di
+      // `TIPO_TITOLARE_TABELLA_SINDACI` sopra (catalogo condiviso, § nota
+      // in quella mappa): riusata cosi' com'è, nessuna mappa nuova.
+      const revisioneLegaleAffidataAAttuale = entryOrganiControllo?.editing
+        ? (entryOrganiControllo.draft?.["revisione_legale_affidata_a"] ?? null)
+        : (entryOrganiControllo?.server?.groups
+            .flatMap((g) => g.fields)
+            .find((f) => f.key === "revisione_legale_affidata_a")?.value ?? null);
+      const tipoRevisoreEsterno = revisioneLegaleAffidataAAttuale
+        ? (TIPO_TITOLARE_TABELLA_SINDACI[revisioneLegaleAffidataAAttuale] ?? null)
+        : null;
       return (
         <>
           {/* § Correzione 11: sezione propria "organi-controllo" — il
@@ -276,8 +328,17 @@ function ContenutoVista({
                 sectionKey="organi-controllo"
                 addRowLabel="Aggiungi riga"
                 variante="cariche"
-                collegioSindacale={campoPrincipale === "COLLEGIO_SINDACALE" ? { sindaciEffettivi } : undefined}
+                collegioSindacale={
+                  campoPrincipale === "COLLEGIO_SINDACALE"
+                    ? { sindaciEffettivi }
+                    : campoPrincipale === "COLLEGIO_SINDACALE_REVISORE_ESTERNO"
+                      ? { sindaciEffettivi, revisoreEsterno: { tipoRevisore: tipoRevisoreEsterno } }
+                      : undefined
+                }
                 tipoTitolare={TIPO_TITOLARE_TABELLA_SINDACI[campoPrincipale]}
+                sindacoRevisoreEsterno={
+                  campoPrincipale === "SINDACO_UNICO_REVISORE_ESTERNO" ? { tipoRevisore: tipoRevisoreEsterno } : undefined
+                }
               />
             </section>
           )}

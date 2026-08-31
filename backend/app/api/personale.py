@@ -28,6 +28,8 @@ from app.core.incarichi import (
     configurazione_ruolo,
     leggi_stato_verifica_incarico,
     leggi_valori,
+    sincronizza_numero_amministratori_dopo_aggiunta,
+    sincronizza_numero_amministratori_dopo_eliminazione,
     valida_e_salva_valori,
     verifica_amministratore_unico_disponibile,
     verifica_carica_collegio_sindacale_disponibile,
@@ -277,6 +279,10 @@ def create_incarico(
     db.add(incarico)
     db.flush()
     valida_e_salva_valori(db, incarico, payload.valori, parziale=False)
+    # § richiesta esplicita (31/08/2026): tiene "Numero componenti"
+    # dell'organo amministrativo allineato alla tabella — vedi
+    # `app.core.incarichi.sincronizza_numero_amministratori_dopo_aggiunta`.
+    sincronizza_numero_amministratori_dopo_aggiunta(db, ctx.azienda_id, ruolo.codice)
     db.commit()
     db.refresh(incarico)
     return _to_read(db, incarico)
@@ -365,5 +371,12 @@ def delete_incarico(
     ruolo) va invece aggiornata la stessa riga con `PUT`, valorizzando le
     caratteristiche di data cessazione/stato — vedi `app/core/incarichi.py`."""
     incarico = _incarico_owned_or_404(db, incarico_id, ctx.azienda_id)
+    ruolo = db.get(CatRuolo, incarico.ruolo_id)
     db.delete(incarico)  # i valori seguono via ON DELETE CASCADE
+    db.flush()
+    # § richiesta esplicita (31/08/2026): tiene "Numero componenti"
+    # dell'organo amministrativo allineato alla tabella — vedi
+    # `app.core.incarichi.sincronizza_numero_amministratori_dopo_eliminazione`.
+    if ruolo is not None:
+        sincronizza_numero_amministratori_dopo_eliminazione(db, ctx.azienda_id, ruolo.codice)
     db.commit()

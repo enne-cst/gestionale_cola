@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 
 import { FieldRow } from "@/components/registro/field-row";
+import { NumeroComponentiOrganoField } from "@/components/registro/numero-componenti-organo-field";
 import { SectionFooter } from "@/components/registro/section-footer";
 import { StatoPill } from "@/components/registro/stato-pill";
 import { useWorkspace } from "@/components/registro/workspace-provider";
@@ -263,18 +264,31 @@ export function SectionContent({
               </h3>
               {modificando ? (
                 <div className="grid grid-cols-1 gap-x-5 gap-y-[15px] sm:grid-cols-2">
-                  {campiModificabili.map((field) => (
-                    <FieldRow
-                      key={field.key}
-                      sectionKey={sectionKey}
-                      field={field}
-                      mode="EDIT"
-                      draftValue={entry.draft?.[field.key] ?? null}
-                      error={entry.fieldErrors[field.key]}
-                      disabled={entry.saving}
-                      onChange={(value) => updateField(sectionKey, field.key, value)}
-                    />
-                  ))}
+                  {campiModificabili.map((field) =>
+                    // § richiesta esplicita (31/08/2026): "Numero componenti"
+                    // dell'organo amministrativo pluripersonale si scrive
+                    // subito (mai tramite la bozza/onChange generico di
+                    // FieldRow, vedi NumeroComponentiOrganoField), ma
+                    // l'incremento/decremento resta possibile SOLO col
+                    // banner "Modifica dati" attivo — per questo il widget
+                    // compare solo qui, nel ramo `modificando`; in sola
+                    // lettura (sotto) il campo torna il normale FieldRow
+                    // read-only, come ogni altro campo della sezione.
+                    sectionKey === "amministrazione-controllo" && field.key === "numero_amministratori_in_carica" ? (
+                      <NumeroComponentiOrganoField key={field.key} sectionKey={sectionKey} field={field} />
+                    ) : (
+                      <FieldRow
+                        key={field.key}
+                        sectionKey={sectionKey}
+                        field={field}
+                        mode="EDIT"
+                        draftValue={entry.draft?.[field.key] ?? null}
+                        error={entry.fieldErrors[field.key]}
+                        disabled={entry.saving}
+                        onChange={(value) => updateField(sectionKey, field.key, value)}
+                      />
+                    ),
+                  )}
                 </div>
               ) : (
                 <dl className="grid grid-cols-1 gap-x-[54px] gap-y-6 sm:grid-cols-2">

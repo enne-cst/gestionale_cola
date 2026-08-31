@@ -35,7 +35,13 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import AziendaContext
 from app.core.registro_campi import STATO_API_TO_DB, STATO_DB_TO_API, registra_audit
-from app.models.anagrafica import AnaAmministrazioneControllo, AnaOrganiControllo, CatAssettoControllo, CatOrganoAmministrativo
+from app.models.anagrafica import (
+    AnaAmministrazioneControllo,
+    AnaOrganiControllo,
+    CatAffidatarioRevisioneLegale,
+    CatAssettoControllo,
+    CatOrganoAmministrativo,
+)
 from app.models.personale import (
     AnaPersone,
     CatCaratteristicaIncarico,
@@ -273,6 +279,162 @@ def verifica_amministratore_unico_disponibile(db: Session, azienda_id: UUID, ruo
 
 
 # ===========================================================================
+# Organo amministrativo pluripersonale: sincronizzazione bidirezionale tra
+# "Numero componenti" (capienza dichiarata, campo modificabile) e le righe
+# della tabella "Titolari di cariche" (incarichi reali) — richiesta esplicita
+# dell'utente (31/08/2026). Si applica solo alle 3 configurazioni la cui
+# "Numero componenti" è un valore modificabile (non derivato, a differenza di
+# "Amministratore unico" che vale sempre 1) — stessi 3 codici di
+# `_ORGANI_CON_NUMERO_COMPONENTI_MODIFICABILE` in registro_campi.py,
+# duplicati qui per evitare un import incrociato (registro_campi.py importa
+# già da questo modulo, non il contrario).
+#
+# Regole concordate con l'utente (AskUserQuestion):
+# - aggiungere una riga alla tabella non incrementa "Numero componenti" se
+#   stava riempiendo un posto vuoto già conteggiato (nessuna capienza in più
+#   creata) — lo incrementa SOLO quando supera la capienza attuale (una riga
+#   davvero nuova, mai un posto già previsto): evita anche il loop "riga
+#   aggiunta -> +1 -> nuovo posto vuoto -> riga aggiunta -> +1...".
+# - eliminare una riga (il "cestino" della tabella: sempre una cancellazione
+#   fisica, mai una cessazione, § docstring di testa al modulo) decrementa
+#   sempre di 1 — la riga sparisce, non diventa un posto vuoto.
+# - "Numero componenti" si scrive subito (mai tramite la bozza/"Salva
+#   modifiche" della sezione, § scelta esplicita: coerenza con la tabella,
+#   le cui righe sono già immediate) — vedi `imposta_numero_amministratori`
+#   sotto e l'endpoint dedicato in `app.api.anagrafica_registry`.
+# ===========================================================================
+_ORGANI_NUMERO_COMPONENTI_MODIFICABILE = frozenset(
+    {
+        "CONSIGLIO_AMMINISTRAZIONE",
+        "AMMINISTRAZIONE_PLURIPERSONALE_CONGIUNTIVA",
+        "AMMINISTRAZIONE_PLURIPERSONALE_DISGIUNTIVA",
+    }
+)
+
+
+def _amministrazione_con_numero_modificabile(db: Session, azienda_id: UUID) -> AnaAmministrazioneControllo | None:
+    """Riga `AnaAmministrazioneControllo` dell'azienda, solo se l'organo
+    amministrativo in carica è una delle 3 configurazioni con "Numero
+    componenti" modificabile — `None` per ogni altro organo (compreso
+    "Amministratore unico", derivato, e "non disponibile"), cosi' i
+    chiamanti restano no-op senza ripetere il controllo."""
+    amministrazione = db.scalars(
+        select(AnaAmministrazioneControllo).where(AnaAmministrazioneControllo.azienda_id == azienda_id)
+    ).first()
+    if amministrazione is None or amministrazione.organo_amministrativo_id is None:
+        return None
+    organo = db.get(CatOrganoAmministrativo, amministrazione.organo_amministrativo_id)
+    if organo is None or organo.codice not in _ORGANI_NUMERO_COMPONENTI_MODIFICABILE:
+        return None
+    return amministrazione
+
+
+def sincronizza_numero_amministratori_dopo_aggiunta(db: Session, azienda_id: UUID, ruolo_codice: str) -> None:
+    """Chiamata da `create_incarico` dopo aver salvato il nuovo incarico
+    (stessa transazione, prima del commit). Se il nuovo incarico occupa un
+    posto già previsto da "Numero componenti" (righe attive <= capienza
+    attuale), non cambia nulla — quel posto era già conteggiato. Solo se
+    supera la capienza la alza fino al nuovo conteggio reale."""
+    if ruolo_codice not in RUOLI_AMMINISTRATORI_ORGANO:
+        return
+    amministrazione = _amministrazione_con_numero_modificabile(db, azienda_id)
+    if amministrazione is None:
+        return
+    reale = len(_incarichi_attivi(db, azienda_id, RUOLI_AMMINISTRATORI_ORGANO))
+    attuale = amministrazione.numero_amministratori_in_carica or 0
+    if reale > attuale:
+        amministrazione.numero_amministratori_in_carica = reale
+
+
+def sincronizza_numero_amministratori_dopo_eliminazione(db: Session, azienda_id: UUID, ruolo_codice: str) -> None:
+    """Simmetrica a `sincronizza_numero_amministratori_dopo_aggiunta`:
+    chiamata da `delete_incarico` dopo la cancellazione fisica della riga
+    (stessa transazione, prima del commit, con la riga già cancellata —
+    `reale` riflette il conteggio dopo la cancellazione). La riga eliminata
+    non diventa un posto vuoto: "Numero componenti" scende sempre di 1."""
+    if ruolo_codice not in RUOLI_AMMINISTRATORI_ORGANO:
+        return
+    amministrazione = _amministrazione_con_numero_modificabile(db, azienda_id)
+    if amministrazione is None:
+        return
+    reale = len(_incarichi_attivi(db, azienda_id, RUOLI_AMMINISTRATORI_ORGANO))
+    attuale = amministrazione.numero_amministratori_in_carica
+    if attuale is not None:
+        amministrazione.numero_amministratori_in_carica = max(attuale - 1, reale, 1)
+
+
+def imposta_numero_amministratori(
+    db: Session,
+    azienda_id: UUID,
+    *,
+    nuovo_valore: int,
+    incarichi_da_eliminare: list[UUID] | None,
+) -> None:
+    """Scrittura diretta di "Numero componenti" (§ non passa dalla bozza
+    della sezione, vedi commento di testa a questa sezione del modulo).
+    Aumentare (o ridurre eliminando solo posti ancora vuoti) è sempre
+    permesso senza conferma: nessun dato perso. Ridurre sotto al numero di
+    amministratori già in carica richiede di scegliere ESPLICITAMENTE chi
+    eliminare (mai "i più recenti", § decisione utente 31/08/2026, stesso
+    principio-guida di `verifica_carica_collegio_sindacale_disponibile`) —
+    stesso pattern a due tentativi già in uso altrove: senza
+    `incarichi_da_eliminare` (o con un insieme che non corrisponde
+    esattamente al numero richiesto) risponde con un 409 che elenca i
+    titolari attuali; il secondo tentativo esegue l'eliminazione fisica (il
+    "cestino" della tabella, mai una cessazione) e il nuovo valore nella
+    stessa transazione."""
+    amministrazione = db.scalars(
+        select(AnaAmministrazioneControllo).where(AnaAmministrazioneControllo.azienda_id == azienda_id)
+    ).first()
+    if amministrazione is None or amministrazione.organo_amministrativo_id is None:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Nessun organo amministrativo configurato")
+    organo = db.get(CatOrganoAmministrativo, amministrazione.organo_amministrativo_id)
+    if organo is None or organo.codice not in _ORGANI_NUMERO_COMPONENTI_MODIFICABILE:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            'Il campo "Numero componenti" non è modificabile per l\'organo amministrativo in carica',
+        )
+    if nuovo_valore < 1:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Il numero componenti deve essere almeno 1")
+
+    attivi = _incarichi_attivi(db, azienda_id, RUOLI_AMMINISTRATORI_ORGANO)
+    if nuovo_valore >= len(attivi):
+        amministrazione.numero_amministratori_in_carica = nuovo_valore
+        return
+
+    eccedenza = len(attivi) - nuovo_valore
+    scelti = set(incarichi_da_eliminare or [])
+    attivi_per_id = {i.id: i for i in attivi}
+    if len(scelti) != eccedenza or not scelti <= attivi_per_id.keys():
+        persone = {
+            p.id: p
+            for p in db.scalars(
+                select(AnaPersone).where(AnaPersone.id.in_([i.persona_id for i in attivi if i.persona_id]))
+            ).all()
+        }
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail={
+                "code": "RIDUZIONE_AMMINISTRATORI_RICHIESTA",
+                "message": (
+                    f'"{nuovo_valore}" è inferiore ai {len(attivi)} amministratori attualmente in carica. '
+                    f"Seleziona quali {eccedenza} eliminare per ridurre il numero componenti."
+                ),
+                "count": eccedenza,
+                "titolari": [
+                    {"id": str(i.id), "nome": f"{persone[i.persona_id].cognome} {persone[i.persona_id].nome}"}
+                    for i in attivi
+                    if i.persona_id in persone
+                ],
+            },
+        )
+
+    for incarico_id in scelti:
+        db.delete(attivi_per_id[incarico_id])
+    amministrazione.numero_amministratori_in_carica = nuovo_valore
+
+
+# ===========================================================================
 # Nessun organo di controllo o revisore: cessazione confermata degli
 # incarichi esistenti (Correzione 12)
 # ===========================================================================
@@ -328,27 +490,57 @@ def verifica_transizione_nessun_organo_controllo(
 
 # ===========================================================================
 # Sindaco unico: sostituzione confermata di un incarico già in carica
-# (Correzione 13)
+# (Correzione 13; estesa dalla Correzione 17 all'assetto combinato "Sindaco
+# unico + revisore esterno" — stesso identico vincolo "al più un sindaco
+# unico attivo", il revisore esterno affiancato non cambia questa regola)
 # ===========================================================================
+
+# Assetti in cui vale la regola "al più un sindaco unico attivo alla volta"
+# (§ Correzione 17: il sindaco unico resta un organo INTERNO a sé, con lo
+# stesso vincolo, anche quando affiancato da un revisore esterno).
+_ASSETTI_SINDACO_UNICO = frozenset({"SINDACO_UNICO", "SINDACO_UNICO_REVISORE_ESTERNO"})
+
+
+def _revisione_affidata_a_codice(db: Session, organi_controllo: AnaOrganiControllo) -> str | None:
+    """Codice di `cat_affidatari_revisione_legale` attualmente salvato su
+    "Revisione legale affidata a" (§ Correzione 17: usato per capire, nel
+    solo assetto "Sindaco unico + revisore esterno", se il revisore esterno
+    atteso è persona fisica o società — nei due assetti "revisore esterno
+    standalone" questo non serve, l'affidatario coincide sempre con
+    l'assetto stesso per costruzione, § Correzione 15/16)."""
+    if organi_controllo.revisione_legale_affidata_a_id is None:
+        return None
+    affidatario = db.get(CatAffidatarioRevisioneLegale, organi_controllo.revisione_legale_affidata_a_id)
+    return affidatario.codice if affidatario is not None else None
+
+
+# § Correzione 18: stesso identico meccanismo di "Sindaco unico + revisore
+# esterno" (Correzione 17) esteso a "Collegio sindacale + revisore
+# esterno" — in entrambi il tipo di revisore atteso (persona fisica o
+# società) non è ricavabile dall'assetto da solo (a differenza dei 2
+# assetti "revisore esterno standalone"), va risolto da
+# `_revisione_affidata_a_codice`.
+_ASSETTI_CON_REVISORE_ESTERNO_TIPIZZATO = frozenset({"SINDACO_UNICO_REVISORE_ESTERNO", "COLLEGIO_SINDACALE_REVISORE_ESTERNO"})
 
 
 def verifica_sindaco_unico_disponibile(db: Session, azienda_id: UUID, ruolo_codice: str, *, confermata: bool) -> None:
     """§ Correzione 13: quando l'assetto di controllo in carica è "Sindaco
-    unico" e ne esiste già uno attivo, l'inserimento di un nuovo sindaco
-    unico è una SOSTITUZIONE (cessazione/storicizzazione del precedente,
-    § testo esplicito "deve essere gestito come sostituzione"), non un
-    secondo incarico attivo in parallelo — a differenza
-    dell'amministratore unico (Correzione 05, tuttora bloccato senza
-    percorso di conferma: "funzionalità futura, non implementata qui"),
-    qui la sostituzione è implementata per davvero: richiede conferma
-    esplicita del chiamante (stesso pattern a due tentativi di
+    unico" (o, § Correzione 17, "Sindaco unico + revisore esterno") e ne
+    esiste già uno attivo, l'inserimento di un nuovo sindaco unico è una
+    SOSTITUZIONE (cessazione/storicizzazione del precedente, § testo
+    esplicito "deve essere gestito come sostituzione"), non un secondo
+    incarico attivo in parallelo — a differenza dell'amministratore unico
+    (Correzione 05, tuttora bloccato senza percorso di conferma:
+    "funzionalità futura, non implementata qui"), qui la sostituzione è
+    implementata per davvero: richiede conferma esplicita del chiamante
+    (stesso pattern a due tentativi di
     `verifica_transizione_nessun_organo_controllo`, § Correzione 12) e,
     solo allora, cessa il precedente (A02 = oggi) nella stessa transazione
     della creazione del nuovo incarico (chiamata da `create_incarico`
     prima del commit).
 
     No-op per ogni ruolo diverso da SINDACO e per ogni assetto diverso da
-    "Sindaco unico" (compreso "non disponibile")."""
+    quelli in `_ASSETTI_SINDACO_UNICO` (compreso "non disponibile")."""
     if ruolo_codice != "SINDACO":
         return
 
@@ -358,7 +550,7 @@ def verifica_sindaco_unico_disponibile(db: Session, azienda_id: UUID, ruolo_codi
     if organi_controllo is None or organi_controllo.assetto_controllo_id is None:
         return
     assetto = db.get(CatAssettoControllo, organi_controllo.assetto_controllo_id)
-    if assetto is None or assetto.codice != "SINDACO_UNICO":
+    if assetto is None or assetto.codice not in _ASSETTI_SINDACO_UNICO:
         return
 
     attivi = _incarichi_attivi(db, azienda_id, frozenset({"SINDACO"}))
@@ -399,13 +591,18 @@ def verifica_revisore_legale_persona_fisica_disponibile(
     allora, cessa il precedente (A02 = oggi) nella stessa transazione della
     creazione del nuovo incarico.
 
-    No-op per ogni ruolo diverso da REVISORE_LEGALE e per ogni assetto
-    diverso da "Revisore legale persona fisica" (compreso "non
-    disponibile"). Conta solo i titolari persona FISICA (§ Correzione 16,
-    che introduce lo stesso ruolo REVISORE_LEGALE anche per un titolare
-    persona giuridica, "Società di revisione legale" — i due tipi di
-    titolare non competono tra loro per lo stesso conteggio, ciascuno ha la
-    propria configurazione)."""
+    § Correzione 17: si applica anche all'assetto combinato "Sindaco unico
+    + revisore esterno", ma SOLO quando "Revisione legale affidata a" vale
+    proprio "Revisore legale persona fisica" (§ `_revisione_affidata_a_codice`
+    — a differenza dell'assetto standalone, qui l'assetto da solo non basta
+    a determinare il tipo di titolare atteso, potrebbe essere una società).
+
+    No-op per ogni ruolo diverso da REVISORE_LEGALE e per ogni combinazione
+    diversa dalle due sopra (compreso "non disponibile"). Conta solo i
+    titolari persona FISICA (§ Correzione 16, che introduce lo stesso ruolo
+    REVISORE_LEGALE anche per un titolare persona giuridica, "Società di
+    revisione legale" — i due tipi di titolare non competono tra loro per
+    lo stesso conteggio, ciascuno ha la propria configurazione)."""
     if ruolo_codice != "REVISORE_LEGALE":
         return
 
@@ -415,7 +612,14 @@ def verifica_revisore_legale_persona_fisica_disponibile(
     if organi_controllo is None or organi_controllo.assetto_controllo_id is None:
         return
     assetto = db.get(CatAssettoControllo, organi_controllo.assetto_controllo_id)
-    if assetto is None or assetto.codice != "REVISORE_LEGALE_PERSONA_FISICA":
+    if assetto is None:
+        return
+    if assetto.codice == "REVISORE_LEGALE_PERSONA_FISICA":
+        pass
+    elif assetto.codice in _ASSETTI_CON_REVISORE_ESTERNO_TIPIZZATO:
+        if _revisione_affidata_a_codice(db, organi_controllo) != "REVISORE_LEGALE_PERSONA_FISICA":
+            return
+    else:
         return
 
     attivi = [i for i in _incarichi_attivi(db, azienda_id, frozenset({"REVISORE_LEGALE"})) if i.persona_id is not None]
@@ -454,9 +658,15 @@ def verifica_societa_revisione_disponibile(db: Session, azienda_id: UUID, ruolo_
     due tentativi già usato per Sindaco unico/Revisore legale persona
     fisica.
 
-    No-op per ogni ruolo diverso da REVISORE_LEGALE e per ogni assetto
-    diverso da "Società di revisione legale" (compreso "non disponibile").
-    Conta solo i titolari persona GIURIDICA — vedi nota simmetrica in
+    § Correzione 17/18: si applica anche agli assetti combinati "Sindaco
+    unico + revisore esterno"/"Collegio sindacale + revisore esterno", ma
+    SOLO quando "Revisione legale affidata a" vale proprio "Società di
+    revisione legale" — stesso identico schema di
+    `verifica_revisore_legale_persona_fisica_disponibile` sopra.
+
+    No-op per ogni ruolo diverso da REVISORE_LEGALE e per ogni combinazione
+    diversa dalle sopra (compreso "non disponibile"). Conta solo i
+    titolari persona GIURIDICA — vedi nota simmetrica in
     `verifica_revisore_legale_persona_fisica_disponibile`."""
     if ruolo_codice != "REVISORE_LEGALE":
         return
@@ -467,7 +677,14 @@ def verifica_societa_revisione_disponibile(db: Session, azienda_id: UUID, ruolo_
     if organi_controllo is None or organi_controllo.assetto_controllo_id is None:
         return
     assetto = db.get(CatAssettoControllo, organi_controllo.assetto_controllo_id)
-    if assetto is None or assetto.codice != "SOCIETA_REVISIONE_LEGALE":
+    if assetto is None:
+        return
+    if assetto.codice == "SOCIETA_REVISIONE_LEGALE":
+        pass
+    elif assetto.codice in _ASSETTI_CON_REVISORE_ESTERNO_TIPIZZATO:
+        if _revisione_affidata_a_codice(db, organi_controllo) != "SOCIETA_REVISIONE_LEGALE":
+            return
+    else:
         return
 
     attivi = [
@@ -516,6 +733,13 @@ ETICHETTE_CARICHE_COLLEGIO_SINDACALE = {
     CARICA_SINDACO_EFFETTIVO: "Sindaco effettivo",
     CARICA_SINDACO_SUPPLENTE: "Sindaco supplente",
 }
+# § Correzione 18: assetti in cui vale la struttura del collegio sindacale
+# (Presidente/Sindaco effettivo/Sindaco supplente) — "Collegio sindacale"
+# standalone (Correzione 14) e "Collegio sindacale + revisore esterno"
+# (Correzione 18, dove il collegio coesiste con un revisore esterno in una
+# riga a parte, § `verifica_revisore_legale_persona_fisica_disponibile`/
+# `verifica_societa_revisione_disponibile` sotto).
+_ASSETTI_COLLEGIO_SINDACALE = frozenset({"COLLEGIO_SINDACALE", "COLLEGIO_SINDACALE_REVISORE_ESTERNO"})
 
 
 def _incarichi_attivi_con_carica(db: Session, azienda_id: UUID, carica_codice: str) -> list[PerIncarico]:
@@ -582,7 +806,11 @@ def verifica_carica_collegio_sindacale_disponibile(
     dei titolari attuali (§ decisione esplicita, non "il primo trovato").
 
     No-op per ogni ruolo diverso da SINDACO e per ogni assetto diverso da
-    "Collegio sindacale"."""
+    quelli in `_ASSETTI_COLLEGIO_SINDACALE` (compreso "non disponibile").
+    § Correzione 18: si applica anche a "Collegio sindacale + revisore
+    esterno" — il revisore esterno affiancato non cambia la struttura del
+    collegio stesso (Presidente/Sindaco effettivo/Sindaco supplente),
+    stesso identico vincolo di cap per carica."""
     if ruolo_codice != "SINDACO":
         return
 
@@ -592,7 +820,7 @@ def verifica_carica_collegio_sindacale_disponibile(
     if organi_controllo is None or organi_controllo.assetto_controllo_id is None:
         return
     assetto = db.get(CatAssettoControllo, organi_controllo.assetto_controllo_id)
-    if assetto is None or assetto.codice != "COLLEGIO_SINDACALE":
+    if assetto is None or assetto.codice not in _ASSETTI_COLLEGIO_SINDACALE:
         return
 
     if carica_codice not in CARICHE_COLLEGIO_SINDACALE:

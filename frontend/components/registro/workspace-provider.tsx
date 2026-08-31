@@ -344,6 +344,14 @@ type WorkspaceApi = {
   ) => Promise<boolean>;
   toggleVisibility: (sectionKey: string, fieldKey: string, visible: boolean) => void;
   toggleGroupVisibility: (sectionKey: string, fieldKeys: string[], visible: boolean) => void;
+  // § "Numero componenti" dell'organo amministrativo pluripersonale (31/08/2026):
+  // si scrive subito con un endpoint dedicato, fuori dal ciclo bozza/"Salva
+  // modifiche" (vedi NumeroComponentiOrganoField) — questo metodo rimpiazza
+  // la copia server-side della sezione con quella appena tornata dall'API,
+  // stesso identico meccanismo (FIELD_SNAPSHOT) già usato internamente da
+  // `toggleVisibility` per un aggiornamento immediato, esposto qui per un
+  // chiamante esterno al provider.
+  refreshSectionSnapshot: (sectionKey: string, section: Section) => void;
   submitReview: (
     sectionKey: string,
     fieldKey: string,
@@ -813,6 +821,7 @@ export function WorkspaceProvider({
       save,
       toggleVisibility,
       toggleGroupVisibility,
+      refreshSectionSnapshot: (sectionKey, section) => dispatch({ type: "FIELD_SNAPSHOT", sectionKey, section }),
       submitReview,
       cancelConfirm: () => dispatch({ type: "CANCEL_CONFIRM" }),
       confirmSaveAndExit,

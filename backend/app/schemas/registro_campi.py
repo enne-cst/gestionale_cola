@@ -3,6 +3,7 @@ campo di una sezione (§7.1/§15 della specifica Anagrafica Aziendale). Vedi
 `app.core.registro_campi` per la logica che li popola."""
 
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -94,6 +95,19 @@ class SectionUpdateRequest(BaseModel):
 
 class VisibilityUpdateRequest(BaseModel):
     visibleToCompany: bool
+
+
+class NumeroComponentiAmministratoriUpdateRequest(BaseModel):
+    """§ richiesta esplicita (31/08/2026): scrittura immediata di "Numero
+    componenti" per l'organo amministrativo pluripersonale, fuori dal ciclo
+    bozza/"Salva modifiche" della sezione — vedi
+    `app.core.incarichi.imposta_numero_amministratori`. `incarichiDaEliminare`
+    è valorizzato solo al secondo tentativo, dopo che il primo (senza
+    questo campo) ha risposto con un 409 che elenca i titolari attuali tra
+    cui scegliere."""
+
+    valore: int
+    incarichiDaEliminare: list[UUID] | None = None
 
 
 class ReviewDecisionRequest(BaseModel):

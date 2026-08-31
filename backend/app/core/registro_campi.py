@@ -140,6 +140,21 @@ class CampoDef:
     # a scelta invece di un campo libero lato frontend (`options` valorizzato
     # da queste coppie invece che da una query catalogo, § `costruisci_sezione`).
     opzioni_fisse: tuple[tuple[str, str], ...] | None = None
+    # Solo per data_type "catalogo": restringe le opzioni mostrate in base
+    # al valore corrente del campo `dipende_da` (§ Correzione 17:
+    # "Revisione legale affidata a" deve accettare solo "Revisore legale
+    # persona fisica"/"Società di revisione legale" quando l'assetto è
+    # "Sindaco unico + revisore esterno" — le altre voci del catalogo
+    # condiviso produrrebbero una combinazione incoerente). Chiave = valore
+    # di `dipende_da`, valore = insieme dei codici ammessi; un valore di
+    # `dipende_da` assente da questo dict non restringe nulla (comportamento
+    # invariato per ogni altro assetto, es. Sindaco unico/Collegio
+    # sindacale continuano a vedere tutte le opzioni come suggerimento). La
+    # coerenza è comunque riverificata al salvataggio da
+    # `verifica_coerenza_affidatario_revisione_legale`: questo campo serve
+    # solo a non mostrare in anteprima opzioni che il salvataggio
+    # rifiuterebbe.
+    opzioni_catalogo_ristrette: dict[str, frozenset[str]] | None = None
 
 
 @dataclass(frozen=True)
@@ -493,6 +508,19 @@ def _numero_componenti_societa_revisione_legale(db: Session, azienda_id: UUID) -
     return str(numero or 0)
 
 
+def _numero_componenti_sindaco_unico_revisore_esterno(db: Session, azienda_id: UUID) -> str | None:
+    """"Numero componenti" della configurazione "Sindaco unico + revisore
+    esterno" (§ Correzione 17): "impostato automaticamente a 2... non
+    modificabile" (§ testo esplicito) — una costante che rappresenta la
+    composizione prescritta (un sindaco unico + un revisore esterno),
+    stessa costruzione di `_sindaci_supplenti_collegio_sindacale` e di
+    `_numero_componenti_amministratore_unico`, non un conteggio delle righe
+    già compilate (a differenza di "Sindaco unico" standalone,
+    `_numero_componenti_sindaco_unico`: qui la struttura è fissa a 2 posti
+    per definizione, indipendentemente da quanti sono già occupati)."""
+    return "2"
+
+
 def _numero_componenti_collegio_sindacale(db: Session, azienda_id: UUID) -> str | None:
     """"Numero componenti" della configurazione "Collegio sindacale" (§
     Correzione 14): sindaci effettivi (3 o 5, scelta dell'utente) + i 2
@@ -506,6 +534,21 @@ def _numero_componenti_collegio_sindacale(db: Session, azienda_id: UUID) -> str 
     if riga is None or riga.sindaci_effettivi is None:
         return None
     return str(riga.sindaci_effettivi + 2)
+
+
+def _numero_componenti_collegio_sindacale_revisore_esterno(db: Session, azienda_id: UUID) -> str | None:
+    """"Numero componenti" della configurazione "Collegio sindacale +
+    revisore esterno" (§ Correzione 18): stessa struttura prescritta di
+    "Collegio sindacale" (`_numero_componenti_collegio_sindacale`, sindaci
+    effettivi + 2 supplenti fissi) più 1 per il revisore esterno (§ tabella
+    esplicita "3+2+1=6, 5+2+1=8") — chiave propria
+    (`numero_componenti_collegio_revisore`), non riusa
+    `numero_componenti_collegio` (formula diversa). Vuoto finché "Sindaci
+    effettivi" non è stato scelto, stesso comportamento del collegio puro."""
+    riga = db.scalars(select(AnaOrganiControllo).where(AnaOrganiControllo.azienda_id == azienda_id)).first()
+    if riga is None or riga.sindaci_effettivi is None:
+        return None
+    return str(riga.sindaci_effettivi + 3)
 
 
 def _opzioni_catalogo(db: Session, catalogo: CampoCatalogo) -> list[FieldOptionRead]:
@@ -686,6 +729,10 @@ def costruisci_sezione(
                     else None
                 )
             )
+            if opzioni is not None and campo.opzioni_catalogo_ristrette is not None and campo.dipende_da is not None:
+                ristrette = campo.opzioni_catalogo_ristrette.get(valori_gruppo.get(campo.dipende_da))
+                if ristrette is not None:
+                    opzioni = [o for o in opzioni if o.code in ristrette]
 
             campo_letto = FieldStateRead(
                 key=campo.key,
@@ -1366,11 +1413,32 @@ SEZIONE_AMMINISTRAZIONE_CONTROLLO = SezioneRegistro(
                     # Correzione 06/07: stesso campo generico di prima, ora
                     # "Numero componenti" del Consiglio di amministrazione e
                     # (Correzione 07) dell'Amministrazione pluripersonale
-                    # congiuntiva — qui invece modificabile (intero
-                    # positivo, § punto 4), a differenza del derivato/
-                    # sempre-1 sopra per l'amministratore unico.
+                    # congiuntiva — intero positivo modificabile dall'utente
+                    # (§ punto 4), a differenza del derivato/sempre-1 sopra
+                    # per l'amministratore unico.
+                    #
+                    # § richiesta esplicita (31/08/2026, seguito): `derived=
+                    # True` qui non significa "calcolato da una formula" (non
+                    # c'è alcun `campi_derivati` per questa chiave: senza un
+                    # loader registrato, `_valore_campo` cade sul valore
+                    # grezzo della colonna, § `_valore_campo`) — serve solo a
+                    # escludere il campo da `scrivibili`/dal PATCH generico
+                    # della sezione (`applica_modifiche_sezione`). Necessario
+                    # perché il valore ora si scrive SUBITO tramite un
+                    # endpoint dedicato (`imposta_numero_amministratori`,
+                    # sincronizzato anche dalla tabella "Titolari di
+                    # cariche") fuori dal ciclo bozza/"Salva modifiche": se
+                    # restasse scrivibile da lì, una bozza aperta prima di
+                    # quella scrittura diretta conterrebbe ancora il valore
+                    # vecchio, e un successivo "Salva modifiche" lo
+                    # sovrascriverebbe silenziosamente all'indietro (bug
+                    # osservato: audit "MODIFICA_VALORE" spurio). Il frontend
+                    # mostra comunque un input modificabile per questa chiave
+                    # (mai il rendering derivato generico), solo quando la
+                    # scheda è in modifica — vedi NumeroComponentiOrganoField.
                     "numero_amministratori_in_carica", "Numero componenti", "number",
-                    valore_minimo=1,
+                    valore_minimo=1, derived=True,
+                    derived_note="Si scrive subito, sincronizzato con la tabella \"Titolari di cariche\"",
                     dipende_da="organo_amministrativo_in_carica",
                     valori_dipendenza=_ORGANI_CON_NUMERO_COMPONENTI_MODIFICABILE,
                 ),
@@ -1549,9 +1617,60 @@ _REVISORE_LEGALE_PERSONA_FISICA = frozenset({"REVISORE_LEGALE_PERSONA_FISICA"})
 # invece che fisica.
 _SOCIETA_REVISIONE_LEGALE = frozenset({"SOCIETA_REVISIONE_LEGALE"})
 _ASSETTI_REVISORE_ESTERNO_STANDALONE = _REVISORE_LEGALE_PERSONA_FISICA | _SOCIETA_REVISIONE_LEGALE
-_ASSETTI_CON_REVISIONE_ESTERNA_CONDIVISA = _SINDACO_UNICO_O_COLLEGIO_SINDACALE | _ASSETTI_REVISORE_ESTERNO_STANDALONE
+# Correzione 17: quinta configurazione definita, "Sindaco unico + revisore
+# esterno" — a differenza delle 2 configurazioni "revisore esterno
+# standalone" sopra (nessun organo interno, il revisore È l'intero
+# assetto), qui coesistono un organo interno (il sindaco unico) E un
+# revisore esterno, in due righe distinte della stessa tabella (§ "gestire
+# contemporaneamente un sindaco unico come organo interno e un revisore
+# legale esterno"). "Funzioni dell'organo interno" torna quindi ad
+# applicarsi (riguarda solo il sindaco unico, non il revisore — nota solo
+# testuale, nessuna differenza di codice), mentre "Revisione legale
+# affidata a" non è né un suggerimento facoltativo (Sindaco Unico/Collegio
+# Sindacale) né un valore forzato uguale all'assetto (revisore esterno
+# standalone): è un sotto-insieme vincolante di 2 valori, verificato da
+# `verifica_coerenza_affidatario_revisione_legale` e già filtrato in
+# anteprima da `opzioni_catalogo_ristrette` sul CampoDef sotto.
+_SINDACO_UNICO_REVISORE_ESTERNO = frozenset({"SINDACO_UNICO_REVISORE_ESTERNO"})
+# Correzione 18: sesta configurazione definita, "Collegio sindacale +
+# revisore esterno" — stesso identico schema di Correzione 17 (organo
+# interno + revisore esterno coesistenti, § "gestire contemporaneamente il
+# collegio sindacale, i sindaci supplenti e un revisore legale esterno"),
+# qui il collegio sindacale al posto del sindaco unico. "Funzioni
+# dell'organo interno" riguarda solo il collegio (nota testuale, nessuna
+# differenza di codice); "Sindaci effettivi"/"Sindaci supplenti" restano
+# gli stessi campi di Correzione 14, solo estesi a questo assetto in più
+# (vedi `_ASSETTI_CON_COLLEGIO_SINDACALE` sotto).
+_COLLEGIO_SINDACALE_REVISORE_ESTERNO = frozenset({"COLLEGIO_SINDACALE_REVISORE_ESTERNO"})
+_ASSETTI_CON_COLLEGIO_SINDACALE = _COLLEGIO_SINDACALE | _COLLEGIO_SINDACALE_REVISORE_ESTERNO
+_ASSETTI_CON_FUNZIONI_ORGANO_INTERNO = (
+    _SINDACO_UNICO_O_COLLEGIO_SINDACALE | _SINDACO_UNICO_REVISORE_ESTERNO | _COLLEGIO_SINDACALE_REVISORE_ESTERNO
+)
+_ASSETTI_CON_REVISIONE_ESTERNA_CONDIVISA = (
+    _SINDACO_UNICO_O_COLLEGIO_SINDACALE
+    | _ASSETTI_REVISORE_ESTERNO_STANDALONE
+    | _SINDACO_UNICO_REVISORE_ESTERNO
+    | _COLLEGIO_SINDACALE_REVISORE_ESTERNO
+)
+# Codici di cat_affidatari_revisione_legale ammessi in "Revisione legale
+# affidata a" quando l'assetto è la chiave corrispondente — Correzione 17
+# ("Sindaco unico + revisore esterno") e Correzione 18 ("Collegio
+# sindacale + revisore esterno"), stesso identico sotto-insieme di 2
+# valori per entrambi ("le altre opzioni devono essere escluse perché
+# incompatibili con un assetto che prevede un revisore esterno"). Riusato
+# sia dal filtro di anteprima delle opzioni (CampoDef.opzioni_catalogo_ristrette)
+# sia dalla verifica di coerenza al salvataggio, cosi' i due non possono
+# disallinearsi.
+_ASSETTI_CON_AFFIDATARIO_RISTRETTO: dict[str, frozenset[str]] = {
+    "SINDACO_UNICO_REVISORE_ESTERNO": _ASSETTI_REVISORE_ESTERNO_STANDALONE,
+    "COLLEGIO_SINDACALE_REVISORE_ESTERNO": _ASSETTI_REVISORE_ESTERNO_STANDALONE,
+}
 _ASSETTI_ORGANO_CONTROLLO_NON_DEFINITI = (
-    _ASSETTI_CON_ORGANO_CONTROLLO - _SINDACO_UNICO_O_COLLEGIO_SINDACALE - _ASSETTI_REVISORE_ESTERNO_STANDALONE
+    _ASSETTI_CON_ORGANO_CONTROLLO
+    - _SINDACO_UNICO_O_COLLEGIO_SINDACALE
+    - _ASSETTI_REVISORE_ESTERNO_STANDALONE
+    - _SINDACO_UNICO_REVISORE_ESTERNO
+    - _COLLEGIO_SINDACALE_REVISORE_ESTERNO
 )
 _DURATA_FINO_APPROVAZIONE_BILANCIO = frozenset({"FINO_APPROVAZIONE_BILANCIO"})
 _DURATA_ALTRA = frozenset({"ALTRA_DURATA"})
@@ -1572,6 +1691,8 @@ SEZIONE_ORGANI_CONTROLLO = SezioneRegistro(
         "sindaci_supplenti": _sindaci_supplenti_collegio_sindacale,
         "numero_componenti_revisore": _numero_componenti_revisore_legale_persona_fisica,
         "numero_componenti_societa": _numero_componenti_societa_revisione_legale,
+        "numero_componenti_sindaco_revisore": _numero_componenti_sindaco_unico_revisore_esterno,
+        "numero_componenti_collegio_revisore": _numero_componenti_collegio_sindacale_revisore_esterno,
     },
     campi_catalogo={
         "assetto_controllo_in_carica": CampoCatalogo(
@@ -1644,6 +1765,28 @@ SEZIONE_ORGANI_CONTROLLO = SezioneRegistro(
                     dipende_da="assetto_controllo_in_carica", valori_dipendenza=_SOCIETA_REVISIONE_LEGALE,
                 ),
                 CampoDef(
+                    # Correzione 17: "impostato automaticamente a 2... non
+                    # modificabile... comprendere un sindaco unico e un
+                    # revisore esterno" (§ testo esplicito) — costante,
+                    # stesso schema di "Sindaci supplenti" del collegio
+                    # sindacale (struttura prescritta, non conteggio delle
+                    # righe già compilate).
+                    "numero_componenti_sindaco_revisore", "Numero componenti", "number",
+                    derived=True, derived_note="Allineato all'assetto selezionato e alle righe della tabella",
+                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_SINDACO_UNICO_REVISORE_ESTERNO,
+                ),
+                CampoDef(
+                    # Correzione 18: "il totale deve comprendere anche il
+                    # revisore esterno" (§ testo esplicito, tabella
+                    # 3+2+1=6/5+2+1=8) — chiave propria (non
+                    # "numero_componenti_collegio": la formula è diversa,
+                    # +1 in più per il revisore), stesso principio "una
+                    # chiave per configurazione" di Correzione 15/16/17.
+                    "numero_componenti_collegio_revisore", "Numero componenti", "number",
+                    derived=True, derived_note="Allineato all'assetto selezionato e alle righe della tabella",
+                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_COLLEGIO_SINDACALE_REVISORE_ESTERNO,
+                ),
+                CampoDef(
                     "numero_componenti", "Numero componenti", "number",
                     dipende_da="assetto_controllo_in_carica",
                     valori_dipendenza=_ASSETTI_ORGANO_CONTROLLO_NON_DEFINITI,
@@ -1654,32 +1797,46 @@ SEZIONE_ORGANI_CONTROLLO = SezioneRegistro(
                     # estendibile"). Il presidente è compreso nel numero
                     # (verificato/applicato lato incarichi.py: 1 Presidente +
                     # (effettivi-1) Sindaci effettivi + 2 Sindaci supplenti).
+                    # Correzione 18: esteso a "Collegio sindacale + revisore
+                    # esterno" (`_ASSETTI_CON_COLLEGIO_SINDACALE`) — stesso
+                    # campo/vincolo di dominio di Correzione 14, il revisore
+                    # esterno non cambia la struttura del collegio stesso.
                     "sindaci_effettivi", "Sindaci effettivi", "scelta",
                     opzioni_fisse=_OPZIONI_SINDACI_EFFETTIVI,
-                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_COLLEGIO_SINDACALE,
+                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_ASSETTI_CON_COLLEGIO_SINDACALE,
                 ),
                 CampoDef(
                     "sindaci_supplenti", "Sindaci supplenti", "number",
                     derived=True, derived_note="Due supplenti nel modello collegiale",
-                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_COLLEGIO_SINDACALE,
+                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_ASSETTI_CON_COLLEGIO_SINDACALE,
                 ),
                 CampoDef(
+                    # Correzione 17: esteso a "Sindaco unico + revisore
+                    # esterno" (`_ASSETTI_CON_FUNZIONI_ORGANO_INTERNO`) — il
+                    # valore riguarda esclusivamente il sindaco unico, non il
+                    # revisore esterno (§ testo esplicito, nota solo
+                    # descrittiva: nessuna differenza di codice rispetto a
+                    # Sindaco unico/Collegio sindacale).
                     "funzioni_organo_interno", "Funzioni dell'organo interno", "catalogo",
-                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_SINDACO_UNICO_O_COLLEGIO_SINDACALE,
+                    dipende_da="assetto_controllo_in_carica", valori_dipendenza=_ASSETTI_CON_FUNZIONI_ORGANO_INTERNO,
                 ),
                 CampoDef(
                     # Correzione 13: catalogo condiviso (§ richiesta
                     # esplicita) — esteso dalla Correzione 14 a "Collegio
-                    # sindacale" e dalla Correzione 15 a "Revisore legale
-                    # persona fisica" (`_ASSETTI_CON_REVISIONE_ESTERNA_CONDIVISA`),
-                    # si estenderà alle altre configurazioni quando
-                    # verranno definite (stesso pattern di
-                    # `modalita_esercizio_poteri` per Amministratori). Solo
-                    # per gli assetti "revisore esterno standalone" il
-                    # valore è vincolante, non un semplice suggerimento —
-                    # vedi `verifica_coerenza_affidatario_revisione_legale`.
+                    # sindacale", dalla Correzione 15 a "Revisore legale
+                    # persona fisica" e dalla Correzione 17 a "Sindaco unico
+                    # + revisore esterno" (`_ASSETTI_CON_REVISIONE_ESTERNA_CONDIVISA`).
+                    # Per gli assetti "revisore esterno standalone" il
+                    # valore è vincolante e uguale all'assetto stesso; per
+                    # "Sindaco unico + revisore esterno" è vincolante ma
+                    # ristretto a un sotto-insieme di 2 valori (persona
+                    # fisica o società, mai gli altri) — entrambi verificati
+                    # da `verifica_coerenza_affidatario_revisione_legale`,
+                    # il secondo caso già filtrato in anteprima da
+                    # `opzioni_catalogo_ristrette` sotto.
                     "revisione_legale_affidata_a", "Revisione legale affidata a", "catalogo",
                     dipende_da="assetto_controllo_in_carica", valori_dipendenza=_ASSETTI_CON_REVISIONE_ESTERNA_CONDIVISA,
+                    opzioni_catalogo_ristrette=_ASSETTI_CON_AFFIDATARIO_RISTRETTO,
                 ),
                 CampoDef(
                     "titolo_nomina", "Titolo della nomina", "catalogo",
@@ -1737,11 +1894,20 @@ def verifica_coerenza_affidatario_revisione_legale(
     ESATTAMENTE con l'assetto stesso — i due cataloghi condividono di
     proposito lo stesso codice per questi valori (vedi
     `023_cat_affidatari_revisione_legale.sql`), quindi il confronto è una
-    semplice uguaglianza di stringhe. "Non deve essere possibile salvare
-    una combinazione incoerente" (§ testo esplicito): ritorna il messaggio
-    di errore da associare al campo nel payload 422 del salvataggio della
-    sezione, None se la combinazione è coerente o non applicabile
-    all'assetto risolto.
+    semplice uguaglianza di stringhe.
+
+    § Correzione 17: per "Sindaco unico + revisore esterno" il vincolo è
+    diverso — non un'uguaglianza con l'assetto (l'assetto non È il
+    revisore, lo affianca a un sindaco unico), ma l'appartenenza a un
+    sotto-insieme di 2 valori possibili (`_ASSETTI_CON_AFFIDATARIO_RISTRETTO`,
+    stesso dizionario già usato per filtrare le opzioni in anteprima sul
+    CampoDef): "le altre voci del catalogo... produrrebbero una
+    configurazione incoerente" (§ testo esplicito).
+
+    In entrambi i casi: "Non deve essere possibile salvare una combinazione
+    incoerente" — ritorna il messaggio di errore da associare al campo nel
+    payload 422 del salvataggio della sezione, None se la combinazione è
+    coerente o non applicabile all'assetto risolto.
 
     Risolve i valori EFFETTIVI di entrambi i campi (dal payload di questo
     salvataggio se presenti, altrimenti dall'ultimo valore salvato) — il
@@ -1756,12 +1922,17 @@ def verifica_coerenza_affidatario_revisione_legale(
         return _valore_campo(db, ctx, sezione, row, campo)
 
     assetto_codice = _valore_effettivo("assetto_controllo_in_carica")
-    if assetto_codice not in _ASSETTI_REVISORE_ESTERNO_STANDALONE:
-        return None
     affidatario_codice = _valore_effettivo("revisione_legale_affidata_a")
-    if affidatario_codice == assetto_codice:
-        return None
-    return "Deve coincidere con l'assetto di controllo selezionato."
+    if assetto_codice in _ASSETTI_REVISORE_ESTERNO_STANDALONE:
+        if affidatario_codice == assetto_codice:
+            return None
+        return "Deve coincidere con l'assetto di controllo selezionato."
+    ristretti = _ASSETTI_CON_AFFIDATARIO_RISTRETTO.get(assetto_codice) if assetto_codice is not None else None
+    if ristretti is not None:
+        if affidatario_codice in ristretti:
+            return None
+        return "Deve essere un revisore legale persona fisica o una società di revisione legale."
+    return None
 
 
 # Nuova (mappatura CCIAA §4.2, decisione D-H): estremi di testata

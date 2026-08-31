@@ -12,7 +12,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.deps import AziendaContext, get_current_azienda
-from app.core.incarichi import verifica_riduzione_sindaci_effettivi, verifica_transizione_nessun_organo_controllo
+from app.core.incarichi import (
+    imposta_numero_amministratori,
+    verifica_riduzione_sindaci_effettivi,
+    verifica_transizione_nessun_organo_controllo,
+)
 from app.core.moduli import require_modulo
 from app.core.registro_campi import (
     SEZIONI,
@@ -31,6 +35,7 @@ from app.core.registro_campi import (
 )
 from app.database import get_db
 from app.schemas.registro_campi import (
+    NumeroComponentiAmministratoriUpdateRequest,
     OverviewRead,
     ReviewDecisionRequest,
     SectionRead,
@@ -165,6 +170,31 @@ def salva_sezione(
 
     applica_modifiche_sezione(db, ctx, sezione, row=row, cambiamenti=payload.fields)
     normalizza_numero_componenti_nessun_organo_controllo(db, row)
+    db.commit()
+    db.refresh(row)
+    return costruisci_sezione(db, ctx, sezione, row=row)
+
+
+@router.patch("/sections/amministrazione-controllo/numero-componenti", response_model=SectionRead)
+def imposta_numero_componenti_amministratori(
+    payload: NumeroComponentiAmministratoriUpdateRequest,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    """§ richiesta esplicita (31/08/2026): "Numero componenti" dell'organo
+    amministrativo pluripersonale si scrive subito, fuori dal ciclo
+    bozza/"Salva modifiche" della sezione — coerente con la tabella
+    "Titolari di cariche", le cui righe sono già immediate (vedi
+    `app.core.incarichi.imposta_numero_amministratori`, che solleva un 409
+    quando la riduzione richiede di scegliere chi eliminare)."""
+    sezione = _sezione_o_404("amministrazione-controllo")
+    row = _carica_record(db, ctx, sezione)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Sezione non ancora compilata")
+    imposta_numero_amministratori(
+        db, ctx.azienda_id, nuovo_valore=payload.valore, incarichi_da_eliminare=payload.incarichiDaEliminare
+    )
     db.commit()
     db.refresh(row)
     return costruisci_sezione(db, ctx, sezione, row=row)
