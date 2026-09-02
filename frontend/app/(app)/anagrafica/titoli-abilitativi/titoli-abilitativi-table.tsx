@@ -118,13 +118,14 @@ export function TitoliAbilitativiTable({ sectionKey }: { sectionKey: string }) {
                   <TableHead>Data di rilascio</TableHead>
                   <TableHead>Data di scadenza</TableHead>
                   <TableHead>Stato</TableHead>
+                  <TableHead>Verifica</TableHead>
                   {editing && <TableHead className="w-10" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {righe.map((t) => (
                   <TableRow
-                    key={t.id}
+                    key={t.riga_key}
                     onClick={() => apriRiga(t.id)}
                     aria-busy={caricamentoRiga === t.id}
                     className={editing ? "cursor-pointer" : undefined}
@@ -135,6 +136,7 @@ export function TitoliAbilitativiTable({ sectionKey }: { sectionKey: string }) {
                     <TableCell>{t.ente_rilascio ?? "—"}</TableCell>
                     <TableCell>{formatDate(t.data_rilascio)}</TableCell>
                     <TableCell>{t.senza_scadenza ? "Nessuna scadenza" : formatDate(t.data_scadenza)}</TableCell>
+                    <TableCell>{t.stato_titolo_label ?? "—"}</TableCell>
                     <TableCell>
                       <TitoloAbilitativoVerificationPopover
                         titolo={t}

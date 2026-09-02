@@ -11,7 +11,8 @@ principale + il proprio dettaglio (vedi app/core/titoli_abilitativi.py)."""
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.deps import AziendaContext, get_current_azienda
@@ -31,9 +32,22 @@ from app.core.titoli_abilitativi import (
     elenco_titoli,
     elimina_titolo,
 )
-from app.database import get_db
+from app.database import Base, get_db
+from app.models.anagrafica import (
+    CatCategoriaSoa,
+    CatClassificaSoa,
+    CatNormaCertificazione,
+    CatStatoTitoloAbilitativo,
+    CatTipologiaAlbo,
+    CatTipologiaCertificazioneAttestazione,
+    CatTipologiaLicenza,
+    CatTipologiaRuolo,
+)
+from app.models.sistema import CatSettoreIAF
+from app.schemas.anagrafica_iso9001 import CatalogoRead
 from app.schemas.registro_campi import ReviewDecisionRequest
 from app.schemas.titoli_abilitativi import (
+    SettoreIafRead,
     TitoloAbilitativoAlboCreate,
     TitoloAbilitativoAlboRead,
     TitoloAbilitativoCertificazioneCreate,
@@ -52,6 +66,49 @@ TAGS = ["Anagrafica Aziendale"]
 router = APIRouter(prefix="/api/anagrafica/titoli-abilitativi")
 
 _modulo_dep = require_modulo(MODULO)
+
+# ---------------------------------------------------------------------------
+# Cataloghi dei campi specifici dei 4 form (§ Correzione 21): un solo
+# endpoint generico per i 7 cataloghi che condividono la forma
+# codice/denominazione/ordine/attivo (stesso pattern di
+# `_CATALOGHI_ISO9001` in app/api/anagrafica.py), più un endpoint dedicato
+# per i settori IAF (cat_settori_iaf ha una forma diversa: nome/attiva).
+# ---------------------------------------------------------------------------
+
+_CATALOGHI_TITOLI_ABILITATIVI: dict[str, type[Base]] = {
+    "stati-titolo": CatStatoTitoloAbilitativo,
+    "tipologie-albo": CatTipologiaAlbo,
+    "tipologie-ruolo": CatTipologiaRuolo,
+    "tipologie-licenza": CatTipologiaLicenza,
+    "tipologie-certificazione-attestazione": CatTipologiaCertificazioneAttestazione,
+    "norme-certificazione": CatNormaCertificazione,
+    "categorie-soa": CatCategoriaSoa,
+    "classifiche-soa": CatClassificaSoa,
+}
+
+
+@router.get("/cataloghi/settori-iaf", response_model=list[SettoreIafRead], tags=TAGS)
+def elenco_settori_iaf(
+    db: Session = Depends(get_db),
+    _ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    return db.scalars(select(CatSettoreIAF).where(CatSettoreIAF.attiva.is_(True)).order_by(CatSettoreIAF.nome)).all()
+
+
+@router.get("/cataloghi/{nome}", response_model=list[CatalogoRead], tags=TAGS)
+def elenco_catalogo_titolo_abilitativo(
+    nome: str,
+    db: Session = Depends(get_db),
+    _ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    modello = _CATALOGHI_TITOLI_ABILITATIVI.get(nome)
+    if modello is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Catalogo non trovato")
+    return db.scalars(
+        select(modello).where(modello.attivo.is_(True)).order_by(modello.ordine_visualizzazione)
+    ).all()
 
 
 @router.get("", response_model=list[TitoloAbilitativoSummaryRead], tags=TAGS)

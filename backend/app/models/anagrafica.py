@@ -1268,6 +1268,167 @@ class CatMacroTipologiaTitoloAbilitativo(Base):
     )
 
 
+# ===========================================================================
+# Correzione 21 - Cataloghi dei campi specifici dei 4 form
+# ===========================================================================
+
+
+class CatStatoTitoloAbilitativo(Base):
+    """"Stato del titolo" (§ punto 1), comune ai 4 form — distinto dallo
+    stato di conferma del consulente (verifica per riga, invariata)."""
+
+    __tablename__ = "cat_stati_titoli_abilitativi"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatTipologiaAlbo(Base):
+    """"Tipologia di albo" (§ punto 2, form "Aggiungi albo"). Nato vuoto,
+    vedi migrazione 032."""
+
+    __tablename__ = "cat_tipologie_albo"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatTipologiaRuolo(Base):
+    """"Tipologia di ruolo" (§ punto 3, form "Aggiungi ruolo"). Nato vuoto,
+    vedi migrazione 033."""
+
+    __tablename__ = "cat_tipologie_ruolo"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatTipologiaLicenza(Base):
+    """"Tipologia di licenza" (§ punto 4, form "Aggiungi licenza"). Nato
+    vuoto, vedi migrazione 034."""
+
+    __tablename__ = "cat_tipologie_licenza"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatTipologiaCertificazioneAttestazione(Base):
+    """Tipologia del form "Aggiungi certificazione o attestazione" (§ punto
+    5): determina il sotto-form mostrato (3 configurazioni iniziali).
+    Sostituisce il vecchio `sotto_tipo` a 2 opzioni fisse di Correzione 20
+    (vedi migrazione 047)."""
+
+    __tablename__ = "cat_tipologie_certificazione_attestazione"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatNormaCertificazione(Base):
+    """"Norma" del sotto-form "Certificazione di sistema" (§ punto 5.1).
+    Nato vuoto, vedi migrazione 036. Non duplica `cat_certificazioni`."""
+
+    __tablename__ = "cat_norme_certificazione"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatCategoriaSoa(Base):
+    """"Categoria SOA" della tabella ripetibile "Categorie e classifiche"
+    del sotto-form "Attestazione SOA" (§ punto 5.2). Nato vuoto, vedi
+    migrazione 037."""
+
+    __tablename__ = "cat_categorie_soa"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatClassificaSoa(Base):
+    """"Classifica" della tabella ripetibile "Categorie e classifiche" del
+    sotto-form "Attestazione SOA" (§ punto 5.2). Seminato subito (11 valori
+    stabili), vedi migrazione 038."""
+
+    __tablename__ = "cat_classifiche_soa"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class AnaTitoloAbilitativo(Base):
     """Riga principale della tabella unificata "Albi, ruoli, licenze e
     certificazioni" (§ Correzione 20 punto 9): solo le informazioni comuni
@@ -1295,6 +1456,12 @@ class AnaTitoloAbilitativo(Base):
 
     note: Mapped[str | None] = mapped_column(Text)
 
+    # "Stato del titolo" (§ Correzione 21 punto 1), distinto dalla verifica
+    # del consulente (app.core.verifica_riga, invariata).
+    stato_titolo_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_stati_titoli_abilitativi.id")
+    )
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -1302,6 +1469,8 @@ class AnaTitoloAbilitativo(Base):
 
 
 class AnaTitoloAbilitativoDettaglioAlbo(Base):
+    """§ Correzione 21 punto 2 (form "Aggiungi albo")."""
+
     __tablename__ = "ana_titoli_abilitativi_dettaglio_albo"
     __table_args__ = (UniqueConstraint("titolo_id"),)
 
@@ -1310,8 +1479,18 @@ class AnaTitoloAbilitativoDettaglioAlbo(Base):
         PGUUID(as_uuid=True), ForeignKey("ana_titoli_abilitativi_azienda.id", ondelete="CASCADE")
     )
 
+    tipologia_albo_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_tipologie_albo.id")
+    )
     # "Categoria dell'albo" (§ punto 4, colonna "Categoria / norma").
     categoria: Mapped[str | None] = mapped_column(String(255))
+    denominazione_albo: Mapped[str | None] = mapped_column(String(255))
+    sezione: Mapped[str | None] = mapped_column(String(255))
+    # "Soggetto iscritto": NULL = l'azienda stessa, valorizzato = una persona
+    # collegata (mai duplicata, riferisce sempre ana_persone).
+    persona_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_persone.id"))
+    provincia_ambito: Mapped[str | None] = mapped_column(String(100))
+    attivita_abilitazioni: Mapped[str | None] = mapped_column(Text)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -1320,6 +1499,8 @@ class AnaTitoloAbilitativoDettaglioAlbo(Base):
 
 
 class AnaTitoloAbilitativoDettaglioRuolo(Base):
+    """§ Correzione 21 punto 3 (form "Aggiungi ruolo")."""
+
     __tablename__ = "ana_titoli_abilitativi_dettaglio_ruolo"
     __table_args__ = (UniqueConstraint("titolo_id"),)
 
@@ -1328,8 +1509,16 @@ class AnaTitoloAbilitativoDettaglioRuolo(Base):
         PGUUID(as_uuid=True), ForeignKey("ana_titoli_abilitativi_azienda.id", ondelete="CASCADE")
     )
 
+    tipologia_ruolo_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_tipologie_ruolo.id")
+    )
     # "Denominazione del ruolo" (§ punto 4, colonna "Categoria / norma").
     denominazione_ruolo: Mapped[str | None] = mapped_column(String(255))
+    sezione_categoria: Mapped[str | None] = mapped_column(String(255))
+    # "Titolare del ruolo": NULL = l'azienda stessa, come in Albo sopra.
+    persona_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_persone.id"))
+    provincia_ambito: Mapped[str | None] = mapped_column(String(100))
+    attivita_abilitate: Mapped[str | None] = mapped_column(Text)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -1338,6 +1527,8 @@ class AnaTitoloAbilitativoDettaglioRuolo(Base):
 
 
 class AnaTitoloAbilitativoDettaglioLicenza(Base):
+    """§ Correzione 21 punto 4 (form "Aggiungi licenza")."""
+
     __tablename__ = "ana_titoli_abilitativi_dettaglio_licenza"
     __table_args__ = (UniqueConstraint("titolo_id"),)
 
@@ -1346,8 +1537,23 @@ class AnaTitoloAbilitativoDettaglioLicenza(Base):
         PGUUID(as_uuid=True), ForeignKey("ana_titoli_abilitativi_azienda.id", ondelete="CASCADE")
     )
 
-    # "Tipologia della licenza" (§ punto 4, colonna "Categoria / norma").
-    tipologia_licenza: Mapped[str | None] = mapped_column(String(255))
+    tipologia_licenza_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_tipologie_licenza.id")
+    )
+    # "Denominazione della licenza" (§ punto 4, colonna "Categoria / norma")
+    # — testo libero, distinto dalla tipologia a catalogo sopra. Rinominata
+    # da `tipologia_licenza` (Correzione 20) con la migrazione 047.
+    denominazione_licenza: Mapped[str | None] = mapped_column(String(255))
+    oggetto_attivita: Mapped[str | None] = mapped_column(Text)
+    # "Soggetto titolare": NULL = l'azienda stessa, come in Albo/Ruolo.
+    persona_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_persone.id"))
+    # "Sede o unità locale interessata": riferisce sempre ana_sedi, mai
+    # duplica indirizzo/dati della sede.
+    sede_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_sedi.id"))
+    ambito_territoriale: Mapped[str | None] = mapped_column(String(255))
+    data_efficacia: Mapped[date | None]
+    condizioni_prescrizioni: Mapped[str | None] = mapped_column(Text)
+    estremi_rinnovo: Mapped[str | None] = mapped_column(String(255))
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -1356,10 +1562,12 @@ class AnaTitoloAbilitativoDettaglioLicenza(Base):
 
 
 class AnaTitoloAbilitativoDettaglioCertificazione(Base):
-    """Dettaglio "Certificazione o attestazione" (§ punto 7): copre sia le
-    certificazioni ISO sia le attestazioni SOA, distinte da `sotto_tipo`
-    (2 sole opzioni fisse, non un catalogo) così che la colonna "Tipologia"
-    della tabella unificata non le confonda."""
+    """Dettaglio "Certificazione o attestazione" (§ Correzione 21 punto 5):
+    copre le 3 configurazioni del catalogo `sotto_tipo_id` (Certificazione
+    di sistema/Attestazione SOA/Altra), distinte così che la colonna
+    "Tipologia" della tabella unificata non le confonda. Ogni sotto-form
+    valorizza solo i propri campi (§ punto 6, "i campi non pertinenti...
+    non devono proprio essere inviati al backend" — qui restano NULL)."""
 
     __tablename__ = "ana_titoli_abilitativi_dettaglio_certificazione"
     __table_args__ = (UniqueConstraint("titolo_id"),)
@@ -1369,12 +1577,70 @@ class AnaTitoloAbilitativoDettaglioCertificazione(Base):
         PGUUID(as_uuid=True), ForeignKey("ana_titoli_abilitativi_azienda.id", ondelete="CASCADE")
     )
 
-    sotto_tipo: Mapped[str] = mapped_column(String(30))
+    sotto_tipo_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_tipologie_certificazione_attestazione.id")
+    )
 
-    # Norma ISO oppure categoria/classifica SOA (§ punto 4, colonna
-    # "Categoria / norma"). Campo unico testuale in attesa dei campi
-    # specifici strutturati (§ punto 6, correzione successiva).
+    # Testo mostrato nella colonna "Categoria / norma" della tabella
+    # unificata, ricalcolato dal backend ad ogni scrittura a partire dai
+    # campi specifici del sotto-form (§ punto 4). Mai la fonte dei dati,
+    # solo la sua proiezione già pronta per la tabella.
     categoria_norma: Mapped[str | None] = mapped_column(Text)
+
+    # --- Sotto-form "Certificazione di sistema" (§ punto 5.1) ---
+    norma_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("cat_norme_certificazione.id"))
+    edizione_anno: Mapped[str | None] = mapped_column(String(50))
+    organismo_accreditamento: Mapped[str | None] = mapped_column(String(255))
+    campo_applicazione: Mapped[str | None] = mapped_column(Text)
+    data_prima_emissione: Mapped[date | None]
+
+    # --- Sotto-form "Altra certificazione o attestazione" (§ punto 5.3) ---
+    denominazione: Mapped[str | None] = mapped_column(String(255))
+    schema_norma: Mapped[str | None] = mapped_column(String(255))
+
+    # Il sotto-form "Attestazione SOA" (§ punto 5.2) non ha colonne proprie
+    # qui: usa solo i campi comuni (numero/ente/date) più la tabella di
+    # relazione rel_titoli_abilitativi_soa_categorie sotto.
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class RelTitoloAbilitativoSettoreIAF(Base):
+    """Settori IAF selezionati per una certificazione di sistema (§ punto
+    5.1, "selezione multipla dal catalogo esistente") — riusa
+    `cat_settori_iaf` (modulo Sistema), mai duplicato."""
+
+    __tablename__ = "rel_titoli_abilitativi_settori_iaf"
+    __table_args__ = (UniqueConstraint("dettaglio_certificazione_id", "settore_iaf_id"),)
+
+    id: Mapped[uuid.UUID] = _id_col()
+    dettaglio_certificazione_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("ana_titoli_abilitativi_dettaglio_certificazione.id", ondelete="CASCADE"),
+    )
+    settore_iaf_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("cat_settori_iaf.id"))
+
+
+class RelTitoloAbilitativoSoaCategoria(Base):
+    """Riga della tabella ripetibile "Categorie e classifiche" di
+    un'attestazione SOA (§ punto 5.2): una sola attestazione collegata a
+    più categorie senza duplicare numero/ente/date."""
+
+    __tablename__ = "rel_titoli_abilitativi_soa_categorie"
+    __table_args__ = (UniqueConstraint("dettaglio_certificazione_id", "categoria_soa_id"),)
+
+    id: Mapped[uuid.UUID] = _id_col()
+    dettaglio_certificazione_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("ana_titoli_abilitativi_dettaglio_certificazione.id", ondelete="CASCADE"),
+    )
+    categoria_soa_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("cat_categorie_soa.id"))
+    classifica_soa_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_classifiche_soa.id")
+    )
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

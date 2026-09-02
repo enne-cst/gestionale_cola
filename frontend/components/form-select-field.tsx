@@ -12,6 +12,7 @@ export function FormSelectField({
   defaultValue,
   required = false,
   placeholder = "Seleziona...",
+  onValueChange,
 }: {
   label: string;
   name: string;
@@ -19,6 +20,9 @@ export function FormSelectField({
   defaultValue?: string | null;
   required?: boolean;
   placeholder?: string;
+  // Effetti collaterali oltre al normale invio via FormData (es. compilare
+  // automaticamente un altro campo alla scelta), opzionale e additivo.
+  onValueChange?: (value: string) => void;
 }) {
   const [value, setValue] = useState(defaultValue ?? "");
 
@@ -28,7 +32,13 @@ export function FormSelectField({
         {label}
         {required && <span className="text-destructive"> *</span>}
       </Label>
-      <Select value={value} onValueChange={setValue}>
+      <Select
+        value={value}
+        onValueChange={(v) => {
+          setValue(v);
+          onValueChange?.(v);
+        }}
+      >
         <SelectTrigger id={name} className="w-full">
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>

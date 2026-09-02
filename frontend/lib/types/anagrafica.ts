@@ -2,6 +2,7 @@
 // backend/app/schemas/anagrafica.py. Solo i campi delle sezioni già
 // implementate nel frontend.
 
+import type { CatalogoVoce } from "@/lib/types/anagrafica-iso9001";
 import type { VerificationStatus } from "@/lib/types/registro";
 
 interface ConMetadati {
@@ -234,18 +235,54 @@ export interface AddettiComune extends ConMetadati {
 
 // ===========================================================================
 // Titoli abilitativi: tabella unificata "Albi, ruoli, licenze e
-// certificazioni" (Correzione 20)
+// certificazioni" (Correzione 20 + Correzione 21: campi specifici dei 4
+// form, rimandati da Correzione 20)
 // ===========================================================================
 
 export type MacroTipologiaTitoloAbilitativo = "ALBO" | "RUOLO" | "LICENZA" | "CERTIFICAZIONE_ATTESTAZIONE";
-export type SottoTipoCertificazione = "CERTIFICAZIONE" | "ATTESTAZIONE_SOA";
+
+/** Proiezione minima di una persona collegata (§ punto 2/3/4: "Soggetto
+ * iscritto"/"Titolare del ruolo"/"Soggetto titolare" — azienda oppure
+ * persona), identica a `PersonaSummary` lato backend. */
+export interface TitoloAbilitativoPersona {
+  id: string;
+  nome: string;
+  cognome: string;
+  codice_fiscale: string;
+  data_nascita: string | null;
+}
+
+/** Proiezione minima di una sede collegata (§ punto 4, "Sede o unità
+ * locale interessata"): mai duplica indirizzo o altri dati della sede. */
+export interface TitoloAbilitativoSede {
+  id: string;
+  denominazione_sede: string | null;
+  comune: string | null;
+}
+
+export interface SettoreIafVoce {
+  id: string;
+  nome: string;
+}
+
+export interface TitoloAbilitativoSoaCategoriaVoce {
+  id: string;
+  categoria_soa_id: string;
+  classifica_soa_id: string | null;
+  categoria_soa: CatalogoVoce;
+  classifica_soa: CatalogoVoce | null;
+}
 
 /** Riga della tabella riepilogativa (§ punto 3/4): "Categoria / norma" è
  * già risolta dal backend dal dettaglio specifico, mai una colonna propria
  * della tabella principale. Le informazioni non comprese qui (§ punto 8)
- * si caricano a parte, con `getTitoloAbilitativo`, all'apertura del form. */
+ * si caricano a parte, con `getTitoloAbilitativo`, all'apertura del form.
+ * `riga_key` (§ punto 7): per un'attestazione SOA con più categorie/
+ * classifiche più righe condividono lo stesso `id` ma hanno `riga_key`
+ * diversa — usarla come React key, `id` per aprire il form. */
 export interface TitoloAbilitativoSummary {
   id: string;
+  riga_key: string;
   macro_tipologia_codice: MacroTipologiaTitoloAbilitativo;
   tipologia_label: string;
   categoria_norma: string | null;
@@ -255,6 +292,7 @@ export interface TitoloAbilitativoSummary {
   data_scadenza: string | null;
   senza_scadenza: boolean;
   note: string | null;
+  stato_titolo_label: string | null;
   created_at: string;
   updated_at: string;
   verificationStatus: VerificationStatus | null;
@@ -271,6 +309,8 @@ interface _TitoloAbilitativoComune extends ConMetadati {
   data_scadenza: string | null;
   senza_scadenza: boolean;
   note: string | null;
+  stato_titolo_id: string | null;
+  stato_titolo: CatalogoVoce | null;
   verificationStatus: VerificationStatus | null;
   verificationVersion: number | null;
   revisionNote: string | null;
@@ -280,23 +320,60 @@ interface _TitoloAbilitativoComune extends ConMetadati {
 
 export interface TitoloAbilitativoAlbo extends _TitoloAbilitativoComune {
   macro_tipologia_codice: "ALBO";
+  tipologia_albo_id: string | null;
+  tipologia_albo: CatalogoVoce | null;
   categoria: string | null;
+  denominazione_albo: string | null;
+  sezione: string | null;
+  persona_id: string | null;
+  persona: TitoloAbilitativoPersona | null;
+  provincia_ambito: string | null;
+  attivita_abilitazioni: string | null;
 }
 
 export interface TitoloAbilitativoRuolo extends _TitoloAbilitativoComune {
   macro_tipologia_codice: "RUOLO";
+  tipologia_ruolo_id: string | null;
+  tipologia_ruolo: CatalogoVoce | null;
   denominazione_ruolo: string | null;
+  sezione_categoria: string | null;
+  persona_id: string | null;
+  persona: TitoloAbilitativoPersona | null;
+  provincia_ambito: string | null;
+  attivita_abilitate: string | null;
 }
 
 export interface TitoloAbilitativoLicenza extends _TitoloAbilitativoComune {
   macro_tipologia_codice: "LICENZA";
-  tipologia_licenza: string | null;
+  tipologia_licenza_id: string | null;
+  tipologia_licenza: CatalogoVoce | null;
+  denominazione_licenza: string | null;
+  oggetto_attivita: string | null;
+  persona_id: string | null;
+  persona: TitoloAbilitativoPersona | null;
+  sede_id: string | null;
+  sede: TitoloAbilitativoSede | null;
+  ambito_territoriale: string | null;
+  data_efficacia: string | null;
+  condizioni_prescrizioni: string | null;
+  estremi_rinnovo: string | null;
 }
 
 export interface TitoloAbilitativoCertificazione extends _TitoloAbilitativoComune {
   macro_tipologia_codice: "CERTIFICAZIONE_ATTESTAZIONE";
-  sotto_tipo: SottoTipoCertificazione;
+  sotto_tipo_id: string | null;
+  sotto_tipo: CatalogoVoce | null;
   categoria_norma: string | null;
+  norma_id: string | null;
+  norma: CatalogoVoce | null;
+  edizione_anno: string | null;
+  organismo_accreditamento: string | null;
+  campo_applicazione: string | null;
+  data_prima_emissione: string | null;
+  settori_iaf: SettoreIafVoce[];
+  categorie_soa: TitoloAbilitativoSoaCategoriaVoce[];
+  denominazione: string | null;
+  schema_norma: string | null;
 }
 
 /** Risposta di `getTitoloAbilitativo` (§ punto 8: "selezionando una riga
