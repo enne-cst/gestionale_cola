@@ -6,6 +6,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { FieldVerificationPopover } from "@/components/registro/field-verification-popover";
 import { VisibilityToggle } from "@/components/registro/visibility-toggle";
 import { useWorkspace } from "@/components/registro/workspace-provider";
@@ -105,6 +106,7 @@ export function FieldRow({
   error,
   disabled,
   onChange,
+  multiline = false,
 }: {
   sectionKey: string;
   field: FieldState;
@@ -113,6 +115,11 @@ export function FieldRow({
   error?: string;
   disabled?: boolean;
   onChange?: (value: string) => void;
+  // § correzione grafica "Attività economica" (campo "Attività prevalente",
+  // testuale e descrittivo): in modifica usa una Textarea invece di un
+  // Input a riga singola. Opt-in, default false — nessun altro campo/
+  // sezione della piattaforma è coinvolto senza passarlo esplicitamente.
+  multiline?: boolean;
 }) {
   const { ruolo, toggleVisibility } = useWorkspace();
   const consulente = ruolo === "CONSULENTE";
@@ -235,6 +242,16 @@ export function FieldRow({
             ))}
           </SelectContent>
         </Select>
+      ) : multiline ? (
+        <Textarea
+          id={`campo-${sectionKey}-${field.key}`}
+          rows={2}
+          value={draftValue ?? ""}
+          disabled={disabled}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? `errore-${sectionKey}-${field.key}` : undefined}
+          onChange={(e) => onChange?.(e.target.value)}
+        />
       ) : (
         <Input
           id={`campo-${sectionKey}-${field.key}`}

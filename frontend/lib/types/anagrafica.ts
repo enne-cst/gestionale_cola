@@ -2,6 +2,8 @@
 // backend/app/schemas/anagrafica.py. Solo i campi delle sezioni già
 // implementate nel frontend.
 
+import type { VerificationStatus } from "@/lib/types/registro";
+
 interface ConMetadati {
   id: string;
   azienda_id: string;
@@ -229,3 +231,79 @@ export interface AddettiComune extends ConMetadati {
   numero_sedi_unita_locali: number | null;
   periodi: AddettiComunePeriodo[];
 }
+
+// ===========================================================================
+// Titoli abilitativi: tabella unificata "Albi, ruoli, licenze e
+// certificazioni" (Correzione 20)
+// ===========================================================================
+
+export type MacroTipologiaTitoloAbilitativo = "ALBO" | "RUOLO" | "LICENZA" | "CERTIFICAZIONE_ATTESTAZIONE";
+export type SottoTipoCertificazione = "CERTIFICAZIONE" | "ATTESTAZIONE_SOA";
+
+/** Riga della tabella riepilogativa (§ punto 3/4): "Categoria / norma" è
+ * già risolta dal backend dal dettaglio specifico, mai una colonna propria
+ * della tabella principale. Le informazioni non comprese qui (§ punto 8)
+ * si caricano a parte, con `getTitoloAbilitativo`, all'apertura del form. */
+export interface TitoloAbilitativoSummary {
+  id: string;
+  macro_tipologia_codice: MacroTipologiaTitoloAbilitativo;
+  tipologia_label: string;
+  categoria_norma: string | null;
+  numero_attestazione: string | null;
+  ente_rilascio: string | null;
+  data_rilascio: string | null;
+  data_scadenza: string | null;
+  senza_scadenza: boolean;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+  verificationStatus: VerificationStatus | null;
+  verificationVersion: number | null;
+  revisionNote: string | null;
+  verifiedAt: string | null;
+  verifiedBy: string | null;
+}
+
+interface _TitoloAbilitativoComune extends ConMetadati {
+  numero_attestazione: string | null;
+  ente_rilascio: string | null;
+  data_rilascio: string | null;
+  data_scadenza: string | null;
+  senza_scadenza: boolean;
+  note: string | null;
+  verificationStatus: VerificationStatus | null;
+  verificationVersion: number | null;
+  revisionNote: string | null;
+  verifiedAt: string | null;
+  verifiedBy: string | null;
+}
+
+export interface TitoloAbilitativoAlbo extends _TitoloAbilitativoComune {
+  macro_tipologia_codice: "ALBO";
+  categoria: string | null;
+}
+
+export interface TitoloAbilitativoRuolo extends _TitoloAbilitativoComune {
+  macro_tipologia_codice: "RUOLO";
+  denominazione_ruolo: string | null;
+}
+
+export interface TitoloAbilitativoLicenza extends _TitoloAbilitativoComune {
+  macro_tipologia_codice: "LICENZA";
+  tipologia_licenza: string | null;
+}
+
+export interface TitoloAbilitativoCertificazione extends _TitoloAbilitativoComune {
+  macro_tipologia_codice: "CERTIFICAZIONE_ATTESTAZIONE";
+  sotto_tipo: SottoTipoCertificazione;
+  categoria_norma: string | null;
+}
+
+/** Risposta di `getTitoloAbilitativo` (§ punto 8: "selezionando una riga
+ * la piattaforma riconosce la tipologia e apre il form corretto") — unione
+ * discriminata su `macro_tipologia_codice`. */
+export type TitoloAbilitativoDetail =
+  | TitoloAbilitativoAlbo
+  | TitoloAbilitativoRuolo
+  | TitoloAbilitativoLicenza
+  | TitoloAbilitativoCertificazione;

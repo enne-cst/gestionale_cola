@@ -2,6 +2,7 @@
 
 import { useEffect, type ReactNode } from "react";
 
+import { AttivitaSedeLegaleField } from "@/components/registro/attivita-sede-legale-field";
 import { FieldRow } from "@/components/registro/field-row";
 import { NumeroComponentiOrganoField } from "@/components/registro/numero-componenti-organo-field";
 import { NumeroSociField } from "@/components/registro/numero-soci-field";
@@ -43,6 +44,22 @@ function campiApplicabili(campi: FieldState[], valori: Record<string, string | n
   }
   return campi.filter((c) => applicabile(c.key));
 }
+
+// § richiesta esplicita (02/09/2026): "Attività presso la sede legale" e
+// "Data inizio attività presso la sede" sono 2 colonne separate in
+// ana_attivita_esercitata (§ Correzione 19, mai un unico testo
+// storicizzato) ma UN SOLO campo nell'interfaccia — identica al prototipo
+// HTML di riferimento per questa sezione ("una serie di campi
+// compilabili", senza righe in più rispetto ad esso). Chiave = sectionKey,
+// valore = field.key della colonna "data" da assorbire nel campo
+// "principale" invece di renderizzarla come riga propria — vedi
+// AttivitaSedeLegaleField.
+const CAMPO_DATA_ASSORBITA_DA_COMPOSTO: Partial<Record<string, string>> = {
+  "attivita-economica": "data_inizio_attivita_sede",
+};
+const CAMPO_COMPOSTO_PRINCIPALE: Partial<Record<string, string>> = {
+  "attivita-economica": "attivita_sede_legale",
+};
 
 function LoadingSkeleton() {
   return (
@@ -237,8 +254,32 @@ export function SectionContent({
           const campiVisibili = campiApplicabili(group.fields, valoriVista);
           const campiModificabili = campiApplicabili(group.fields, entry.draft ?? {});
           const tuttiNascosti = campiVisibili.length > 0 && campiVisibili.every((f) => !f.visibleToCompany);
+          // Non una riga propria: assorbita dal campo composto principale
+          // (vedi CAMPO_DATA_ASSORBITA_DA_COMPOSTO sopra).
+          const chiaveDataComposta = CAMPO_DATA_ASSORBITA_DA_COMPOSTO[sectionKey];
+          const chiavePrincipaleComposto = CAMPO_COMPOSTO_PRINCIPALE[sectionKey];
+          const campoDataComposto = group.fields.find((f) => f.key === chiaveDataComposta);
+          const campiVisibiliMostrati = chiaveDataComposta
+            ? campiVisibili.filter((f) => f.key !== chiaveDataComposta)
+            : campiVisibili;
+          const campiModificabiliMostrati = chiaveDataComposta
+            ? campiModificabili.filter((f) => f.key !== chiaveDataComposta)
+            : campiModificabili;
           return (
-            <section key={group.key} className={cn("border-b border-[var(--az-border)] py-6", modificando && "border-0 py-[22px]")}>
+            <section
+              key={group.key}
+              className={cn(
+                "border-b border-[var(--az-border)] py-6",
+                modificando && "border-0 py-[22px]",
+                // § correzione grafica "Attività, albi, ruoli e licenze" >
+                // blocco "Attività economica": aggancio per le regole CSS
+                // scoped di registro-theme.css (riequilibrio griglia,
+                // larghezza controlli) — mai un selettore globale, sempre
+                // annidato sotto questa classe, nessun'altra sezione è
+                // toccata.
+                sectionKey === "attivita-economica" && "cciaa-attivita-economica",
+              )}
+            >
               <h3 className="mb-6 flex items-center gap-3 text-[15px] font-bold text-[var(--az-ink)]">
                 <span>{groupTitleOverrides?.[group.key] ?? group.title}</span>
                 {consulente && !modificando && (
@@ -265,7 +306,7 @@ export function SectionContent({
               </h3>
               {modificando ? (
                 <div className="grid grid-cols-1 gap-x-5 gap-y-[15px] sm:grid-cols-2">
-                  {campiModificabili.map((field) =>
+                  {campiModificabiliMostrati.map((field) =>
                     // § richiesta esplicita (31/08/2026): "Numero componenti"
                     // dell'organo amministrativo pluripersonale si scrive
                     // subito (mai tramite la bozza/onChange generico di
@@ -282,6 +323,25 @@ export function SectionContent({
                     // NumeroSociField.
                     sectionKey === "elenco-soci-estremi" && field.key === "numero_soci" ? (
                       <NumeroSociField key={field.key} sectionKey={sectionKey} field={field} />
+                    ) : // § richiesta esplicita (02/09/2026): "Attività presso
+                    // la sede legale" + la sua data assorbita in un solo
+                    // campo composto — vedi AttivitaSedeLegaleField/
+                    // CAMPO_DATA_ASSORBITA_DA_COMPOSTO sopra.
+                    field.key === chiavePrincipaleComposto && campoDataComposto ? (
+                      <AttivitaSedeLegaleField
+                        key={field.key}
+                        sectionKey={sectionKey}
+                        fieldDescrizione={field}
+                        fieldData={campoDataComposto}
+                        mode="EDIT"
+                        draftDescrizione={entry.draft?.[field.key] ?? null}
+                        draftData={entry.draft?.[campoDataComposto.key] ?? null}
+                        erroreDescrizione={entry.fieldErrors[field.key]}
+                        erroreData={entry.fieldErrors[campoDataComposto.key]}
+                        disabled={entry.saving}
+                        onChangeDescrizione={(value) => updateField(sectionKey, field.key, value)}
+                        onChangeData={(value) => updateField(sectionKey, campoDataComposto.key, value)}
+                      />
                     ) : (
                       <FieldRow
                         key={field.key}
@@ -292,15 +352,33 @@ export function SectionContent({
                         error={entry.fieldErrors[field.key]}
                         disabled={entry.saving}
                         onChange={(value) => updateField(sectionKey, field.key, value)}
+                        // § correzione grafica: "Attività prevalente" è un
+                        // campo descrittivo, mostra una Textarea invece di
+                        // un Input a riga singola — solo presentazione,
+                        // stesso identificativo/valore/validazione di
+                        // sempre. Scoped a questo unico campo di questa
+                        // sezione, nessun altro campo della piattaforma è
+                        // toccato.
+                        multiline={sectionKey === "attivita-economica" && field.key === "descrizione_attivita_esercitata"}
                       />
                     ),
                   )}
                 </div>
               ) : (
                 <dl className="grid grid-cols-1 gap-x-[54px] gap-y-6 sm:grid-cols-2">
-                  {campiVisibili.map((field) => (
-                    <FieldRow key={field.key} sectionKey={sectionKey} field={field} mode="VIEW" />
-                  ))}
+                  {campiVisibiliMostrati.map((field) =>
+                    field.key === chiavePrincipaleComposto && campoDataComposto ? (
+                      <AttivitaSedeLegaleField
+                        key={field.key}
+                        sectionKey={sectionKey}
+                        fieldDescrizione={field}
+                        fieldData={campoDataComposto}
+                        mode="VIEW"
+                      />
+                    ) : (
+                      <FieldRow key={field.key} sectionKey={sectionKey} field={field} mode="VIEW" />
+                    ),
+                  )}
                 </dl>
               )}
             </section>

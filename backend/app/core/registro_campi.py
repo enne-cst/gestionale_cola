@@ -34,6 +34,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import AziendaContext, get_current_azienda
 from app.models.anagrafica import (
     AnaAmministrazioneControllo,
+    AnaAttivitaEsercitata,
     AnaCapitaleSociale,
     AnaCodiceAteco,
     AnaDurataSocietaEsercizi,
@@ -45,6 +46,9 @@ from app.models.anagrafica import (
     AnaStatutoRev2,
     CatAffidatarioRevisioneLegale,
     CatAssettoControllo,
+    CatCodiceAteco2025,
+    CatCodiceAtecori,
+    CatCodiceNace,
     CatDelegheConsiglio,
     CatDurataCarica,
     CatDurataIncaricoOrganoControllo,
@@ -54,6 +58,7 @@ from app.models.anagrafica import (
     CatModalitaEsercizioPoteri,
     CatOrganoAmministrativo,
     CatRegimeRappresentanza,
+    CatStatoAttivita,
     CatTitoloNominaOrganoControllo,
 )
 from app.models.personale import CatCaratteristicaIncarico, CatRuolo, PerIncarico, PerIncaricoValore
@@ -2052,6 +2057,55 @@ SEZIONE_STATUTO = SezioneRegistro(
     ],
 )
 
+# Correzione 19 (prima parte, card "Attività, albi, ruoli e licenze"):
+# sezione singleton "Attività economica", sostenuta da ana_attivita_esercitata
+# (migrazione 004, estesa dalla migrazione 045 invece di una nuova tabella
+# duplicata — vedi commento in testa a quella migrazione). Campo guida
+# "descrizione_attivita_esercitata" ("Attività prevalente"), stessa
+# convenzione delle altre sezioni singleton con un campo identificativo
+# principale (es. "denominazione" per lo statuto). I tre campi a catalogo
+# ATECO/ATECORI/NACE puntano ciascuno a un catalogo dedicato per sistema di
+# classificazione (mai una tabella condivisa con colonna "sistema": il
+# meccanismo generico `CampoCatalogo` risolve le opzioni da un solo model,
+# senza filtro — vedi migrazioni 027/028/029). I quattro campi booleani
+# nullable (import-export, contratto di rete, albi/ruoli/licenze, albi e
+# registri ambientali) sono tri-stato Sì/No/Non indicato, stesso rendering
+# generico già usato da "Partecipazioni in altre società"
+# (SEZIONE_INFORMAZIONI_SOCIETARIE) per data_type "boolean".
+SEZIONE_ATTIVITA_ECONOMICA = SezioneRegistro(
+    section_key="attivita-economica",
+    sezione_codice="ANAGRAFICA_AZIENDALE.ATTIVITA_ECONOMICA",
+    title="Attività economica",
+    model=AnaAttivitaEsercitata,
+    campo_completamento="descrizione_attivita_esercitata",
+    campi_catalogo={
+        "stato_attivita": CampoCatalogo(model=CatStatoAttivita, colonna_fk="stato_attivita_id"),
+        "codice_ateco_2025": CampoCatalogo(model=CatCodiceAteco2025, colonna_fk="codice_ateco_2025_id"),
+        "codice_atecori": CampoCatalogo(model=CatCodiceAtecori, colonna_fk="codice_atecori_id"),
+        "codice_nace_2_1": CampoCatalogo(model=CatCodiceNace, colonna_fk="codice_nace_2_1_id"),
+    },
+    gruppi=[
+        GruppoDef(
+            key="attivita-economica",
+            title="Attività economica",
+            campi=[
+                CampoDef("stato_attivita", "Stato attività", "catalogo"),
+                CampoDef("data_decorrenza_attivita", "Data inizio attività", "date"),
+                CampoDef("descrizione_attivita_esercitata", "Attività prevalente", "text"),
+                CampoDef("attivita_sede_legale", "Attività presso la sede legale", "text"),
+                CampoDef("data_inizio_attivita_sede", "Data inizio attività presso la sede", "date"),
+                CampoDef("codice_ateco_2025", "ATECO 2025", "catalogo"),
+                CampoDef("codice_atecori", "ATECORI 2007-2022", "catalogo"),
+                CampoDef("codice_nace_2_1", "Codice NACE 2.1", "catalogo"),
+                CampoDef("presenza_attivita_import_export", "Attività import-export", "boolean"),
+                CampoDef("contratto_rete", "Contratto di rete", "boolean"),
+                CampoDef("albi_ruoli_licenze_presenti", "Albi, ruoli e licenze", "boolean"),
+                CampoDef("registri_ambientali_presenti", "Albi e registri ambientali", "boolean"),
+            ],
+        ),
+    ],
+)
+
 SEZIONI: dict[str, SezioneRegistro] = {
     s.section_key: s
     for s in (
@@ -2063,5 +2117,6 @@ SEZIONI: dict[str, SezioneRegistro] = {
         SEZIONE_ELENCO_SOCI_ESTREMI,
         SEZIONE_SEDE,
         SEZIONE_STATUTO,
+        SEZIONE_ATTIVITA_ECONOMICA,
     )
 }

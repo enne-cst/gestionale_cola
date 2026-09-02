@@ -11,6 +11,7 @@ from uuid import uuid4
 
 from app.core.registro_campi import (
     SEZIONE_AMMINISTRAZIONE_CONTROLLO,
+    SEZIONE_ATTIVITA_ECONOMICA,
     SEZIONE_CAPITALE_SOCIALE,
     SEZIONE_DURATA_SOCIETA_ESERCIZI,
     SEZIONE_ELENCO_SOCI_ESTREMI,
@@ -119,7 +120,7 @@ class TestCatalogoInformazioniSocietarie:
 
 
 class TestSezioniRegistrate:
-    def test_otto_sezioni_registrate(self):
+    def test_nove_sezioni_registrate(self):
         assert set(SEZIONI) == {
             "informazioni-societarie",
             "capitale-sociale",
@@ -129,6 +130,7 @@ class TestSezioniRegistrate:
             "elenco-soci-estremi",
             "sede",
             "statuto",
+            "attivita-economica",
         }
 
     def test_ogni_sezione_indicizza_se_stessa(self):
@@ -324,6 +326,38 @@ class TestSezioniRegistrate:
         }
         assert indice.derivate == set()
 
+    def test_catalogo_attivita_economica(self):
+        # Correzione 19 (prima parte, card "Attività, albi, ruoli e
+        # licenze"): sezione singleton "Attività economica", estende
+        # ana_attivita_esercitata (migrazione 004) invece di una nuova
+        # tabella — vedi commento sopra SEZIONE_ATTIVITA_ECONOMICA. I tre
+        # campi ATECO/ATECORI/NACE e "stato_attivita" sono a catalogo
+        # (ciascuno con il proprio catalogo dedicato, tutti vuoti finché non
+        # popolati da un import/analisi separati); i quattro campi
+        # booleani sono tri-stato Sì/No/Non indicato.
+        indice = _indice(SEZIONE_ATTIVITA_ECONOMICA)
+        assert indice.chiavi == {
+            "stato_attivita",
+            "data_decorrenza_attivita",
+            "descrizione_attivita_esercitata",
+            "attivita_sede_legale",
+            "data_inizio_attivita_sede",
+            "codice_ateco_2025",
+            "codice_atecori",
+            "codice_nace_2_1",
+            "presenza_attivita_import_export",
+            "contratto_rete",
+            "albi_ruoli_licenze_presenti",
+            "registri_ambientali_presenti",
+        }
+        assert indice.derivate == set()
+        assert indice.tipo["stato_attivita"] == "catalogo"
+        assert indice.tipo["codice_ateco_2025"] == "catalogo"
+        assert indice.tipo["presenza_attivita_import_export"] == "boolean"
+        assert indice.tipo["contratto_rete"] == "boolean"
+        assert indice.tipo["albi_ruoli_licenze_presenti"] == "boolean"
+        assert indice.tipo["registri_ambientali_presenti"] == "boolean"
+
     def test_totale_applicabile_su_tutte_le_sezioni(self):
         # Stessa somma che `valuta_qualita`/`riepilogo_sezioni` usano per
         # `totalApplicable` (22 + 4 + 3 + 15 + 14 + 5 + 12 + 12, il quarto per
@@ -346,10 +380,11 @@ class TestSezioniRegistrate:
         # "Collegio sindacale + revisore esterno": +1 campo proprio
         # "numero_componenti_collegio_revisore" = 16), il penultimo per
         # "elenco-soci-estremi" dopo la correzione 035, gli ultimi due per
-        # "sede"/"statuto", pilota su ana_sede_rev2/ana_statuto_rev2: un
+        # "sede"/"statuto", pilota su ana_sede_rev2/ana_statuto_rev2, +12
+        # per "attivita-economica" (Correzione 19, prima parte): un
         # cambiamento qui e' un promemoria per aggiornare quel numero
         # consapevolmente.
-        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 89
+        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 101
 
 
 class TestValidaCampo:

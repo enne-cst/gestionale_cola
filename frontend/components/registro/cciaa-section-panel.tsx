@@ -4,13 +4,10 @@ import type { ReactNode } from "react";
 
 import { GavelIcon, HandshakeIcon, ShieldCheckIcon } from "lucide-react";
 
-import { AlbiTable } from "@/app/(app)/anagrafica/albi-ruoli-licenze/albi-table";
 import { AddettiComuneTable } from "@/app/(app)/anagrafica/addetti-comune/addetti-comune-table";
 import { AddettiVisuraTable } from "@/app/(app)/anagrafica/addetti-visura/addetti-visura-table";
-import { CertificazioniTable } from "@/app/(app)/anagrafica/certificazioni/certificazioni-table";
-import { CodiciAtecoTable } from "@/app/(app)/anagrafica/codici-ateco/codici-ateco-table";
 import { SediTable } from "@/app/(app)/anagrafica/sedi/sedi-table";
-import { SoaTable } from "@/app/(app)/anagrafica/soa/soa-table";
+import { TitoliAbilitativiTable } from "@/app/(app)/anagrafica/titoli-abilitativi/titoli-abilitativi-table";
 import { EmbeddedResourceBlock } from "@/components/registro/embedded-resource-block";
 import { IncaricoTable } from "@/components/registro/incarico-table";
 import { SectionContent } from "@/components/registro/section-content";
@@ -19,29 +16,26 @@ import { SintesiPanel } from "@/components/registro/sintesi-panel";
 import { StatoPill } from "@/components/registro/stato-pill";
 import { useWorkspace } from "@/components/registro/workspace-provider";
 import { TITOLO_VISTA_CCIAA, type CciaaVistaKey } from "@/lib/cciaa-viste";
-import type {
-  AddettiComune,
-  AddettiVisura,
-  AlboRuoloLicenza,
-  Certificazione,
-  CodiceAteco,
-  Sede,
-  Soa,
-} from "@/lib/types/anagrafica";
+import type { AddettiComune, AddettiVisura, Sede } from "@/lib/types/anagrafica";
 
 // Vista -> sectionKey il cui SectionFooter (legenda + banner di modifica)
 // va montato in fondo al pannello, come sibling dopo l'area di scroll —
 // mai tra i campi e una tabella annidata (Soci/Amministratori/Sindaci) né
 // dentro il blocco embedded stesso. Le viste assenti da questa mappa non
-// hanno un blocco a registro con footer (solo tabelle, es. "attivita-albi"),
-// o hanno un pannello del tutto diverso ("sintesi").
+// hanno un blocco a registro con footer (solo tabelle), o hanno un pannello
+// del tutto diverso ("sintesi").
 // § Correzione 11: "sindaci" ha ora una propria sezione a registro
 // ("organi-controllo", `SEZIONE_ORGANI_CONTROLLO`), non più condivisa con
 // "amministratori" — vedi anche `CAMPO_PRINCIPALE_VISTA` sotto.
+// § Correzione 19 (prima parte): "attivita-albi" guadagna la propria
+// sezione a registro ("attivita-economica"), montata sopra le tabelle
+// ripetibili esistenti (Codici ATECO, Albi/ruoli/licenze, SOA,
+// Certificazioni) — stesso pattern di "amministratori"/"sindaci".
 const VISTA_FOOTER_SECTION_KEY: Partial<Record<CciaaVistaKey, string>> = {
   soci: "elenco-soci-estremi",
   amministratori: "amministrazione-controllo",
   sindaci: "organi-controllo",
+  "attivita-albi": "attivita-economica",
   "aggiornamento-impresa": "informazioni-societarie",
 };
 
@@ -359,18 +353,27 @@ function ContenutoVista({
     case "attivita-albi":
       return (
         <>
-          <EmbeddedResourceBlock<CodiceAteco> title="Codici ATECO" apiPath="/api/anagrafica/codici-ateco" panoramicaSlug="codici-ateco">
-            {(items, recordIds) => <CodiciAtecoTable codici={items} recordIdsInPanoramica={recordIds} />}
-          </EmbeddedResourceBlock>
-          <EmbeddedResourceBlock<AlboRuoloLicenza> title="Albi, ruoli e licenze" apiPath="/api/anagrafica/albi-ruoli-licenze" panoramicaSlug="albi-ruoli-licenze">
-            {(items, recordIds) => <AlbiTable albi={items} recordIdsInPanoramica={recordIds} />}
-          </EmbeddedResourceBlock>
-          <EmbeddedResourceBlock<Soa> title="Attestazioni SOA" apiPath="/api/anagrafica/soa" panoramicaSlug="soa">
-            {(items, recordIds) => <SoaTable attestazioni={items} recordIdsInPanoramica={recordIds} />}
-          </EmbeddedResourceBlock>
-          <EmbeddedResourceBlock<Certificazione> title="Certificazioni possedute" apiPath="/api/anagrafica/certificazioni" panoramicaSlug="certificazioni">
-            {(items, recordIds) => <CertificazioniTable certificazioni={items} recordIdsInPanoramica={recordIds} />}
-          </EmbeddedResourceBlock>
+          <SectionContent sectionKey="attivita-economica" embedded hideFooter />
+          {/* § richiesta esplicita: tabella "Codici ATECO" rimossa da
+              questo pannello (§ convenzione "rimozione rimandata a
+              decisione esplicita" — qui la decisione è stata esplicita).
+              ana_codici_ateco/l'endpoint/la pagina standalone
+              (/anagrafica/codici-ateco) restano intatti, non più
+              referenziati da questa card, stesso trattamento già
+              riservato ad Albi/SOA/Certificazioni nella Correzione 20. */}
+          {/* § Correzione 20: tabella unificata "Albi, ruoli, licenze e
+              certificazioni", sostituisce le 3 tabelle separate che
+              c'erano qui (Albi/ruoli/licenze, Attestazioni SOA,
+              Certificazioni possedute — ana_albi_ruoli_licenze/ana_soa/
+              ana_certificazioni restano al loro posto, non più
+              referenziate da questa card, § convenzione "rimozione
+              rimandata a decisione esplicita"). Non usa
+              EmbeddedResourceBlock (niente panoramicaSlug/PinRecordButton
+              per questa risorsa, fuori scopo per questa correzione): la
+              stessa fascia di spaziatura/bordo è replicata qui a mano. */}
+          <section className="border-b border-[var(--az-border)] py-6 last:border-b-0">
+            <TitoliAbilitativiTable sectionKey="attivita-economica" />
+          </section>
         </>
       );
     case "personale-occupazione":

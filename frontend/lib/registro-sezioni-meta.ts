@@ -11,6 +11,7 @@ export const TITOLO_SEZIONE_REGISTRO: Record<string, string> = {
   "organi-controllo": "Organi di controllo",
   sede: "Sede",
   statuto: "Informazioni da statuto/atto costitutivo",
+  "attivita-economica": "Attività economica",
 };
 
 export const SOTTOTITOLO_SEZIONE_REGISTRO: Record<string, string> = {
@@ -21,4 +22,5 @@ export const SOTTOTITOLO_SEZIONE_REGISTRO: Record<string, string> = {
   "organi-controllo": "Assetto di controllo in carica e impostazioni generali",
   sede: "Sede legale, domicilio digitale e dati identificativi camerali",
   statuto: "Denominazione, iscrizione, durata e sistema di amministrazione adottato",
+  "attivita-economica": "Stato, classificazioni e indicatori generali dell'attività aziendale",
 };

@@ -149,6 +149,116 @@ class AnaAttivitaEsercitata(Base):
     data_decorrenza_attivita: Mapped[date | None]
     presenza_attivita_import_export: Mapped[bool | None]
 
+    # Correzione 19 (migrazione 045): sezione "Attività economica", prima
+    # parte della card "Attività, albi, ruoli e licenze" — estende questa
+    # tabella invece di duplicarla in una nuova (vedi commento in testa alla
+    # migrazione 045).
+    stato_attivita_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_stati_attivita.id")
+    )
+    attivita_sede_legale: Mapped[str | None] = mapped_column(Text)
+    data_inizio_attivita_sede: Mapped[date | None] = mapped_column(Date)
+    codice_ateco_2025_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_codici_ateco_2025.id")
+    )
+    codice_atecori_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_codici_atecori.id")
+    )
+    codice_nace_2_1_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_codici_nace.id")
+    )
+    contratto_rete: Mapped[bool | None] = mapped_column(Boolean)
+    albi_ruoli_licenze_presenti: Mapped[bool | None] = mapped_column(Boolean)
+    registri_ambientali_presenti: Mapped[bool | None] = mapped_column(Boolean)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+# ===========================================================================
+# 026-029 - Cataloghi dell'attività economica (Correzione 19)
+# ===========================================================================
+
+
+class CatStatoAttivita(Base):
+    """Catalogo estendibile degli stati selezionabili nel campo "Stato
+    attività" (sezione Attività economica). Nasce vuoto: le opzioni si
+    aggiungono dopo l'analisi dei valori reali presenti nelle visure."""
+
+    __tablename__ = "cat_stati_attivita"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatCodiceAteco2025(Base):
+    """Catalogo ufficiale e versionato dei codici ATECO 2025, usato dal
+    campo "ATECO 2025" della sezione Attività economica. Nasce vuoto: da
+    popolare con un import dedicato."""
+
+    __tablename__ = "cat_codici_ateco_2025"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(20))
+    denominazione: Mapped[str] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+    data_inizio_validita: Mapped[date | None] = mapped_column(Date)
+    data_fine_validita: Mapped[date | None] = mapped_column(Date)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatCodiceAtecori(Base):
+    """Catalogo ufficiale e versionato dei codici ATECORI 2007-2022, usato
+    dal campo "ATECORI 2007-2022" della sezione Attività economica. Nasce
+    vuoto: da popolare con un import dedicato."""
+
+    __tablename__ = "cat_codici_atecori"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(20))
+    denominazione: Mapped[str] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+    data_inizio_validita: Mapped[date | None] = mapped_column(Date)
+    data_fine_validita: Mapped[date | None] = mapped_column(Date)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatCodiceNace(Base):
+    """Catalogo ufficiale e versionato dei codici NACE 2.1, usato dal campo
+    "Codice NACE 2.1" della sezione Attività economica. Nasce vuoto: da
+    popolare con un import dedicato."""
+
+    __tablename__ = "cat_codici_nace"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(20))
+    denominazione: Mapped[str] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+    data_inizio_validita: Mapped[date | None] = mapped_column(Date)
+    data_fine_validita: Mapped[date | None] = mapped_column(Date)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -1125,6 +1235,146 @@ class AnaElencoSociEstremi(Base):
     # decisione della migrazione 035 solo per questo campo, vedi
     # app/core/incarichi.py::imposta_numero_soci).
     numero_soci: Mapped[int | None] = mapped_column(Integer)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+# ===========================================================================
+# 030/046 - Titoli abilitativi: tabella unificata "Albi, ruoli, licenze e
+# certificazioni" (Correzione 20)
+# ===========================================================================
+
+
+class CatMacroTipologiaTitoloAbilitativo(Base):
+    """Catalogo estendibile delle macro-tipologie di titolo abilitativo
+    (Albo/Ruolo/Licenza/Certificazione o attestazione), campo "Tipologia"
+    della tabella unificata "Albi, ruoli, licenze e certificazioni"."""
+
+    __tablename__ = "cat_macro_tipologie_titoli_abilitativi"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class AnaTitoloAbilitativo(Base):
+    """Riga principale della tabella unificata "Albi, ruoli, licenze e
+    certificazioni" (§ Correzione 20 punto 9): solo le informazioni comuni
+    alle 4 macro-tipologie. Il dettaglio specifico vive in una delle 4
+    tabelle 1:1 sottostanti, mai qui — "un record Albo non può essere
+    collegato a un dettaglio Licenza o Certificazione" è garantito
+    dall'applicazione (endpoint distinti per tipologia in
+    app/core/titoli_abilitativi.py), non da un vincolo di schema."""
+
+    __tablename__ = "ana_titoli_abilitativi_azienda"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+
+    macro_tipologia_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_macro_tipologie_titoli_abilitativi.id")
+    )
+
+    numero_attestazione: Mapped[str | None] = mapped_column(String(100))
+    ente_rilascio: Mapped[str | None] = mapped_column(String(255))
+
+    data_rilascio: Mapped[date | None]
+    data_scadenza: Mapped[date | None]
+    senza_scadenza: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    note: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class AnaTitoloAbilitativoDettaglioAlbo(Base):
+    __tablename__ = "ana_titoli_abilitativi_dettaglio_albo"
+    __table_args__ = (UniqueConstraint("titolo_id"),)
+
+    id: Mapped[uuid.UUID] = _id_col()
+    titolo_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("ana_titoli_abilitativi_azienda.id", ondelete="CASCADE")
+    )
+
+    # "Categoria dell'albo" (§ punto 4, colonna "Categoria / norma").
+    categoria: Mapped[str | None] = mapped_column(String(255))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class AnaTitoloAbilitativoDettaglioRuolo(Base):
+    __tablename__ = "ana_titoli_abilitativi_dettaglio_ruolo"
+    __table_args__ = (UniqueConstraint("titolo_id"),)
+
+    id: Mapped[uuid.UUID] = _id_col()
+    titolo_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("ana_titoli_abilitativi_azienda.id", ondelete="CASCADE")
+    )
+
+    # "Denominazione del ruolo" (§ punto 4, colonna "Categoria / norma").
+    denominazione_ruolo: Mapped[str | None] = mapped_column(String(255))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class AnaTitoloAbilitativoDettaglioLicenza(Base):
+    __tablename__ = "ana_titoli_abilitativi_dettaglio_licenza"
+    __table_args__ = (UniqueConstraint("titolo_id"),)
+
+    id: Mapped[uuid.UUID] = _id_col()
+    titolo_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("ana_titoli_abilitativi_azienda.id", ondelete="CASCADE")
+    )
+
+    # "Tipologia della licenza" (§ punto 4, colonna "Categoria / norma").
+    tipologia_licenza: Mapped[str | None] = mapped_column(String(255))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class AnaTitoloAbilitativoDettaglioCertificazione(Base):
+    """Dettaglio "Certificazione o attestazione" (§ punto 7): copre sia le
+    certificazioni ISO sia le attestazioni SOA, distinte da `sotto_tipo`
+    (2 sole opzioni fisse, non un catalogo) così che la colonna "Tipologia"
+    della tabella unificata non le confonda."""
+
+    __tablename__ = "ana_titoli_abilitativi_dettaglio_certificazione"
+    __table_args__ = (UniqueConstraint("titolo_id"),)
+
+    id: Mapped[uuid.UUID] = _id_col()
+    titolo_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("ana_titoli_abilitativi_azienda.id", ondelete="CASCADE")
+    )
+
+    sotto_tipo: Mapped[str] = mapped_column(String(30))
+
+    # Norma ISO oppure categoria/classifica SOA (§ punto 4, colonna
+    # "Categoria / norma"). Campo unico testuale in attesa dei campi
+    # specifici strutturati (§ punto 6, correzione successiva).
+    categoria_norma: Mapped[str | None] = mapped_column(Text)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

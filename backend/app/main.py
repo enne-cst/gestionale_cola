@@ -14,6 +14,7 @@ from app.api.personale import router as personale_router
 from app.api.sezioni import router as sezioni_router
 from app.api.sistema import router as sistema_router
 from app.api.superadmin import router as superadmin_router
+from app.api.titoli_abilitativi import router as titoli_abilitativi_router
 from app.api.verifica_modifiche import router as verifica_modifiche_router
 from app.config import get_settings
 from app.database import SessionLocal
@@ -52,6 +53,7 @@ app.include_router(consulente_router)
 app.include_router(superadmin_router)
 app.include_router(anagrafica_router)
 app.include_router(anagrafica_registry_router)
+app.include_router(titoli_abilitativi_router)
 app.include_router(personale_router)
 app.include_router(moduli_router)
 app.include_router(sezioni_router)
