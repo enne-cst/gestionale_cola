@@ -8,11 +8,21 @@ anche `sezione=<codice sys_elementi>`, che applica `require_sezione` in
 aggiunta a `require_modulo` (vedi `app/core/sezioni.py` e
 `app/crud/generic.py`)."""
 
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.addetti_visura import (
+    aggiorna_rilevazione,
+    crea_rilevazione,
+    dettaglio_rilevazione,
+    elenco_rilevazioni,
+    elimina_rilevazione,
+)
 from app.core.deps import AziendaContext, get_current_azienda
+from app.core.moduli import require_modulo
 from app.crud.generic import (
     register_list_crud,
     register_list_crud_with_children,
@@ -23,8 +33,6 @@ from app.database import Base, get_db
 from app.models.anagrafica import (
     AnaAddettiComune,
     AnaAddettiComunePeriodo,
-    AnaAddettiVisura,
-    AnaAddettiVisuraPeriodo,
     AnaAlboRuoloLicenza,
     AnaAmministrazioneControllo,
     AnaAttivitaEsercitata,
@@ -80,7 +88,6 @@ from app.schemas.anagrafica import (
     AddettiComuneRead,
     AddettiComuneUpdate,
     AddettiVisuraCreate,
-    AddettiVisuraPeriodoRead,
     AddettiVisuraRead,
     AddettiVisuraUpdate,
     AlboRuoloLicenzaCreate,
@@ -373,20 +380,67 @@ register_list_crud_with_children(
     child_read_schema=CertificazioneSettoreIafRead,
 )
 
-register_list_crud_with_children(
-    router,
-    path="/addetti-visura",
-    tags=TAGS,
-    modulo=MODULO,
-    model=AnaAddettiVisura,
-    read_schema=AddettiVisuraRead,
-    create_schema=AddettiVisuraCreate,
-    update_schema=AddettiVisuraUpdate,
-    child_model=AnaAddettiVisuraPeriodo,
-    child_fk_field="rilevazione_addetti_id",
-    children_attr="periodi",
-    child_read_schema=AddettiVisuraPeriodoRead,
-)
+# § "Addetti da visura" e "Addetti per comune" vanno messe insieme (richiesta
+# esplicita dell'utente): il comune eventualmente collegato a una rilevazione
+# si compila in fondo allo stesso form e viaggia annidato nella stessa
+# lettura/scrittura (AddettiVisuraRead.comune), non più due sotto-risorse
+# indipendenti collegate solo per id. La fabbrica generica non supporta un
+# secondo figlio annidato di un'altra risorsa, quindi qui 4 endpoint su
+# misura (app/core/addetti_visura.py) al posto di
+# `register_list_crud_with_children` — stessa scrittura composita in
+# un'unica transazione già usata da Titoli abilitativi.
+_addetti_visura_modulo_dep = require_modulo(MODULO)
+
+
+@router.get("/addetti-visura", response_model=list[AddettiVisuraRead], tags=TAGS)
+def list_addetti_visura(
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_addetti_visura_modulo_dep),
+):
+    return elenco_rilevazioni(db, ctx.azienda_id)
+
+
+@router.post("/addetti-visura", response_model=AddettiVisuraRead, status_code=status.HTTP_201_CREATED, tags=TAGS)
+def create_addetti_visura(
+    payload: AddettiVisuraCreate,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_addetti_visura_modulo_dep),
+):
+    return crea_rilevazione(db, ctx, payload)
+
+
+@router.get("/addetti-visura/{rilevazione_id}", response_model=AddettiVisuraRead, tags=TAGS)
+def get_addetti_visura(
+    rilevazione_id: UUID,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_addetti_visura_modulo_dep),
+):
+    return dettaglio_rilevazione(db, ctx.azienda_id, rilevazione_id)
+
+
+@router.put("/addetti-visura/{rilevazione_id}", response_model=AddettiVisuraRead, tags=TAGS)
+def update_addetti_visura(
+    rilevazione_id: UUID,
+    payload: AddettiVisuraUpdate,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_addetti_visura_modulo_dep),
+):
+    return aggiorna_rilevazione(db, ctx, rilevazione_id, payload)
+
+
+@router.delete("/addetti-visura/{rilevazione_id}", status_code=status.HTTP_204_NO_CONTENT, tags=TAGS)
+def delete_addetti_visura(
+    rilevazione_id: UUID,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_addetti_visura_modulo_dep),
+):
+    elimina_rilevazione(db, ctx.azienda_id, rilevazione_id)
+
 
 register_list_crud_with_children(
     router,

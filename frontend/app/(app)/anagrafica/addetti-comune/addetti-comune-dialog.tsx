@@ -11,13 +11,33 @@ import type { AddettiComune } from "@/lib/types/anagrafica";
 import { createAddettiComune, updateAddettiComune, type FormState } from "./actions";
 import { PeriodiComuneField } from "./periodi-comune-field";
 
-export function AddettiComuneDialog({ trigger, dati }: { trigger: ReactNode; dati?: AddettiComune }) {
-  const [open, setOpen] = useState(false);
+export function AddettiComuneDialog({
+  trigger,
+  dati,
+  open: openControllato,
+  onOpenChange,
+  onSaved,
+}: {
+  trigger: ReactNode;
+  dati?: AddettiComune;
+  // Apertura controllata dall'esterno (§ Correzione 22, riepilogo di
+  // "Personale e occupazione"): stesso pattern di AddettiVisuraDialog.
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  onSaved?: () => void;
+}) {
+  const [openLocale, setOpenLocale] = useState(false);
+  const open = openControllato ?? openLocale;
+  const setOpen = onOpenChange ?? setOpenLocale;
   const action = dati ? updateAddettiComune.bind(null, dati.id) : createAddettiComune;
   const [state, formAction] = useActionState<FormState, FormData>(action, {});
 
   useEffect(() => {
-    if (state.success) setOpen(false);
+    if (state.success) {
+      setOpen(false);
+      onSaved?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.success]);
 
   return (

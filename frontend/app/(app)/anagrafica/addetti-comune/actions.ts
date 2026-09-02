@@ -40,6 +40,7 @@ export async function createAddettiComune(_prevState: FormState, formData: FormD
     return { error: error instanceof ApiError ? error.message : "Errore imprevisto" };
   }
   revalidatePath("/anagrafica/addetti-comune");
+  revalidatePath("/anagrafica");
   return { success: true };
 }
 
@@ -57,10 +58,12 @@ export async function updateAddettiComune(
     return { error: error instanceof ApiError ? error.message : "Errore imprevisto" };
   }
   revalidatePath("/anagrafica/addetti-comune");
+  revalidatePath("/anagrafica");
   return { success: true };
 }
 
 export async function deleteAddettiComune(id: string, _formData: FormData): Promise<void> {
   await apiFetch<void>(`/api/anagrafica/addetti-comune/${id}`, { method: "DELETE" });
   revalidatePath("/anagrafica/addetti-comune");
+  revalidatePath("/anagrafica");
 }

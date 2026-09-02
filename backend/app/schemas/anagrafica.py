@@ -282,48 +282,13 @@ class CertificazioneRead(CertificazioneUpsertBase, _ReadMeta):
 
 
 # ===========================================================================
-# Addetti da visura (multipla) + periodi
-# ===========================================================================
-
-
-class AddettiVisuraPeriodoIn(_OrmModel):
-    periodo: PeriodoRilevazione
-    numero_dipendenti: int | None = None
-    numero_indipendenti: int | None = None
-    numero_collaboratori: int | None = None
-    numero_totale_addetti: int | None = None
-    percentuale_tempo_determinato: Decimal | None = None
-    percentuale_tempo_indeterminato: Decimal | None = None
-    percentuale_tempo_pieno: Decimal | None = None
-    percentuale_tempo_parziale: Decimal | None = None
-    percentuale_operai: Decimal | None = None
-    percentuale_impiegati: Decimal | None = None
-
-
-class AddettiVisuraPeriodoRead(AddettiVisuraPeriodoIn):
-    id: uuid.UUID
-
-
-class AddettiVisuraUpsertBase(_OrmModel):
-    fonte: str | None = None
-    anno_riferimento: int | None = None
-    data_rilevazione: date | None = None
-
-
-class AddettiVisuraCreate(AddettiVisuraUpsertBase):
-    periodi: list[AddettiVisuraPeriodoIn] = []
-
-
-class AddettiVisuraUpdate(AddettiVisuraUpsertBase):
-    periodi: list[AddettiVisuraPeriodoIn] | None = None
-
-
-class AddettiVisuraRead(AddettiVisuraUpsertBase, _ReadMeta):
-    periodi: list[AddettiVisuraPeriodoRead] = []
-
-
-# ===========================================================================
 # Addetti per comune (multipla) + periodi
+#
+# § Definita prima di "Addetti da visura" perché quest'ultima la referenzia
+# (AddettiVisuraRead.comune) — richiesta esplicita dell'utente: le due
+# risorse "vanno messe insieme", il comune collegato alla rilevazione si
+# compila in fondo allo stesso form ed è annidato nella stessa lettura,
+# invece di restare due sotto-risorse indipendenti collegate solo per id.
 # ===========================================================================
 
 
@@ -359,6 +324,65 @@ class AddettiComuneUpdate(_OrmModel):
 
 class AddettiComuneRead(AddettiComuneUpsertBase, _ReadMeta):
     periodi: list[AddettiComunePeriodoRead] = []
+
+
+class RilevazioneComuneIn(_OrmModel):
+    """Dati territoriali annidati nel form di "Addetti da visura" (§ vedi
+    commento sopra): stessa forma di `AddettiComuneUpsertBase` meno
+    `rilevazione_addetti_id`, implicito (è la rilevazione che lo contiene).
+    Un comune vuoto (`comune` bianco) non tocca l'eventuale dato territoriale
+    già esistente — mai una cancellazione implicita per un campo lasciato
+    vuoto in un salvataggio successivo, § app/core/addetti_visura.py."""
+
+    comune: str
+    provincia: str | None = None
+    numero_sedi_unita_locali: int | None = None
+    periodi: list[AddettiComunePeriodoIn] = []
+
+
+# ===========================================================================
+# Addetti da visura (multipla) + periodi + comune collegato annidato
+# ===========================================================================
+
+
+class AddettiVisuraPeriodoIn(_OrmModel):
+    periodo: PeriodoRilevazione
+    numero_dipendenti: int | None = None
+    numero_indipendenti: int | None = None
+    numero_collaboratori: int | None = None
+    numero_totale_addetti: int | None = None
+    percentuale_tempo_determinato: Decimal | None = None
+    percentuale_tempo_indeterminato: Decimal | None = None
+    percentuale_tempo_pieno: Decimal | None = None
+    percentuale_tempo_parziale: Decimal | None = None
+    percentuale_operai: Decimal | None = None
+    percentuale_impiegati: Decimal | None = None
+    percentuale_apprendisti: Decimal | None = None
+
+
+class AddettiVisuraPeriodoRead(AddettiVisuraPeriodoIn):
+    id: uuid.UUID
+
+
+class AddettiVisuraUpsertBase(_OrmModel):
+    fonte: str | None = None
+    anno_riferimento: int | None = None
+    data_rilevazione: date | None = None
+
+
+class AddettiVisuraCreate(AddettiVisuraUpsertBase):
+    periodi: list[AddettiVisuraPeriodoIn] = []
+    comune: RilevazioneComuneIn | None = None
+
+
+class AddettiVisuraUpdate(AddettiVisuraUpsertBase):
+    periodi: list[AddettiVisuraPeriodoIn] | None = None
+    comune: RilevazioneComuneIn | None = None
+
+
+class AddettiVisuraRead(AddettiVisuraUpsertBase, _ReadMeta):
+    periodi: list[AddettiVisuraPeriodoRead] = []
+    comune: AddettiComuneRead | None = None
 
 
 # ===========================================================================

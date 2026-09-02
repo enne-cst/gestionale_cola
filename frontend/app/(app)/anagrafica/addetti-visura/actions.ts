@@ -19,6 +19,7 @@ function payloadFromFormData(formData: FormData) {
   const pctParziale = formData.getAll("vp_pct_parziale");
   const pctOperai = formData.getAll("vp_pct_operai");
   const pctImpiegati = formData.getAll("vp_pct_impiegati");
+  const pctApprendisti = formData.getAll("vp_pct_apprendisti");
 
   const periodiRilevazione = periodi
     .map((periodo, i) => ({
@@ -33,14 +34,41 @@ function payloadFromFormData(formData: FormData) {
       percentuale_tempo_parziale: numberOrNull(pctParziale[i]),
       percentuale_operai: numberOrNull(pctOperai[i]),
       percentuale_impiegati: numberOrNull(pctImpiegati[i]),
+      percentuale_apprendisti: numberOrNull(pctApprendisti[i]),
     }))
     .filter((p) => typeof p.periodo === "string" && p.periodo !== "");
+
+  // § "Addetti da visura" e "Addetti per comune" messe insieme: il comune
+  // in fondo al form viaggia annidato nello stesso payload — un comune
+  // vuoto è `null` (il backend non tocca un dato territoriale già presente,
+  // mai una cancellazione implicita), non un oggetto con campi vuoti.
+  const terrComune = textOrNull(formData.get("terr_comune"));
+  const terrPeriodo = formData.get("terr_periodo");
+  const comune = terrComune
+    ? {
+        comune: terrComune,
+        provincia: textOrNull(formData.get("terr_provincia")),
+        numero_sedi_unita_locali: numberOrNull(formData.get("terr_numero_sedi")),
+        periodi:
+          typeof terrPeriodo === "string" && terrPeriodo !== ""
+            ? [
+                {
+                  periodo: terrPeriodo,
+                  numero_dipendenti: numberOrNull(formData.get("terr_numero_dipendenti")),
+                  numero_indipendenti: numberOrNull(formData.get("terr_numero_indipendenti")),
+                  numero_totale_addetti: numberOrNull(formData.get("terr_numero_totale_addetti")),
+                },
+              ]
+            : [],
+      }
+    : null;
 
   return {
     fonte: textOrNull(formData.get("fonte")),
     anno_riferimento: numberOrNull(formData.get("anno_riferimento")),
     data_rilevazione: textOrNull(formData.get("data_rilevazione")),
     periodi: periodiRilevazione,
+    comune,
   };
 }
 
@@ -54,6 +82,7 @@ export async function createAddettiVisura(_prevState: FormState, formData: FormD
     return { error: error instanceof ApiError ? error.message : "Errore imprevisto" };
   }
   revalidatePath("/anagrafica/addetti-visura");
+  revalidatePath("/anagrafica");
   return { success: true };
 }
 
@@ -71,10 +100,12 @@ export async function updateAddettiVisura(
     return { error: error instanceof ApiError ? error.message : "Errore imprevisto" };
   }
   revalidatePath("/anagrafica/addetti-visura");
+  revalidatePath("/anagrafica");
   return { success: true };
 }
 
 export async function deleteAddettiVisura(id: string, _formData: FormData): Promise<void> {
   await apiFetch<void>(`/api/anagrafica/addetti-visura/${id}`, { method: "DELETE" });
   revalidatePath("/anagrafica/addetti-visura");
+  revalidatePath("/anagrafica");
 }

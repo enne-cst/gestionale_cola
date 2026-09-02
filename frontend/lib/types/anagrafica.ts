@@ -208,6 +208,7 @@ export interface AddettiVisuraPeriodo {
   percentuale_tempo_parziale: string | null;
   percentuale_operai: string | null;
   percentuale_impiegati: string | null;
+  percentuale_apprendisti: string | null;
 }
 
 export interface AddettiVisura extends ConMetadati {
@@ -215,6 +216,11 @@ export interface AddettiVisura extends ConMetadati {
   anno_riferimento: number | null;
   data_rilevazione: string | null;
   periodi: AddettiVisuraPeriodo[];
+  // § "Addetti da visura" e "Addetti per comune" sono state messe insieme
+  // su richiesta esplicita: il comune eventualmente collegato a questa
+  // rilevazione viaggia annidato qui, compilato in fondo allo stesso form
+  // (AddettiVisuraDialog) invece che in un dialog separato.
+  comune: AddettiComune | null;
 }
 
 export interface AddettiComunePeriodo {
@@ -231,6 +237,52 @@ export interface AddettiComune extends ConMetadati {
   provincia: string | null;
   numero_sedi_unita_locali: number | null;
   periodi: AddettiComunePeriodo[];
+}
+
+// ===========================================================================
+// Riepilogo "Personale e occupazione" (Correzione 22): presentazione
+// calcolata della rilevazione di Addetti da visura più recente — vedi
+// backend/app/schemas/personale_occupazione.py per il contratto sorgente.
+// ===========================================================================
+
+export interface GruppoCalcolato {
+  completo: boolean;
+  coerente: boolean;
+  messaggio: string | null;
+  percentuali: Record<string, string | null>;
+  numeri: Record<string, number | null>;
+}
+
+export interface DatiTerritorialiRiepilogo {
+  comune: string | null;
+  provincia: string | null;
+  dipendenti_nel_comune: number | null;
+  indipendenti_nel_comune: number | null;
+  addetti_totali_nel_comune: number | null;
+  percentuale_dipendenti_nel_comune: string | null;
+  percentuale_indipendenti_nel_comune: string | null;
+}
+
+export interface PersonaleOccupazioneRiepilogo {
+  rilevazione_id: string | null;
+  periodo_id: string | null;
+  fonte: string | null;
+  anno_riferimento: number | null;
+  periodo: PeriodoRilevazione | null;
+  data_rilevazione: string | null;
+  addetti_totali: number | null;
+  dipendenti: number | null;
+  indipendenti: number | null;
+  collaboratori: number | null;
+  tipologia_contrattuale: GruppoCalcolato;
+  orario_lavoro: GruppoCalcolato;
+  inquadramento: GruppoCalcolato;
+  territorio: DatiTerritorialiRiepilogo;
+  verificationStatus: VerificationStatus | null;
+  verificationVersion: number | null;
+  revisionNote: string | null;
+  verifiedAt: string | null;
+  verifiedBy: string | null;
 }
 
 // ===========================================================================

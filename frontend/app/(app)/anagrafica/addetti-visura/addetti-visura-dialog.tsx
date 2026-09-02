@@ -10,14 +10,36 @@ import type { AddettiVisura } from "@/lib/types/anagrafica";
 
 import { createAddettiVisura, updateAddettiVisura, type FormState } from "./actions";
 import { PeriodiField } from "./periodi-field";
+import { TerritorioField } from "./territorio-field";
 
-export function AddettiVisuraDialog({ trigger, dati }: { trigger: ReactNode; dati?: AddettiVisura }) {
-  const [open, setOpen] = useState(false);
+export function AddettiVisuraDialog({
+  trigger,
+  dati,
+  open: openControllato,
+  onOpenChange,
+  onSaved,
+}: {
+  trigger: ReactNode;
+  dati?: AddettiVisura;
+  // Apertura controllata dall'esterno (§ Correzione 22, riepilogo di
+  // "Personale e occupazione"): quando presente sostituisce lo stato locale,
+  // stesso pattern dei dialog di "Titoli abilitativi".
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  onSaved?: () => void;
+}) {
+  const [openLocale, setOpenLocale] = useState(false);
+  const open = openControllato ?? openLocale;
+  const setOpen = onOpenChange ?? setOpenLocale;
   const action = dati ? updateAddettiVisura.bind(null, dati.id) : createAddettiVisura;
   const [state, formAction] = useActionState<FormState, FormData>(action, {});
 
   useEffect(() => {
-    if (state.success) setOpen(false);
+    if (state.success) {
+      setOpen(false);
+      onSaved?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.success]);
 
   return (
@@ -47,6 +69,8 @@ export function AddettiVisuraDialog({ trigger, dati }: { trigger: ReactNode; dat
           </div>
 
           <PeriodiField dati={dati?.periodi ?? []} />
+
+          <TerritorioField dati={dati?.comune} />
 
           <SubmitButton>Salva</SubmitButton>
         </form>

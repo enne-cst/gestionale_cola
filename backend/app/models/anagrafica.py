@@ -922,6 +922,9 @@ class AnaAddettiVisuraPeriodo(Base):
     percentuale_tempo_parziale: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
     percentuale_operai: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
     percentuale_impiegati: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    # § Correzione 22: aggiunta al gruppo Distribuzione per inquadramento,
+    # mancante nello schema originario (solo Operai/Impiegati).
+    percentuale_apprendisti: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
