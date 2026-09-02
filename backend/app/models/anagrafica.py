@@ -1783,3 +1783,168 @@ class RelTitoloAbilitativoSoaCategoria(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+# ===========================================================================
+# 050-054 - Aggiornamento impresa (Correzione 24): cataloghi + tabelle
+# sorgente della cronologia/degli indicatori. Vedi app/core/aggiornamento_
+# impresa.py per come vengono lette (mai una tabella scritta a mano: la
+# cronologia è la vista `vw_ana_cronologia_aggiornamenti_impresa`).
+# ===========================================================================
+
+
+class CatTipologiaPraticaCamerale(Base):
+    """Tipologie di pratica camerale (§4), nato vuoto: nessun elenco
+    esplicito fornito dal testo della correzione."""
+
+    __tablename__ = "cat_tipologie_pratiche_camerali"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatEsitoPraticaCamerale(Base):
+    """Esiti di pratica camerale (§4), riusato anche da trasferimenti di
+    quote e variazioni di sede legale (§2)."""
+
+    __tablename__ = "cat_esiti_pratiche_camerali"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatOrigineAggiornamentoImpresa(Base):
+    """Origini di un evento della cronologia "Aggiornamento impresa" (§4/§6)."""
+
+    __tablename__ = "cat_origini_aggiornamento_impresa"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class AnaPraticaCamerale(Base):
+    """Pratica camerale dell'azienda (§3): sorgente dell'indicatore
+    "Pratiche inviate negli ultimi 12 mesi" e di righe della cronologia."""
+
+    __tablename__ = "ana_pratiche_camerali"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+
+    tipo_pratica_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_tipologie_pratiche_camerali.id")
+    )
+    numero_protocollo: Mapped[str | None] = mapped_column(String(60))
+    data_presentazione: Mapped[date | None]
+    data_protocollo: Mapped[date | None]
+    oggetto: Mapped[str | None] = mapped_column(Text)
+    origine_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_origini_aggiornamento_impresa.id")
+    )
+    esito_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("cat_esiti_pratiche_camerali.id"))
+    importazione_visura_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("sys_importazioni_visure_cciaa.id")
+    )
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class AnaTrasferimentoQuote(Base):
+    """Trasferimento di quote dell'azienda (§2), struttura indicativa
+    minima: dettaglio completo rimandato a correzione dedicata."""
+
+    __tablename__ = "ana_trasferimenti_quote"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+
+    data_trasferimento: Mapped[date | None]
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    pratica_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_pratiche_camerali.id"))
+    origine_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_origini_aggiornamento_impresa.id")
+    )
+    esito_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("cat_esiti_pratiche_camerali.id"))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class AnaVariazioneSedeLegale(Base):
+    """Variazione storica della sede legale dell'azienda (§2), struttura
+    indicativa minima: dettaglio completo rimandato a correzione dedicata."""
+
+    __tablename__ = "ana_variazioni_sede_legale"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+
+    data_variazione: Mapped[date | None]
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    pratica_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_pratiche_camerali.id"))
+    origine_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_origini_aggiornamento_impresa.id")
+    )
+    esito_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("cat_esiti_pratiche_camerali.id"))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class AnaPartecipazione(Base):
+    """Partecipazione dell'azienda in un'altra società (§2): sorgente del
+    solo indicatore "Partecipazioni" (non alimenta la cronologia, § assente
+    da §6/§7 del testo). Riusa `AnaPersonaGiuridica` (Correzione 16) per la
+    società partecipata."""
+
+    __tablename__ = "ana_partecipazioni"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+
+    persona_giuridica_partecipata_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("ana_persone_giuridiche.id")
+    )
+    quota_percentuale: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    data_inizio: Mapped[date | None]
+    data_fine: Mapped[date | None]
+    pratica_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_pratiche_camerali.id"))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )

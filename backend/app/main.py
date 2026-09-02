@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.aggiornamento_impresa import router as aggiornamento_impresa_router
 from app.api.anagrafica import router as anagrafica_router
 from app.api.anagrafica_registry import router as anagrafica_registry_router
 from app.api.auth import router as auth_router
@@ -57,6 +58,7 @@ app.include_router(anagrafica_router)
 app.include_router(anagrafica_registry_router)
 app.include_router(titoli_abilitativi_router)
 app.include_router(unita_locali_router)
+app.include_router(aggiornamento_impresa_router)
 app.include_router(personale_router)
 app.include_router(personale_occupazione_router)
 app.include_router(moduli_router)

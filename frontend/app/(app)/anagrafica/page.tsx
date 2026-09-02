@@ -264,11 +264,15 @@ export default async function AnagraficaOverviewPage() {
       stato: statoDaRegistro(aggUnitaLocali),
     },
     {
+      // § Correzione 24: card ricostruita come cronologia automatica, 4
+      // indicatori derivati e nessun campo compilabile — il conteggio
+      // "informazioni presenti" di questa griglia non si applica più
+      // (totale 0, mai nel denominatore di `cardCciaaCompletate`).
       key: "aggiornamento-impresa",
       sectionKey: "aggiornamento-impresa",
       titolo: "Aggiornamento impresa",
-      presenti: Number(Boolean(identificazione?.data_ultimo_protocollo)),
-      totale: 1,
+      presenti: 0,
+      totale: 0,
       stato: null,
     },
   ];

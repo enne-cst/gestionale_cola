@@ -515,3 +515,51 @@ export interface UnitaLocaleDetail extends ConMetadati {
   verifiedAt: string | null;
   verifiedBy: string | null;
 }
+
+// ===========================================================================
+// Aggiornamento impresa (Correzione 24): 4 indicatori derivati + cronologia
+// in sola lettura dalla vista vw_ana_cronologia_aggiornamenti_impresa.
+// ===========================================================================
+
+/** § punto 1/2: sempre calcolati dal backend, mai un numero fisso nel
+ * frontend. */
+export interface IndicatoriAggiornamentoImpresa {
+  pratiche_ultimi_12_mesi: number;
+  trasferimenti_quote: number;
+  trasferimenti_sede: number;
+  partecipazioni: number;
+}
+
+/** Riga della tabella "Cronologia aggiornamenti e protocolli" (§6). */
+export interface CronologiaEvento {
+  evento_id: string;
+  tipologia: string;
+  data: string | null;
+  origine: string | null;
+  esito: string | null;
+  verificationStatus: VerificationStatus | null;
+  verificationVersion: number | null;
+  revisionNote: string | null;
+  verifiedAt: string | null;
+  verifiedBy: string | null;
+}
+
+/** Coppia label/valore già risolta dal backend (§9): il dettaglio dipende
+ * dal tipo di evento, il frontend resta generico. */
+export interface CampoDettaglioEvento {
+  label: string;
+  value: string | null;
+}
+
+export interface CronologiaEventoDettaglio {
+  evento_id: string;
+  tipologia: string;
+  tabella_origine: string;
+  record_origine_id: string;
+  campi: CampoDettaglioEvento[];
+  verificationStatus: VerificationStatus | null;
+  verificationVersion: number | null;
+  revisionNote: string | null;
+  verifiedAt: string | null;
+  verifiedBy: string | null;
+}

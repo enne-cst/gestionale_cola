@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { GavelIcon, HandshakeIcon, ShieldCheckIcon } from "lucide-react";
 
+import { AggiornamentoImpresaPanel } from "@/app/(app)/anagrafica/aggiornamento-impresa/aggiornamento-impresa-panel";
 import { PersonaleOccupazionePanel } from "@/app/(app)/anagrafica/personale-occupazione/personale-occupazione-panel";
 import { TitoliAbilitativiTable } from "@/app/(app)/anagrafica/titoli-abilitativi/titoli-abilitativi-table";
 import { UnitaLocaliTable } from "@/app/(app)/anagrafica/unita-locali/unita-locali-table";
@@ -33,13 +34,17 @@ import { TITOLO_VISTA_CCIAA, type CciaaVistaKey } from "@/lib/cciaa-viste";
 // dichiarato in visura" + il conteggio effettivo derivato), montata sopra
 // la tabella delle unità — prima di questa correzione la card non aveva
 // alcun blocco a registro, quindi nessun banner "Modifica dati"/legenda.
+// § Correzione 24: "aggiornamento-impresa" non compare più qui — non
+// esiste più come sezione a registro campo-per-campo (nessun campo
+// scrivibile, § "i valori devono essere non modificabili"), ricostruita
+// come cronologia automatica con un proprio banner interno
+// (`AggiornamentoImpresaPanel`, stesso motivo di "personale-occupazione").
 const VISTA_FOOTER_SECTION_KEY: Partial<Record<CciaaVistaKey, string>> = {
   soci: "elenco-soci-estremi",
   amministratori: "amministrazione-controllo",
   sindaci: "organi-controllo",
   "attivita-albi": "attivita-economica",
   "sedi-secondarie": "unita-locali",
-  "aggiornamento-impresa": "informazioni-societarie",
 };
 
 // Vista -> chiave del campo principale della sua sezione a registro, usato
@@ -430,7 +435,12 @@ function ContenutoVista({
         </>
       );
     case "aggiornamento-impresa":
-      return <SectionContent sectionKey="informazioni-societarie" embedded hideFooter />;
+      // § Correzione 24: cronologia automatica (indicatori derivati +
+      // tabella "Cronologia aggiornamenti e protocolli"), niente più
+      // l'embed di "informazioni-societarie" (sezione sbagliata, § nota
+      // storica nella mappatura CCIAA — quella sezione resta comunque
+      // raggiungibile dalla propria card "Informazioni societarie").
+      return <AggiornamentoImpresaPanel />;
   }
 }
 

@@ -359,3 +359,57 @@ class SysRegistroAudit(Base):
     valore_nuovo: Mapped[str | None] = mapped_column(Text)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class CatStatoImportazioneVisura(Base):
+    """Stati tecnici di elaborazione di un'importazione visura (Correzione
+    24 §5), distinti dalla conferma del consulente."""
+
+    __tablename__ = "cat_stati_importazione_visure"
+
+    id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(Integer)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class SysImportazioneVisuraCciaa(Base):
+    """Evento di importazione di una visura camerale (Correzione 24 §5),
+    tabella indicativa: nessuna pipeline di riconoscimento PDF esiste ancora
+    nel progetto (stesso limite già accettato per le unità locali,
+    Correzione 23). Sorgente di due eventi distinti della cronologia
+    "Aggiornamento impresa" (`app.core.aggiornamento_impresa`): l'import
+    stesso (`data_importazione`) e, quando presente, la conferma del
+    consulente (`confermata_at`) — mai una sola data accorpata."""
+
+    __tablename__ = "sys_importazioni_visure_cciaa"
+
+    id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    azienda_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("sys_aziende.id"))
+    documento_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("doc_documenti.id"))
+
+    hash_file: Mapped[str] = mapped_column(String(64))
+
+    data_importazione: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    data_estrazione_visura: Mapped[date | None]
+
+    stato_importazione_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_stati_importazione_visure.id")
+    )
+
+    confermata_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    confermata_da: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("sys_utenti.id"))
+
+    versione_parser: Mapped[str | None] = mapped_column(String(30))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
