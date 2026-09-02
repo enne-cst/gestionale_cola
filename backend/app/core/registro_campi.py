@@ -44,6 +44,7 @@ from app.models.anagrafica import (
     AnaSede,
     AnaSedeRev2,
     AnaStatutoRev2,
+    AnaUnitaLocaliRiepilogo,
     CatAffidatarioRevisioneLegale,
     CatAssettoControllo,
     CatCodiceAteco2025,
@@ -59,6 +60,7 @@ from app.models.anagrafica import (
     CatOrganoAmministrativo,
     CatRegimeRappresentanza,
     CatStatoAttivita,
+    CatStatoUnitaLocale,
     CatTitoloNominaOrganoControllo,
 )
 from app.models.personale import CatCaratteristicaIncarico, CatRuolo, PerIncarico, PerIncaricoValore
@@ -358,6 +360,27 @@ def _sede_legale_di(db: Session, azienda_id: UUID) -> str | None:
     localita = f"{localita} ({sede.provincia})" if localita and sede.provincia else localita
     parti = [p for p in [via, localita, sede.nazione] if p]
     return ", ".join(parti) if parti else None
+
+
+def _numero_unita_locali_effettivo(db: Session, azienda_id: UUID) -> str | None:
+    """Valore derivato del campo "Numero unità locali" (§ Correzione 23
+    punto 1): conta le unità locali ATTIVE di `ana_sedi` (nessuna data di
+    chiusura, stato diverso da "cessata" quando valorizzato). Non viene mai
+    salvato come dato ridondante — solo calcolato in lettura, come
+    `_sede_legale_di` — per poterlo confrontare col numero dichiarato in
+    visura senza rischiare disallineamenti fra le due copie."""
+    totale = db.scalar(
+        select(func.count())
+        .select_from(AnaSede)
+        .join(CatStatoUnitaLocale, AnaSede.stato_unita_id == CatStatoUnitaLocale.id, isouter=True)
+        .where(
+            AnaSede.azienda_id == azienda_id,
+            ~AnaSede.tipo_sede.ilike("%legale%"),
+            AnaSede.data_chiusura.is_(None),
+            func.coalesce(CatStatoUnitaLocale.codice, "").not_in(["CESSATA"]),
+        )
+    )
+    return str(totale or 0)
 
 
 def _codice_nace_di(db: Session, azienda_id: UUID) -> str | None:
@@ -2106,6 +2129,40 @@ SEZIONE_ATTIVITA_ECONOMICA = SezioneRegistro(
     ],
 )
 
+
+# § Correzione 23 (card "Sedi secondarie e unità locali"), punto 1: sezione
+# singleton di un solo campo scrivibile ("Numero unità locali" dichiarato in
+# visura) più un campo derivato (numero effettivo, mai salvato) — stesso
+# schema di `SEZIONE_ATTIVITA_ECONOMICA`/`SEZIONE_INFORMAZIONI_SOCIETARIE`
+# per il campo derivato. La tabella riepilogativa vera e propria (righe
+# delle unità locali) vive fuori dal motore campo-per-campo, in
+# `app.core.unita_locali` — stesso motivo per cui "Albi, ruoli, licenze e
+# certificazioni" (Correzione 20) non è una sezione a registro.
+SEZIONE_UNITA_LOCALI = SezioneRegistro(
+    section_key="unita-locali",
+    sezione_codice="ANAGRAFICA_AZIENDALE.UNITA_LOCALI",
+    title="Sedi secondarie e unità locali",
+    model=AnaUnitaLocaliRiepilogo,
+    campo_completamento="numero_unita_locali_dichiarato",
+    campi_derivati={"numero_unita_locali": _numero_unita_locali_effettivo},
+    gruppi=[
+        GruppoDef(
+            key="unita-locali",
+            title="Sedi secondarie e unità locali",
+            campi=[
+                CampoDef("numero_unita_locali_dichiarato", "Numero unità locali dichiarato in visura", "number", valore_minimo=0),
+                CampoDef(
+                    "numero_unita_locali",
+                    "Numero unità locali registrate",
+                    "number",
+                    derived=True,
+                    derived_note="Conteggio delle unità attive nella tabella sottostante, calcolato automaticamente",
+                ),
+            ],
+        ),
+    ],
+)
+
 SEZIONI: dict[str, SezioneRegistro] = {
     s.section_key: s
     for s in (
@@ -2118,5 +2175,6 @@ SEZIONI: dict[str, SezioneRegistro] = {
         SEZIONE_SEDE,
         SEZIONE_STATUTO,
         SEZIONE_ATTIVITA_ECONOMICA,
+        SEZIONE_UNITA_LOCALI,
     )
 }

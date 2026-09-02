@@ -12,6 +12,7 @@ export const TITOLO_SEZIONE_REGISTRO: Record<string, string> = {
   sede: "Sede",
   statuto: "Informazioni da statuto/atto costitutivo",
   "attivita-economica": "Attività economica",
+  "unita-locali": "Sedi secondarie e unità locali",
 };
 
 export const SOTTOTITOLO_SEZIONE_REGISTRO: Record<string, string> = {
@@ -23,4 +24,5 @@ export const SOTTOTITOLO_SEZIONE_REGISTRO: Record<string, string> = {
   sede: "Sede legale, domicilio digitale e dati identificativi camerali",
   statuto: "Denominazione, iscrizione, durata e sistema di amministrazione adottato",
   "attivita-economica": "Stato, classificazioni e indicatori generali dell'attività aziendale",
+  "unita-locali": "Numero di unità locali dichiarato in visura, a confronto con quelle registrate",
 };

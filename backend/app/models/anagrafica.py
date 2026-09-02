@@ -1066,6 +1066,16 @@ class AnaSede(Base):
     sigla_territoriale: Mapped[str | None] = mapped_column(String(10))
     numero_progressivo: Mapped[str | None] = mapped_column(String(20))
 
+    # § Correzione 23 punto 7/migrazione 049: stato amministrativo da
+    # catalogo, distinto dalla conferma del consulente (verifica per riga,
+    # invariata). La colonna `stato` sopra (testo libero) resta per
+    # compatibilità ma non è più usata dalla card "Sedi secondarie e unità
+    # locali".
+    stato_unita_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_stati_unita_locale.id")
+    )
+    note: Mapped[str | None] = mapped_column(Text)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -1086,6 +1096,123 @@ class AnaSedeAttivita(Base):
     data_inizio: Mapped[date | None]
     data_fine: Mapped[date | None]
     ruolo_importanza: Mapped[str | None] = mapped_column(String(50))
+
+    # § Correzione 23 punto 5/migrazione 049: al più un'attività principale
+    # per unità (indice unico parziale lato database), mostrata da sola
+    # nella vista riepilogativa.
+    attivita_principale: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+# ===========================================================================
+# 049 - Sedi secondarie e unità locali (Correzione 23) - vedi
+# 049_ana_unita_locali.sql
+# ===========================================================================
+
+
+class CatTipologiaUnitaLocale(Base):
+    """Tipologie di unità locale (§ punto 4): una stessa unità può avere
+    più tipologie contemporaneamente (es. "Deposito, magazzino"), collegate
+    tramite `RelUnitaLocaleTipologia`, mai una stringa con virgole."""
+
+    __tablename__ = "cat_tipologie_unita_locale"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatStatoUnitaLocale(Base):
+    """Stato amministrativo di un'unità locale (§ punto 7), distinto dallo
+    stato di conferma del consulente (verifica per riga, invariata)."""
+
+    __tablename__ = "cat_stati_unita_locale"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class RelUnitaLocaleTipologia(Base):
+    """Riga della relazione molti-a-molti "unità locale <-> tipologia"
+    (§ punto 4)."""
+
+    __tablename__ = "rel_unita_locali_tipologie"
+    __table_args__ = (UniqueConstraint("unita_locale_id", "tipologia_id"),)
+
+    id: Mapped[uuid.UUID] = _id_col()
+    unita_locale_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("ana_sedi.id", ondelete="CASCADE")
+    )
+    tipologia_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_tipologie_unita_locale.id")
+    )
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class RelUnitaLocaleCodiceAteco(Base):
+    """Codice ATECO di un'unità locale (§ punto 6), collegato al catalogo
+    versionato `CatCodiceAteco2025` (mai testo libero): al più un codice
+    principale per unità (indice unico parziale lato database)."""
+
+    __tablename__ = "rel_unita_locali_codici_ateco"
+    __table_args__ = (UniqueConstraint("unita_locale_id", "codice_attivita_id"),)
+
+    id: Mapped[uuid.UUID] = _id_col()
+    unita_locale_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("ana_sedi.id", ondelete="CASCADE")
+    )
+    codice_attivita_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_codici_ateco_2025.id")
+    )
+
+    principale: Mapped[bool] = mapped_column(Boolean, default=False)
+    data_inizio: Mapped[date | None]
+    data_fine: Mapped[date | None]
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class AnaUnitaLocaliRiepilogo(Base):
+    """Numero di unità locali dichiarato nella visura CCIAA (§ punto 1) —
+    un solo record per azienda. Il numero effettivo si calcola contando le
+    righe attive di `AnaSede` e non viene mai salvato qui (§ campo derivato
+    `numero_unita_locali` in `app.core.registro_campi`)."""
+
+    __tablename__ = "ana_unita_locali_riepilogo"
+    __table_args__ = (UniqueConstraint("azienda_id"),)
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+
+    numero_unita_locali_dichiarato: Mapped[int | None]
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -1109,6 +1236,13 @@ class AnaContatto(Base):
     valore: Mapped[str] = mapped_column(String(255))
     descrizione: Mapped[str | None] = mapped_column(String(255))
     principale: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # § Correzione 23 punto 8/migrazione 049: unità locale a cui appartiene
+    # il contatto. NULL (comportamento invariato) = contatto dell'intera
+    # azienda, come prima di questa colonna.
+    sede_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("ana_sedi.id", ondelete="CASCADE")
+    )
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

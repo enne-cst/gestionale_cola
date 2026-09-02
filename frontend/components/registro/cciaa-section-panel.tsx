@@ -5,9 +5,8 @@ import type { ReactNode } from "react";
 import { GavelIcon, HandshakeIcon, ShieldCheckIcon } from "lucide-react";
 
 import { PersonaleOccupazionePanel } from "@/app/(app)/anagrafica/personale-occupazione/personale-occupazione-panel";
-import { SediTable } from "@/app/(app)/anagrafica/sedi/sedi-table";
 import { TitoliAbilitativiTable } from "@/app/(app)/anagrafica/titoli-abilitativi/titoli-abilitativi-table";
-import { EmbeddedResourceBlock } from "@/components/registro/embedded-resource-block";
+import { UnitaLocaliTable } from "@/app/(app)/anagrafica/unita-locali/unita-locali-table";
 import { IncaricoTable } from "@/components/registro/incarico-table";
 import { SectionContent } from "@/components/registro/section-content";
 import { SectionFooter } from "@/components/registro/section-footer";
@@ -15,7 +14,6 @@ import { SintesiPanel } from "@/components/registro/sintesi-panel";
 import { StatoPill } from "@/components/registro/stato-pill";
 import { useWorkspace } from "@/components/registro/workspace-provider";
 import { TITOLO_VISTA_CCIAA, type CciaaVistaKey } from "@/lib/cciaa-viste";
-import type { Sede } from "@/lib/types/anagrafica";
 
 // Vista -> sectionKey il cui SectionFooter (legenda + banner di modifica)
 // va montato in fondo al pannello, come sibling dopo l'area di scroll —
@@ -30,11 +28,17 @@ import type { Sede } from "@/lib/types/anagrafica";
 // sezione a registro ("attivita-economica"), montata sopra le tabelle
 // ripetibili esistenti (Codici ATECO, Albi/ruoli/licenze, SOA,
 // Certificazioni) — stesso pattern di "amministratori"/"sindaci".
+// § Correzione 23: "sedi-secondarie" guadagna la propria sezione a
+// registro ("unita-locali", il solo campo "Numero unità locali
+// dichiarato in visura" + il conteggio effettivo derivato), montata sopra
+// la tabella delle unità — prima di questa correzione la card non aveva
+// alcun blocco a registro, quindi nessun banner "Modifica dati"/legenda.
 const VISTA_FOOTER_SECTION_KEY: Partial<Record<CciaaVistaKey, string>> = {
   soci: "elenco-soci-estremi",
   amministratori: "amministrazione-controllo",
   sindaci: "organi-controllo",
   "attivita-albi": "attivita-economica",
+  "sedi-secondarie": "unita-locali",
   "aggiornamento-impresa": "informazioni-societarie",
 };
 
@@ -154,9 +158,32 @@ const ASSETTO_COMBINATO_CON_REVISORE_ESTERNO: Partial<Record<string, string>> = 
   COLLEGIO_SINDACALE: "COLLEGIO_SINDACALE_REVISORE_ESTERNO",
 };
 
-function SediSecondarieTable({ sedi, recordIdsInPanoramica }: { sedi: Sede[]; recordIdsInPanoramica: string[] }) {
-  const secondarie = sedi.filter((s) => !s.tipo_sede.toLowerCase().includes("legale"));
-  return <SediTable sedi={secondarie} recordIdsInPanoramica={recordIdsInPanoramica} />;
+/** § Correzione 23 punto 1: se il numero dichiarato in visura non coincide
+ * con quello effettivamente registrato, un avviso — non un terzo stato del
+ * motore di completamento condiviso da tutte le sezioni (Da completare/
+ * Completa), un intervento circoscritto a questa card. Stesso stile "casa"
+ * del riquadro arancione già usato nei popover di verifica
+ * (border-[#f6d3ad] bg-[#fff8ef]). */
+function AvvisoNumeroUnitaLocali() {
+  const { state } = useWorkspace();
+  const campi = state.sections["unita-locali"]?.server?.groups.flatMap((g) => g.fields) ?? [];
+  const dichiaratoRaw = campi.find((f) => f.key === "numero_unita_locali_dichiarato")?.value ?? null;
+  const effettivoRaw = campi.find((f) => f.key === "numero_unita_locali")?.value ?? null;
+  if (dichiaratoRaw === null || effettivoRaw === null) return null;
+  const dichiarato = Number(dichiaratoRaw);
+  const effettivo = Number(effettivoRaw);
+  if (dichiarato === effettivo) return null;
+  return (
+    <div className="mb-4 flex items-start gap-[11px] rounded-lg border border-[#f6d3ad] bg-[#fff8ef] p-[13px]">
+      <span className="grid size-[23px] shrink-0 place-items-center rounded-full bg-[var(--az-orange)] text-white">
+        !
+      </span>
+      <p className="text-xs leading-snug text-[var(--az-ink)]">
+        Il numero di unità locali dichiarato in visura (<strong>{dichiarato}</strong>) non coincide con quello
+        effettivamente registrato (<strong>{effettivo}</strong>): da verificare.
+      </p>
+    </div>
+  );
 }
 
 function ContenutoVista({
@@ -388,10 +415,19 @@ function ContenutoVista({
       // compila in fondo allo stesso form di "Addetti da visura".
       return <PersonaleOccupazionePanel />;
     case "sedi-secondarie":
+      // § Correzione 23: estende ana_sedi (già l'entità autorevole per le
+      // sedi, sede legale inclusa — non toccata da questa card) invece di
+      // una tabella nuova. Un solo campo a registro ("Numero unità locali
+      // dichiarato in visura") + l'avviso di disallineamento sopra la
+      // tabella riepilogativa, stesso pattern di "attivita-albi" sopra.
       return (
-        <EmbeddedResourceBlock<Sede> title="Sedi secondarie e unità locali" apiPath="/api/anagrafica/sedi" panoramicaSlug="sedi">
-          {(items, recordIds) => <SediSecondarieTable sedi={items} recordIdsInPanoramica={recordIds} />}
-        </EmbeddedResourceBlock>
+        <>
+          <SectionContent sectionKey="unita-locali" embedded hideFooter />
+          <AvvisoNumeroUnitaLocali />
+          <section className="border-b border-[var(--az-border)] py-6 last:border-b-0">
+            <UnitaLocaliTable sectionKey="unita-locali" />
+          </section>
+        </>
       );
     case "aggiornamento-impresa":
       return <SectionContent sectionKey="informazioni-societarie" embedded hideFooter />;

@@ -161,8 +161,6 @@ export default async function AnagraficaOverviewPage() {
     return { confermate, daVerificare, daRevisionare };
   }
 
-  const hasSedeSecondaria = sedi.some((s) => !s.tipo_sede.toLowerCase().includes("legale"));
-
   const righeSoci = incarichi.filter((i) => i.ruolo.codice === "SOCIO");
   const righeAmministratori = incarichi.filter((i) => RUOLI_AMMINISTRATORI.has(i.ruolo.codice));
   const righeSindaci = incarichi.filter((i) => RUOLI_SINDACI.has(i.ruolo.codice));
@@ -170,6 +168,7 @@ export default async function AnagraficaOverviewPage() {
   const aggStatuto = sommaRegistro(["statuto"]);
   const aggCapitale = sommaRegistro(["capitale-sociale"]);
   const aggSede = sommaRegistro(["sede"]);
+  const aggUnitaLocali = sommaRegistro(["unita-locali"]);
 
   const cciaaCards: {
     key: string;
@@ -260,9 +259,9 @@ export default async function AnagraficaOverviewPage() {
       key: "sedi-secondarie",
       sectionKey: "sedi-secondarie",
       titolo: "Sedi secondarie e unità locali",
-      presenti: Number(hasSedeSecondaria),
-      totale: 1,
-      stato: null,
+      presenti: aggUnitaLocali.verified + aggUnitaLocali.pending + aggUnitaLocali.revisionRequired,
+      totale: aggUnitaLocali.totalApplicable,
+      stato: statoDaRegistro(aggUnitaLocali),
     },
     {
       key: "aggiornamento-impresa",

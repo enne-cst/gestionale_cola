@@ -19,6 +19,7 @@ from app.core.registro_campi import (
     SEZIONE_ORGANI_CONTROLLO,
     SEZIONE_SEDE,
     SEZIONE_STATUTO,
+    SEZIONE_UNITA_LOCALI,
     SEZIONI,
     _indice,
     is_empty,
@@ -31,6 +32,7 @@ from app.models.anagrafica import (
     AnaDurataSocietaEsercizi,
     AnaIdentificazioneCamerale,
     AnaOrganiControllo,
+    AnaUnitaLocaliRiepilogo,
 )
 
 
@@ -120,7 +122,7 @@ class TestCatalogoInformazioniSocietarie:
 
 
 class TestSezioniRegistrate:
-    def test_nove_sezioni_registrate(self):
+    def test_dieci_sezioni_registrate(self):
         assert set(SEZIONI) == {
             "informazioni-societarie",
             "capitale-sociale",
@@ -131,6 +133,7 @@ class TestSezioniRegistrate:
             "sede",
             "statuto",
             "attivita-economica",
+            "unita-locali",
         }
 
     def test_ogni_sezione_indicizza_se_stessa(self):
@@ -358,6 +361,20 @@ class TestSezioniRegistrate:
         assert indice.tipo["albi_ruoli_licenze_presenti"] == "boolean"
         assert indice.tipo["registri_ambientali_presenti"] == "boolean"
 
+    def test_catalogo_unita_locali(self):
+        # Correzione 23 (card "Sedi secondarie e unità locali"): sezione
+        # singleton di un solo campo scrivibile (numero dichiarato in
+        # visura) più un campo derivato (numero effettivo, mai salvato,
+        # calcolato da `_numero_unita_locali_effettivo`) — la tabella delle
+        # righe vive fuori dal motore campo-per-campo, in
+        # `app.core.unita_locali`.
+        indice = _indice(SEZIONE_UNITA_LOCALI)
+        assert indice.chiavi == {"numero_unita_locali_dichiarato", "numero_unita_locali"}
+        assert indice.derivate == {"numero_unita_locali"}
+        assert indice.scrivibili == {"numero_unita_locali_dichiarato"}
+        assert indice.tipo["numero_unita_locali_dichiarato"] == "number"
+        assert indice.tipo["numero_unita_locali"] == "number"
+
     def test_totale_applicabile_su_tutte_le_sezioni(self):
         # Stessa somma che `valuta_qualita`/`riepilogo_sezioni` usano per
         # `totalApplicable` (22 + 4 + 3 + 15 + 14 + 5 + 12 + 12, il quarto per
@@ -381,10 +398,12 @@ class TestSezioniRegistrate:
         # "numero_componenti_collegio_revisore" = 16), il penultimo per
         # "elenco-soci-estremi" dopo la correzione 035, gli ultimi due per
         # "sede"/"statuto", pilota su ana_sede_rev2/ana_statuto_rev2, +12
-        # per "attivita-economica" (Correzione 19, prima parte): un
+        # per "attivita-economica" (Correzione 19, prima parte), +2 per
+        # "unita-locali" (Correzione 23: 1 campo scrivibile + 1 derivato,
+        # la tabella delle righe vive fuori dal motore campo-per-campo): un
         # cambiamento qui e' un promemoria per aggiornare quel numero
         # consapevolmente.
-        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 101
+        assert sum(len(_indice(s).chiavi) for s in SEZIONI.values()) == 103
 
 
 class TestValidaCampo:
@@ -494,3 +513,16 @@ class TestStatoCompletamento:
 
         in_corso = AnaOrganiControllo(assetto_controllo_id=None, numero_componenti=3)
         assert stato_completamento(SEZIONE_ORGANI_CONTROLLO, in_corso) == "IN_PROGRESS"
+
+    def test_unita_locali_usa_numero_dichiarato_come_campo_guida(self):
+        # Correzione 23: unico campo scrivibile della sezione, quindi
+        # IN_PROGRESS non è raggiungibile qui (non c'è un secondo campo
+        # scrivibile da compilare senza quello guida) — stesso limite già
+        # noto per "numero_amministratori_in_carica"/"numero_soci"
+        # (§ commento sopra), qui però perché non esiste alcun altro campo,
+        # non perché sia `derived=True`.
+        completa = AnaUnitaLocaliRiepilogo(numero_unita_locali_dichiarato=3)
+        assert stato_completamento(SEZIONE_UNITA_LOCALI, completa) == "COMPLETE"
+
+        vuota = AnaUnitaLocaliRiepilogo(numero_unita_locali_dichiarato=None)
+        assert stato_completamento(SEZIONE_UNITA_LOCALI, vuota) == "NOT_STARTED"

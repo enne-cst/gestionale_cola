@@ -436,3 +436,82 @@ export type TitoloAbilitativoDetail =
   | TitoloAbilitativoRuolo
   | TitoloAbilitativoLicenza
   | TitoloAbilitativoCertificazione;
+
+// ===========================================================================
+// Sedi secondarie e unità locali (Correzione 23): estende ana_sedi, la sede
+// legale resta un'altra riga della stessa tabella, filtrata dal backend.
+// ===========================================================================
+
+/** Riga della tabella riepilogativa (§ punto 2): tipologie/attività
+ * principale/codice ATECO sono già risolti dal backend dalle relazioni
+ * molti-a-molti, mai colonne di testo con virgole. */
+export interface UnitaLocaleSummary {
+  id: string;
+  riferimento_cciaa: string | null;
+  tipologia_label: string | null;
+  indirizzo_label: string | null;
+  data_apertura: string | null;
+  attivita_principale_label: string | null;
+  ateco_label: string | null;
+  data_chiusura: string | null;
+  created_at: string;
+  updated_at: string;
+  verificationStatus: VerificationStatus | null;
+  verificationVersion: number | null;
+  revisionNote: string | null;
+  verifiedAt: string | null;
+  verifiedBy: string | null;
+}
+
+export interface UnitaLocaleAttivita {
+  id: string;
+  descrizione_attivita: string;
+  data_inizio: string | null;
+  data_fine: string | null;
+  attivita_principale: boolean;
+}
+
+export interface UnitaLocaleCodiceAteco {
+  id: string;
+  codice_attivita_id: string;
+  codice_attivita: CatalogoVoce;
+  principale: boolean;
+  data_inizio: string | null;
+  data_fine: string | null;
+}
+
+export interface UnitaLocaleContatto {
+  id: string;
+  tipo_contatto: string;
+  valore: string;
+  descrizione: string | null;
+  principale: boolean;
+}
+
+/** Risposta di `getUnitaLocale` (§ punto 8, form completo). */
+export interface UnitaLocaleDetail extends ConMetadati {
+  numero_unita_locale: string | null;
+  denominazione_sede: string | null;
+  data_apertura: string | null;
+  data_chiusura: string | null;
+  toponimo: string | null;
+  indirizzo: string | null;
+  numero_civico: string | null;
+  cap: string | null;
+  comune: string | null;
+  provincia: string | null;
+  frazione: string | null;
+  nazione: string | null;
+  stato_unita_id: string | null;
+  stato_unita: CatalogoVoce | null;
+  note: string | null;
+  tipologie: CatalogoVoce[];
+  attivita: UnitaLocaleAttivita[];
+  codici_ateco: UnitaLocaleCodiceAteco[];
+  contatti: UnitaLocaleContatto[];
+  verificationStatus: VerificationStatus | null;
+  verificationVersion: number | null;
+  revisionNote: string | null;
+  verifiedAt: string | null;
+  verifiedBy: string | null;
+}
