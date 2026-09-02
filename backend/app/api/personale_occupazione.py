@@ -14,6 +14,8 @@ from app.core.deps import AziendaContext, get_current_azienda
 from app.core.moduli import require_modulo
 from app.core.personale_occupazione import (
     applica_decisione_verifica_personale_occupazione,
+    elenco_storico_rilevazioni,
+    riepilogo_per_rilevazione,
     riepilogo_personale_occupazione,
 )
 from app.core.registro_campi import require_consulente_ctx
@@ -38,6 +40,19 @@ def get_riepilogo(
     return riepilogo_personale_occupazione(db, ctx.azienda_id)
 
 
+@router.get("/storico", response_model=list[PersonaleOccupazioneRiepilogoRead], tags=TAGS)
+def get_storico(
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    """Tutte le rilevazioni tranne la più recente (§ riorganizzazione dello
+    storico): stesso riepilogo calcolato usato per la rilevazione più
+    recente, riusato per il dettaglio compatto e il confronto lato
+    frontend — nessun secondo endpoint di dettaglio necessario."""
+    return elenco_storico_rilevazioni(db, ctx.azienda_id)
+
+
 @router.post("/{rilevazione_id}/review", response_model=PersonaleOccupazioneRiepilogoRead, tags=TAGS)
 def review_rilevazione(
     rilevazione_id: UUID,
@@ -46,9 +61,12 @@ def review_rilevazione(
     ctx: AziendaContext = Depends(require_consulente_ctx),
     _modulo: None = Depends(_modulo_dep),
 ):
-    """Decisione di verifica sulla rilevazione più recente (§ commento in
-    app/core/verifica_riga.py): stesso trattamento della verifica per riga
-    già usato da Soci/Amministratori/Titoli abilitativi."""
+    """Decisione di verifica su una rilevazione — più recente o storica
+    (§ commento in app/core/verifica_riga.py): stesso trattamento della
+    verifica per riga già usato da Soci/Amministratori/Titoli abilitativi.
+    Restituisce il riepilogo della rilevazione effettivamente toccata, non
+    necessariamente quella più recente (§ punto 10: stato per fotografia,
+    mai retroattivo)."""
     applica_decisione_verifica_personale_occupazione(
         db,
         ctx,
@@ -58,4 +76,4 @@ def review_rilevazione(
         expected_version=payload.expectedFieldVersion,
     )
     db.commit()
-    return riepilogo_personale_occupazione(db, ctx.azienda_id)
+    return riepilogo_per_rilevazione(db, ctx.azienda_id, rilevazione_id)

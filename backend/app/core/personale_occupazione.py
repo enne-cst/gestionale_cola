@@ -1,28 +1,33 @@
-"""Riepilogo "Personale e occupazione" (Correzione 22).
+"""Riepilogo "Personale e occupazione" (Correzione 22, poi riorganizzazione
+dello storico su richiesta esplicita successiva).
 
 La sezione conserva volutamente uno storico di rilevazioni (§9.1 della
 mappatura funzionale: "snapshot storici"), a differenza delle altre card
 CCIAA che rappresentano un unico stato corrente — per questo non ha mai
 avuto un banner di conferma "a sezione" come Soci/Amministratori/Attività
-economica. Per la Correzione 22 l'utente ha scelto esplicitamente di
-applicare il comportamento di conferma/verifica e la presentazione a card
-grafiche solo alla rilevazione più recente, lasciando lo storico precedente
-come semplice elenco invariato (vedi memoria di sessione
-"correzione22-personale-occupazione").
+economica. La rilevazione più recente riceve conferma/verifica e card
+grafiche (scelta esplicita dell'utente, vedi memoria di sessione
+"correzione22-personale-occupazione"); lo storico delle rilevazioni
+precedenti riusa lo stesso motore di calcolo per il proprio dettaglio
+compatto e il confronto, ma resta sola lettura.
 
 Questo modulo non introduce una tabella o un form paralleli: legge le
 stesse `ana_addetti_visura`/`_periodi` e `ana_addetti_comune`/`_periodi` già
-scritte dai dialog esistenti, e riusa `app.core.verifica_riga` (§ "non deve
+scritte dal dialog esistente, e riusa `app.core.verifica_riga` (§ "non deve
 essere creato un secondo sistema di verifica", Correzione 20) per la
-conferma, con `campo_codice` = id della rilevazione più recente.
-"""
+conferma — generico su `campo_codice` = id di QUALUNQUE rilevazione, non
+solo la più recente: lo stato di una rilevazione storica è quindi già
+storicizzato "gratis" (una riga di `sys_registro_stato_campi` per id, mai
+sovrascritta dalla verifica di un'altra rilevazione)."""
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 from uuid import UUID
 
+from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -40,6 +45,18 @@ SEZIONE_CODICE_VERIFICA_PERSONALE_OCCUPAZIONE = "ANAGRAFICA_AZIENDALE.PERSONALE_
 # riconciliare col metodo dei maggiori resti; oltre, è un'incoerenza vera
 # (§ punto 14) da segnalare senza calcolare numeri.
 _TOLLERANZA_SOMMA_PERCENTUALI = Decimal("1.0")
+
+# § Ordinamento storico, punto 3/7: "periodo" tra i criteri di ordinamento
+# richiede un valore numerico confrontabile — il catalogo dei periodi non ha
+# un ordine esplicito altrove nel progetto, quindi qui l'ordine cronologico
+# naturale del trimestre (MEDIA per ultima, riassume l'intero anno).
+_ORDINE_PERIODO: dict[str, int] = {
+    "PRIMO_TRIMESTRE": 1,
+    "SECONDO_TRIMESTRE": 2,
+    "TERZO_TRIMESTRE": 3,
+    "QUARTO_TRIMESTRE": 4,
+    "MEDIA": 5,
+}
 
 
 def _maggiori_resti(percentuali: list[Decimal], totale: int) -> list[int]:
@@ -95,19 +112,12 @@ def _percentuale_derivata(parte: int | None, base: int | None) -> Decimal | None
     return (Decimal(parte) * Decimal(100) / Decimal(base)).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
 
 
-def _rilevazione_piu_recente(db: Session, azienda_id: UUID) -> AnaAddettiVisura | None:
-    return db.scalars(
-        select(AnaAddettiVisura)
-        .where(AnaAddettiVisura.azienda_id == azienda_id)
-        .order_by(
-            AnaAddettiVisura.anno_riferimento.desc().nulls_last(),
-            AnaAddettiVisura.data_rilevazione.desc().nulls_last(),
-            AnaAddettiVisura.created_at.desc(),
-        )
-    ).first()
-
-
-def _periodo_piu_recente(db: Session, rilevazione_id: UUID) -> AnaAddettiVisuraPeriodo | None:
+def _periodo_rappresentativo(db: Session, rilevazione_id: UUID) -> AnaAddettiVisuraPeriodo | None:
+    """Una rilevazione può avere più periodi (§ scomposizione trimestrale
+    originaria): qui si sceglie quello più recentemente aggiornato come
+    "il" periodo che rappresenta la rilevazione, sia per i calcoli sia come
+    criterio di ordinamento — stessa scelta ovunque, mai due definizioni
+    diverse di "il periodo di questa rilevazione"."""
     return db.scalars(
         select(AnaAddettiVisuraPeriodo)
         .where(AnaAddettiVisuraPeriodo.rilevazione_addetti_id == rilevazione_id)
@@ -115,26 +125,46 @@ def _periodo_piu_recente(db: Session, rilevazione_id: UUID) -> AnaAddettiVisuraP
     ).first()
 
 
-def _comune_collegato(db: Session, azienda_id: UUID, rilevazione_id: UUID | None) -> AnaAddettiComune | None:
-    if rilevazione_id is not None:
-        collegato = db.scalars(
-            select(AnaAddettiComune)
-            .where(
-                AnaAddettiComune.azienda_id == azienda_id,
-                AnaAddettiComune.rilevazione_addetti_id == rilevazione_id,
-            )
-            .order_by(AnaAddettiComune.updated_at.desc())
-        ).first()
-        if collegato is not None:
-            return collegato
+def _chiave_ordinamento(rilevazione: AnaAddettiVisura, periodo: AnaAddettiVisuraPeriodo | None) -> tuple:
+    """§ punto 3/7: data di rilevazione, poi anno, poi periodo, poi
+    created_at come ultimo spareggio (nessun campo "data di importazione"
+    nello schema attuale, § segnalazione in fondo al modulo). Tupla pensata
+    per un ordinamento decrescente (`reverse=True`): gli assenti valgono
+    come "il più vecchio possibile", mai come "il più recente" per un
+    valore mancante."""
+    return (
+        rilevazione.data_rilevazione or date.min,
+        rilevazione.anno_riferimento if rilevazione.anno_riferimento is not None else -1,
+        _ORDINE_PERIODO.get(periodo.periodo, -1) if periodo is not None else -1,
+        rilevazione.created_at,
+    )
+
+
+def _rilevazioni_ordinate(db: Session, azienda_id: UUID) -> list[tuple[AnaAddettiVisura, AnaAddettiVisuraPeriodo | None]]:
+    """Tutte le rilevazioni dell'azienda, dalla più recente alla più vecchia
+    (§ punto 3/7) — mai l'ordine di inserimento nel database. Ordinamento
+    deterministico lato servizio (§ punto 7: "il backend oppure... in modo
+    deterministico nel servizio che compone la risposta"): il volume per
+    azienda è piccolo, ordinare qui è più semplice e leggibile che
+    codificare la stessa priorità multi-colonna in SQL con NULLS LAST su
+    più criteri e un ordinale di periodo calcolato."""
+    rilevazioni = db.scalars(select(AnaAddettiVisura).where(AnaAddettiVisura.azienda_id == azienda_id)).all()
+    coppie = [(r, _periodo_rappresentativo(db, r.id)) for r in rilevazioni]
+    coppie.sort(key=lambda coppia: _chiave_ordinamento(*coppia), reverse=True)
+    return coppie
+
+
+def _comune_collegato(db: Session, rilevazione_id: UUID) -> AnaAddettiComune | None:
+    """Solo il comune collegato esplicitamente a QUESTA rilevazione (§ punto
+    20, integrità dello storico: mai un fallback sul comune più recente in
+    assoluto, che potrebbe appartenere a un'altra rilevazione e
+    "ricostruire" una fotografia storica con un valore corrente)."""
     return db.scalars(
-        select(AnaAddettiComune)
-        .where(AnaAddettiComune.azienda_id == azienda_id)
-        .order_by(AnaAddettiComune.updated_at.desc())
+        select(AnaAddettiComune).where(AnaAddettiComune.rilevazione_addetti_id == rilevazione_id)
     ).first()
 
 
-def _periodo_comune_piu_recente(db: Session, addetti_comune_id: UUID) -> AnaAddettiComunePeriodo | None:
+def _periodo_comune_rappresentativo(db: Session, addetti_comune_id: UUID) -> AnaAddettiComunePeriodo | None:
     return db.scalars(
         select(AnaAddettiComunePeriodo)
         .where(AnaAddettiComunePeriodo.addetti_comune_id == addetti_comune_id)
@@ -152,11 +182,19 @@ def _stato_riga_raw(db: Session, azienda_id: UUID, rilevazione_id: UUID) -> SysR
     ).first()
 
 
-def riepilogo_personale_occupazione(db: Session, azienda_id: UUID) -> PersonaleOccupazioneRiepilogoRead:
-    rilevazione = _rilevazione_piu_recente(db, azienda_id)
-    periodo = _periodo_piu_recente(db, rilevazione.id) if rilevazione is not None else None
-    comune = _comune_collegato(db, azienda_id, rilevazione.id if rilevazione is not None else None)
-    periodo_comune = _periodo_comune_piu_recente(db, comune.id) if comune is not None else None
+def _costruisci_riepilogo(
+    db: Session,
+    azienda_id: UUID,
+    rilevazione: AnaAddettiVisura | None,
+    periodo: AnaAddettiVisuraPeriodo | None,
+) -> PersonaleOccupazioneRiepilogoRead:
+    """Costruisce il riepilogo calcolato per UNA rilevazione (con il suo
+    periodo rappresentativo) — riusato identico sia per la rilevazione più
+    recente sia per ciascuna voce dello storico (§ punto 13: il dettaglio
+    storico mostra "gli stessi" raggruppamenti, non un sottoinsieme
+    ricalcolato a parte)."""
+    comune = _comune_collegato(db, rilevazione.id) if rilevazione is not None else None
+    periodo_comune = _periodo_comune_rappresentativo(db, comune.id) if comune is not None else None
 
     dipendenti = periodo.numero_dipendenti if periodo is not None else None
 
@@ -201,11 +239,13 @@ def riepilogo_personale_occupazione(db: Session, azienda_id: UUID) -> PersonaleO
     stato: dict[str, Any] = {"status": None, "version": None, "note": None, "verified_at": None, "verified_by": None}
     if rilevazione is not None:
         stato = leggi_stato_verifica_riga(db, azienda_id, SEZIONE_CODICE_VERIFICA_PERSONALE_OCCUPAZIONE, rilevazione.id)
-        # § punto 21: una modifica successiva ai dati di origine invalida una
-        # conferma precedente ("la precedente conferma non deve rimanere
-        # valida"). Confrontare gli `updated_at` con la data di verifica
-        # copre qualunque modifica (percentuali, dipendenti, fonte...) senza
-        # dover intercettare ogni singolo endpoint di scrittura esistente.
+        # § punto 21 (Correzione 22) / punto 10 (storico): una modifica
+        # successiva ai dati di origine invalida una conferma precedente,
+        # ma SOLO per la rilevazione toccata — ciascuna rilevazione ha il
+        # proprio confronto updated_at/verificato_at, mai propagato alle
+        # altre (§ punto 10: "la modifica della rilevazione più recente non
+        # deve cambiare retroattivamente lo stato delle rilevazioni
+        # precedenti" — qui è garantito perché il confronto è per id).
         stato_riga = _stato_riga_raw(db, azienda_id, rilevazione.id)
         if stato["status"] == "VERIFIED" and stato_riga is not None and stato_riga.verificato_at is not None:
             fonti_aggiornate = [t for t in [rilevazione.updated_at, periodo.updated_at if periodo else None] if t is not None]
@@ -233,6 +273,33 @@ def riepilogo_personale_occupazione(db: Session, azienda_id: UUID) -> PersonaleO
         verifiedAt=stato["verified_at"],
         verifiedBy=stato["verified_by"],
     )
+
+
+def riepilogo_personale_occupazione(db: Session, azienda_id: UUID) -> PersonaleOccupazioneRiepilogoRead:
+    ordinate = _rilevazioni_ordinate(db, azienda_id)
+    rilevazione, periodo = ordinate[0] if ordinate else (None, None)
+    return _costruisci_riepilogo(db, azienda_id, rilevazione, periodo)
+
+
+def elenco_storico_rilevazioni(db: Session, azienda_id: UUID) -> list[PersonaleOccupazioneRiepilogoRead]:
+    """Tutte le rilevazioni tranne la più recente (§ punto 1: "lo storico
+    non deve duplicare la rilevazione più recente"), già in ordine dalla
+    più recente delle precedenti alla più vecchia."""
+    ordinate = _rilevazioni_ordinate(db, azienda_id)
+    return [_costruisci_riepilogo(db, azienda_id, rilevazione, periodo) for rilevazione, periodo in ordinate[1:]]
+
+
+def riepilogo_per_rilevazione(db: Session, azienda_id: UUID, rilevazione_id: UUID) -> PersonaleOccupazioneRiepilogoRead:
+    """Riepilogo di UNA rilevazione specifica, storica o più recente che sia
+    — usato dopo una decisione di verifica per restituire lo stato
+    aggiornato della rilevazione effettivamente toccata, mai quello della
+    rilevazione più recente se la verifica riguardava una storica (§ punto
+    10: lo stato è per fotografia, non retroattivo)."""
+    rilevazione = db.get(AnaAddettiVisura, rilevazione_id)
+    if rilevazione is None or rilevazione.azienda_id != azienda_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Rilevazione non trovata")
+    periodo = _periodo_rappresentativo(db, rilevazione_id)
+    return _costruisci_riepilogo(db, azienda_id, rilevazione, periodo)
 
 
 def applica_decisione_verifica_personale_occupazione(

@@ -1,6 +1,6 @@
 "use client";
 
-import { PencilIcon } from "lucide-react";
+import { PencilIcon, PlusIcon } from "lucide-react";
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 
 import { FieldStatusButton } from "@/components/registro/field-verification-popover";
@@ -8,8 +8,8 @@ import { PersonaleOccupazioneVerificationPopover } from "@/components/registro/p
 import { useWorkspace } from "@/components/registro/workspace-provider";
 import { getApiResource } from "@/lib/actions/api-resource";
 import { formatDate } from "@/lib/format";
+import { etichettaPeriodo, formatPercentualeVisiva, numeroPersone as numero } from "@/lib/personale-occupazione-format";
 import type { AddettiVisura, GruppoCalcolato, PersonaleOccupazioneRiepilogo } from "@/lib/types/anagrafica";
-import { PERIODI_RILEVAZIONE } from "@/lib/types/anagrafica";
 import { cn } from "@/lib/utils";
 
 import { AddettiVisuraDialog } from "../addetti-visura/addetti-visura-dialog";
@@ -23,24 +23,6 @@ type Stato =
       riepilogo: PersonaleOccupazioneRiepilogo;
       rilevazione: AddettiVisura | null;
     };
-
-function etichettaPeriodo(periodo: string | null): string {
-  return PERIODI_RILEVAZIONE.find((p) => p.value === periodo)?.label ?? "—";
-}
-
-function numero(valore: number | null): string {
-  return valore === null ? "—" : new Intl.NumberFormat("it-IT").format(valore);
-}
-
-/** Percentuale senza decimali inutili (§ correzione grafica: "93.00%" → "93%",
- * "7.50%" → "7,5%"): sola formattazione di visualizzazione, il valore
- * salvato/calcolato resta quello passato (stringa Decimal del backend). */
-function formatPercentualeVisiva(valore: string | null): string {
-  if (valore === null) return "—";
-  const numerico = Number(valore);
-  if (Number.isNaN(numerico)) return valore;
-  return `${new Intl.NumberFormat("it-IT", { maximumFractionDigits: 2 }).format(numerico)}%`;
-}
 
 /** Anello con contenuto libero al centro (§ Correzione 22 punto 16:
  * "indicatore circolare"): stessa classe CSS di `CompletenessRing`
@@ -62,7 +44,7 @@ function AnelloIndicatore({
       className={cn("az-progress-ring shrink-0", tone === "green" && "az-progress-ring--green")}
       style={{ width: size, height: size, "--az-progress": `${Math.max(0, Math.min(100, pct)) * 3.6}deg` } as CSSProperties}
     >
-      <span className="az-progress-ring__inner text-sm font-extrabold text-[var(--az-ink)]">{children}</span>
+      <span className="az-progress-ring__inner text-base font-extrabold text-[var(--az-ink)]">{children}</span>
     </div>
   );
 }
@@ -72,12 +54,21 @@ function CardGrafica({
   ring,
   descrizione,
   status,
+  statusControl,
   className,
 }: {
   titolo: string;
   ring: ReactNode;
   descrizione: ReactNode;
   status: "VERIFIED" | "PENDING_VERIFICATION" | "REVISION_REQUIRED";
+  // § il controllo di verifica è "per campo", mai accanto al titolo di
+  // sezione (§ "il titolo è un titolo, non deve avere un indicatore di
+  // stato accanto"): di norma un badge decorativo (`status`), tranne su
+  // "Addetti totali" dove il chiamante passa il popover interattivo vero e
+  // proprio — quella card diventa il punto in cui si conferma/richiede la
+  // revisione dell'intera rilevazione, coerente con l'idea "un controllo
+  // per campo" usata altrove nell'app.
+  statusControl?: ReactNode;
   className?: string;
 }) {
   return (
@@ -85,12 +76,12 @@ function CardGrafica({
       <div className="flex items-start justify-between gap-2">
         <span className="min-w-0 pt-0.5 text-xs font-bold text-[var(--az-ink)]">{titolo}</span>
         <span className="-mt-1 -mr-1 shrink-0 p-1">
-          <FieldStatusButton status={status} label={titolo} size={18} />
+          {statusControl ?? <FieldStatusButton status={status} label={titolo} size={18} />}
         </span>
       </div>
-      <div className="flex flex-1 items-center gap-3.5">
+      <div className="flex flex-1 items-center gap-4">
         {ring}
-        <div className="min-w-0 flex-1 text-[11px] leading-snug text-[var(--az-muted)]">{descrizione}</div>
+        <div className="min-w-0 flex-1 text-xs leading-snug text-[var(--az-muted)]">{descrizione}</div>
       </div>
     </div>
   );
@@ -144,13 +135,21 @@ function GruppoCard({
  * grafici, in sequenza — personale poi territorio — indipendentemente dallo
  * stato di verifica, che resta solo un'indicazione di qualità del dato
  * (badge per card + popover di sezione). Lo storico delle rilevazioni
- * precedenti resta nella tabella sotto, dietro un pulsante (§
- * CollapsibleStorico in cciaa-section-panel.tsx). */
-export function RiepilogoPersonaleOccupazione() {
+ * precedenti vive nel componente dedicato sotto (§ storico-rilevazioni.tsx),
+ * che distingue esplicitamente le fotografie precedenti da questa e non
+ * viene mai toccato da qui.
+ *
+ * `editing` arriva da `PersonaleOccupazionePanel` (§ banner in fondo alla
+ * sezione, richiesto per uniformità con le altre card CCIAA): "Modifica
+ * sezione" compare solo quando la sezione è in modalità modifica, mai un
+ * toggle locale — stessa convenzione delle tabelle a registro altrove nel
+ * progetto. */
+export function RiepilogoPersonaleOccupazione({ editing }: { editing: boolean }) {
   const { ruolo } = useWorkspace();
   const consulente = ruolo === "CONSULENTE";
   const [stato, setStato] = useState<Stato>({ fase: "loading" });
   const [dialogoRilevazione, setDialogoRilevazione] = useState(false);
+  const [dialogoNuova, setDialogoNuova] = useState(false);
 
   const carica = useCallback(() => {
     setStato({ fase: "loading" });
@@ -199,10 +198,29 @@ export function RiepilogoPersonaleOccupazione() {
   if (!riepilogo.rilevazione_id) {
     return (
       <section className="border-b border-[var(--az-border)] py-6">
-        <h3 className="mb-2 text-[15px] font-bold text-[var(--az-ink)]">Rilevazione più recente</h3>
-        <p className="text-sm text-[var(--az-muted)]">
-          Nessuna rilevazione ancora registrata. Aggiungi una rilevazione dallo storico qui sotto.
-        </p>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <h3 className="text-[15px] font-bold text-[var(--az-ink)]">Rilevazione più recente</h3>
+          {consulente && (
+            <button
+              type="button"
+              onClick={() => setDialogoNuova(true)}
+              className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-[var(--az-blue)] hover:text-[var(--az-blue-dark)]"
+            >
+              <PlusIcon className="size-3.5" />
+              Nuova rilevazione
+            </button>
+          )}
+        </div>
+        <p className="text-sm text-[var(--az-muted)]">Nessuna rilevazione ancora registrata.</p>
+
+        {consulente && (
+          <AddettiVisuraDialog
+            open={dialogoNuova}
+            onOpenChange={setDialogoNuova}
+            onSaved={carica}
+            trigger={<span className="hidden" />}
+          />
+        )}
       </section>
     );
   }
@@ -215,21 +233,37 @@ export function RiepilogoPersonaleOccupazione() {
 
   return (
     <section className="border-b border-[var(--az-border)] py-6">
+      {/* § "il titolo è un titolo, non deve avere un indicatore di stato
+          accanto": nessun controllo di verifica su questa riga — il
+          controllo interattivo vive sulla card "Addetti totali" (stesso
+          trattamento "per campo" delle altre sezioni, mai un badge di
+          sezione). "+ Nuova rilevazione" è sempre visibile per il
+          Consulente (non solo in modalità modifica); "Modifica sezione"
+          resta invece riservato alla modalità modifica. */}
       <div className="mb-5 flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <h3 className="text-[15px] font-bold text-[var(--az-ink)]">Rilevazione più recente</h3>
-          <PersonaleOccupazioneVerificationPopover riepilogo={riepilogo} consulente={consulente} onDecided={carica} />
+        <h3 className="min-w-0 text-[15px] font-bold text-[var(--az-ink)]">Rilevazione più recente</h3>
+        <div className="flex shrink-0 items-center gap-3">
+          {consulente && (
+            <button
+              type="button"
+              onClick={() => setDialogoNuova(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--az-blue)] hover:text-[var(--az-blue-dark)]"
+            >
+              <PlusIcon className="size-3.5" />
+              Nuova rilevazione
+            </button>
+          )}
+          {consulente && editing && rilevazione && (
+            <button
+              type="button"
+              onClick={() => setDialogoRilevazione(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--az-blue)] hover:text-[var(--az-blue-dark)]"
+            >
+              <PencilIcon className="size-3.5" />
+              Modifica sezione
+            </button>
+          )}
         </div>
-        {consulente && rilevazione && (
-          <button
-            type="button"
-            onClick={() => setDialogoRilevazione(true)}
-            className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-[var(--az-blue)] hover:text-[var(--az-blue-dark)]"
-          >
-            <PencilIcon className="size-3.5" />
-            Modifica sezione
-          </button>
-        )}
       </div>
 
       {/* § Anno di rilevazione/Periodo/Data/Fonte sono "esterni al form":
@@ -247,8 +281,11 @@ export function RiepilogoPersonaleOccupazione() {
           <CardGrafica
             titolo="Addetti totali"
             status={status}
+            statusControl={
+              <PersonaleOccupazioneVerificationPopover riepilogo={riepilogo} consulente={consulente} onDecided={carica} size={18} />
+            }
             ring={
-              <AnelloIndicatore percentuale={100} size={72}>
+              <AnelloIndicatore percentuale={100} size={88}>
                 {numero(riepilogo.addetti_totali)}
               </AnelloIndicatore>
             }
@@ -264,7 +301,7 @@ export function RiepilogoPersonaleOccupazione() {
                     ? (riepilogo.dipendenti / riepilogo.addetti_totali) * 100
                     : 0
                 }
-                size={72}
+                size={88}
               >
                 {numero(riepilogo.dipendenti)}
               </AnelloIndicatore>
@@ -285,7 +322,7 @@ export function RiepilogoPersonaleOccupazione() {
                     ? (riepilogo.indipendenti / riepilogo.addetti_totali) * 100
                     : 0
                 }
-                size={72}
+                size={88}
               >
                 {numero(riepilogo.indipendenti)}
               </AnelloIndicatore>
@@ -306,7 +343,7 @@ export function RiepilogoPersonaleOccupazione() {
                     ? (riepilogo.collaboratori / riepilogo.addetti_totali) * 100
                     : 0
                 }
-                size={72}
+                size={88}
               >
                 {numero(riepilogo.collaboratori)}
               </AnelloIndicatore>
@@ -334,7 +371,7 @@ export function RiepilogoPersonaleOccupazione() {
                 titolo={titolo}
                 status={status}
                 ring={
-                  <AnelloIndicatore percentuale={pct ? Number(pct) : 0} size={72}>
+                  <AnelloIndicatore percentuale={pct ? Number(pct) : 0} size={88}>
                     {formatPercentualeVisiva(pct)}
                   </AnelloIndicatore>
                 }
@@ -363,7 +400,7 @@ export function RiepilogoPersonaleOccupazione() {
                 titolo={titolo}
                 status={status}
                 ring={
-                  <AnelloIndicatore percentuale={pct ? Number(pct) : 0} size={72}>
+                  <AnelloIndicatore percentuale={pct ? Number(pct) : 0} size={88}>
                     {formatPercentualeVisiva(pct)}
                   </AnelloIndicatore>
                 }
@@ -398,7 +435,7 @@ export function RiepilogoPersonaleOccupazione() {
                 // due finché non c'è spazio per 3 colonne uguali.
                 className={indice === 2 ? "col-span-2 sm:col-span-1" : undefined}
                 ring={
-                  <AnelloIndicatore percentuale={pct ? Number(pct) : 0} size={72}>
+                  <AnelloIndicatore percentuale={pct ? Number(pct) : 0} size={88}>
                     {formatPercentualeVisiva(pct)}
                   </AnelloIndicatore>
                 }
@@ -425,7 +462,7 @@ export function RiepilogoPersonaleOccupazione() {
                 titolo="Totale nel comune"
                 status={status}
                 ring={
-                  <AnelloIndicatore percentuale={100} size={72}>
+                  <AnelloIndicatore percentuale={100} size={88}>
                     {numero(riepilogo.territorio.addetti_totali_nel_comune)}
                   </AnelloIndicatore>
                 }
@@ -441,7 +478,7 @@ export function RiepilogoPersonaleOccupazione() {
                         ? Number(riepilogo.territorio.percentuale_dipendenti_nel_comune)
                         : 0
                     }
-                    size={72}
+                    size={88}
                   >
                     {numero(riepilogo.territorio.dipendenti_nel_comune)}
                   </AnelloIndicatore>
@@ -462,7 +499,7 @@ export function RiepilogoPersonaleOccupazione() {
                         ? Number(riepilogo.territorio.percentuale_indipendenti_nel_comune)
                         : 0
                     }
-                    size={72}
+                    size={88}
                   >
                     {numero(riepilogo.territorio.indipendenti_nel_comune)}
                   </AnelloIndicatore>
@@ -483,6 +520,14 @@ export function RiepilogoPersonaleOccupazione() {
           dati={rilevazione}
           open={dialogoRilevazione}
           onOpenChange={setDialogoRilevazione}
+          onSaved={carica}
+          trigger={<span className="hidden" />}
+        />
+      )}
+      {consulente && (
+        <AddettiVisuraDialog
+          open={dialogoNuova}
+          onOpenChange={setDialogoNuova}
           onSaved={carica}
           trigger={<span className="hidden" />}
         />

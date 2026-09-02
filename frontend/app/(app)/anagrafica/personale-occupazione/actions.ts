@@ -12,6 +12,14 @@ export async function getRiepilogoPersonaleOccupazione(): Promise<PersonaleOccup
   return apiFetch<PersonaleOccupazioneRiepilogo>(`${PATH}/riepilogo`);
 }
 
+/** Tutte le rilevazioni tranne la più recente (§ riorganizzazione dello
+ * storico), stesso riepilogo calcolato usato sopra — il frontend lo riusa
+ * sia per la riga sintetica sia per il dettaglio espanso, nessun secondo
+ * fetch di dettaglio. */
+export async function getStoricoRilevazioni(): Promise<PersonaleOccupazioneRiepilogo[]> {
+  return apiFetch<PersonaleOccupazioneRiepilogo[]>(`${PATH}/storico`);
+}
+
 export type EsitoVerificaPersonaleOccupazione =
   | { esito: "ok"; riepilogo: PersonaleOccupazioneRiepilogo }
   | { esito: "conflitto" }

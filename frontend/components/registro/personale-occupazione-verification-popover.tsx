@@ -22,11 +22,18 @@ export function PersonaleOccupazioneVerificationPopover({
   consulente,
   onDecided,
   disabled = false,
+  size,
 }: {
   riepilogo: PersonaleOccupazioneRiepilogo;
   consulente: boolean;
   onDecided: () => void;
   disabled?: boolean;
+  // § "Addetti totali" ospita il controllo interattivo (non decorativo) di
+  // verifica dell'intera rilevazione (§ riepilogo-personale-occupazione.tsx:
+  // "il titolo è un titolo, non deve avere un indicatore di stato accanto"):
+  // stessa dimensione delle altre card (18) invece del default a piena
+  // grandezza usato altrove.
+  size?: number;
 }) {
   const [open, setOpen] = useState(false);
   const [nota, setNota] = useState(riepilogo.revisionNote ?? "");
@@ -93,7 +100,7 @@ export function PersonaleOccupazioneVerificationPopover({
           className={disabled ? "cursor-default opacity-70" : undefined}
           onClick={(e) => e.stopPropagation()}
         >
-          <FieldStatusButton status={status} label={nome} />
+          <FieldStatusButton status={status} label={nome} size={size} />
         </button>
       </PopoverTrigger>
       {open && typeof document !== "undefined"

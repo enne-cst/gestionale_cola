@@ -4,11 +4,9 @@ import type { ReactNode } from "react";
 
 import { GavelIcon, HandshakeIcon, ShieldCheckIcon } from "lucide-react";
 
-import { AddettiVisuraTable } from "@/app/(app)/anagrafica/addetti-visura/addetti-visura-table";
-import { RiepilogoPersonaleOccupazione } from "@/app/(app)/anagrafica/personale-occupazione/riepilogo-personale-occupazione";
+import { PersonaleOccupazionePanel } from "@/app/(app)/anagrafica/personale-occupazione/personale-occupazione-panel";
 import { SediTable } from "@/app/(app)/anagrafica/sedi/sedi-table";
 import { TitoliAbilitativiTable } from "@/app/(app)/anagrafica/titoli-abilitativi/titoli-abilitativi-table";
-import { CollapsibleStorico } from "@/components/registro/collapsible-storico";
 import { EmbeddedResourceBlock } from "@/components/registro/embedded-resource-block";
 import { IncaricoTable } from "@/components/registro/incarico-table";
 import { SectionContent } from "@/components/registro/section-content";
@@ -17,7 +15,7 @@ import { SintesiPanel } from "@/components/registro/sintesi-panel";
 import { StatoPill } from "@/components/registro/stato-pill";
 import { useWorkspace } from "@/components/registro/workspace-provider";
 import { TITOLO_VISTA_CCIAA, type CciaaVistaKey } from "@/lib/cciaa-viste";
-import type { AddettiVisura, Sede } from "@/lib/types/anagrafica";
+import type { Sede } from "@/lib/types/anagrafica";
 
 // Vista -> sectionKey il cui SectionFooter (legenda + banner di modifica)
 // va montato in fondo al pannello, come sibling dopo l'area di scroll —
@@ -378,31 +376,17 @@ function ContenutoVista({
         </>
       );
     case "personale-occupazione":
-      return (
-        <>
-          {/* § Correzione 22: riepilogo calcolato della rilevazione più
-              recente, sempre a card grafiche una volta che il form è stato
-              compilato (non più legato alla conferma del consulente, § nota
-              utente successiva) — Anno/Periodo/Data/Fonte sono
-              un'intestazione fissa esterna alle card. "Addetti da visura" e
-              "Addetti per comune" sono state messe insieme (richiesta
-              esplicita successiva): il comune si compila in fondo allo
-              stesso form di "Addetti da visura", quindi le sue card
-              territoriali seguono di seguito quelle del personale nello
-              stesso riepilogo invece di avere una tabella/storico separati.
-              Editare la rilevazione più recente da qui riusa lo stesso
-              dialog della tabella sotto, nessun form parallelo. */}
-          <RiepilogoPersonaleOccupazione />
-          {/* § La tabella esiste solo per consultare lo storico delle
-              rilevazioni passate (comune compreso): dietro un pulsante
-              invece che aperta di default, invariata una volta aperta. */}
-          <CollapsibleStorico titolo="Storico rilevazioni">
-            <EmbeddedResourceBlock<AddettiVisura> title="Addetti da visura" apiPath="/api/anagrafica/addetti-visura" panoramicaSlug="addetti-visura">
-              {(items, recordIds) => <AddettiVisuraTable rilevazioni={items} recordIdsInPanoramica={recordIds} />}
-            </EmbeddedResourceBlock>
-          </CollapsibleStorico>
-        </>
-      );
+      // § Correzione 22 e correzioni successive: riepilogo calcolato della
+      // rilevazione più recente (card grafiche, Anno/Periodo/Data/Fonte
+      // esterni al form) + storico dedicato (fotografie precedenti,
+      // dettaglio compatto, confronto — § storico-rilevazioni.tsx per i
+      // campi non ricostruibili con lo schema attuale) + banner con
+      // legenda/"Modifica dati" in fondo come le altre card (richiesta
+      // esplicita di uniformità, § personale-occupazione-panel.tsx per il
+      // perché non passa dal motore campo-per-campo). "Addetti da visura" e
+      // "Addetti per comune" sono state messe insieme: il comune si
+      // compila in fondo allo stesso form di "Addetti da visura".
+      return <PersonaleOccupazionePanel />;
     case "sedi-secondarie":
       return (
         <EmbeddedResourceBlock<Sede> title="Sedi secondarie e unità locali" apiPath="/api/anagrafica/sedi" panoramicaSlug="sedi">
