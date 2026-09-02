@@ -3,8 +3,6 @@
 import { PencilIcon, PlusIcon } from "lucide-react";
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 
-import { FieldStatusButton } from "@/components/registro/field-verification-popover";
-import { PersonaleOccupazioneVerificationPopover } from "@/components/registro/personale-occupazione-verification-popover";
 import { useWorkspace } from "@/components/registro/workspace-provider";
 import { getApiResource } from "@/lib/actions/api-resource";
 import { formatDate } from "@/lib/format";
@@ -53,32 +51,16 @@ function CardGrafica({
   titolo,
   ring,
   descrizione,
-  status,
-  statusControl,
   className,
 }: {
   titolo: string;
   ring: ReactNode;
   descrizione: ReactNode;
-  status: "VERIFIED" | "PENDING_VERIFICATION" | "REVISION_REQUIRED";
-  // § il controllo di verifica è "per campo", mai accanto al titolo di
-  // sezione (§ "il titolo è un titolo, non deve avere un indicatore di
-  // stato accanto"): di norma un badge decorativo (`status`), tranne su
-  // "Addetti totali" dove il chiamante passa il popover interattivo vero e
-  // proprio — quella card diventa il punto in cui si conferma/richiede la
-  // revisione dell'intera rilevazione, coerente con l'idea "un controllo
-  // per campo" usata altrove nell'app.
-  statusControl?: ReactNode;
   className?: string;
 }) {
   return (
     <div className={cn("flex h-full flex-col gap-3.5 rounded-[9px] border border-[var(--az-border)] bg-white p-4", className)}>
-      <div className="flex items-start justify-between gap-2">
-        <span className="min-w-0 pt-0.5 text-xs font-bold text-[var(--az-ink)]">{titolo}</span>
-        <span className="-mt-1 -mr-1 shrink-0 p-1">
-          {statusControl ?? <FieldStatusButton status={status} label={titolo} size={18} />}
-        </span>
-      </div>
+      <span className="min-w-0 text-xs font-bold text-[var(--az-ink)]">{titolo}</span>
       <div className="flex flex-1 items-center gap-4">
         {ring}
         <div className="min-w-0 flex-1 text-xs leading-snug text-[var(--az-muted)]">{descrizione}</div>
@@ -132,12 +114,13 @@ function GruppoCard({
  * intestazione sempre visibile, mai trasformata in card grafica e mai legata
  * allo stato di conferma. Una volta che una rilevazione esiste (il form è
  * stato compilato), i dati quantitativi sono sempre rappresentati tramite
- * grafici, in sequenza — personale poi territorio — indipendentemente dallo
- * stato di verifica, che resta solo un'indicazione di qualità del dato
- * (badge per card + popover di sezione). Lo storico delle rilevazioni
- * precedenti vive nel componente dedicato sotto (§ storico-rilevazioni.tsx),
- * che distingue esplicitamente le fotografie precedenti da questa e non
- * viene mai toccato da qui.
+ * grafici, in sequenza — personale poi territorio — senza alcun indicatore
+ * di stato: le card sono puramente presentazionali (§ "leva gli indicatori
+ * di stato dalle card dei grafici"), nessun punto di verifica dedicato in
+ * questa vista per ora. Lo storico delle rilevazioni precedenti vive nel
+ * componente dedicato sotto (§ storico-rilevazioni.tsx), che distingue
+ * esplicitamente le fotografie precedenti da questa e non viene mai
+ * toccato da qui.
  *
  * `editing` arriva da `PersonaleOccupazionePanel` (§ banner in fondo alla
  * sezione, richiesto per uniformità con le altre card CCIAA): "Modifica
@@ -225,7 +208,6 @@ export function RiepilogoPersonaleOccupazione({ editing }: { editing: boolean })
     );
   }
 
-  const status = riepilogo.verificationStatus ?? "PENDING_VERIFICATION";
   const ambitoTerritoriale =
     [riepilogo.territorio.comune, riepilogo.territorio.provincia].filter(Boolean).join(" (") +
     (riepilogo.territorio.provincia ? ")" : "");
@@ -233,13 +215,12 @@ export function RiepilogoPersonaleOccupazione({ editing }: { editing: boolean })
 
   return (
     <section className="border-b border-[var(--az-border)] py-6">
-      {/* § "il titolo è un titolo, non deve avere un indicatore di stato
-          accanto": nessun controllo di verifica su questa riga — il
-          controllo interattivo vive sulla card "Addetti totali" (stesso
-          trattamento "per campo" delle altre sezioni, mai un badge di
-          sezione). "+ Nuova rilevazione" è sempre visibile per il
-          Consulente (non solo in modalità modifica); "Modifica sezione"
-          resta invece riservato alla modalità modifica. */}
+      {/* § nessun indicatore di stato in questa vista: né accanto al
+          titolo né sulle card grafiche (§ "leva gli indicatori di stato
+          dalle card dei grafici") — le card sono puramente presentazionali.
+          "+ Nuova rilevazione" è sempre visibile per il Consulente (non
+          solo in modalità modifica); "Modifica sezione" resta invece
+          riservato alla modalità modifica. */}
       <div className="mb-5 flex items-center justify-between gap-3">
         <h3 className="min-w-0 text-[15px] font-bold text-[var(--az-ink)]">Rilevazione più recente</h3>
         <div className="flex shrink-0 items-center gap-3">
@@ -280,10 +261,6 @@ export function RiepilogoPersonaleOccupazione({ editing }: { editing: boolean })
         <GruppoCard titolo="Consistenza del personale" primo gridClassName="grid-cols-2">
           <CardGrafica
             titolo="Addetti totali"
-            status={status}
-            statusControl={
-              <PersonaleOccupazioneVerificationPopover riepilogo={riepilogo} consulente={consulente} onDecided={carica} size={18} />
-            }
             ring={
               <AnelloIndicatore percentuale={100} size={88}>
                 {numero(riepilogo.addetti_totali)}
@@ -293,7 +270,6 @@ export function RiepilogoPersonaleOccupazione({ editing }: { editing: boolean })
           />
           <CardGrafica
             titolo="Dipendenti"
-            status={status}
             ring={
               <AnelloIndicatore
                 percentuale={
@@ -314,7 +290,6 @@ export function RiepilogoPersonaleOccupazione({ editing }: { editing: boolean })
           />
           <CardGrafica
             titolo="Indipendenti"
-            status={status}
             ring={
               <AnelloIndicatore
                 percentuale={
@@ -335,7 +310,6 @@ export function RiepilogoPersonaleOccupazione({ editing }: { editing: boolean })
           />
           <CardGrafica
             titolo="Collaboratori"
-            status={status}
             ring={
               <AnelloIndicatore
                 percentuale={
@@ -369,7 +343,6 @@ export function RiepilogoPersonaleOccupazione({ editing }: { editing: boolean })
               <CardGrafica
                 key={chiave}
                 titolo={titolo}
-                status={status}
                 ring={
                   <AnelloIndicatore percentuale={pct ? Number(pct) : 0} size={88}>
                     {formatPercentualeVisiva(pct)}
@@ -398,7 +371,6 @@ export function RiepilogoPersonaleOccupazione({ editing }: { editing: boolean })
               <CardGrafica
                 key={chiave}
                 titolo={titolo}
-                status={status}
                 ring={
                   <AnelloIndicatore percentuale={pct ? Number(pct) : 0} size={88}>
                     {formatPercentualeVisiva(pct)}
@@ -429,7 +401,6 @@ export function RiepilogoPersonaleOccupazione({ editing }: { editing: boolean })
               <CardGrafica
                 key={chiave}
                 titolo={titolo}
-                status={status}
                 // § Impiegati (3° elemento) non deve restare isolato con
                 // spazio vuoto accanto: occupa l'intera riga sotto le prime
                 // due finché non c'è spazio per 3 colonne uguali.
@@ -460,7 +431,6 @@ export function RiepilogoPersonaleOccupazione({ editing }: { editing: boolean })
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <CardGrafica
                 titolo="Totale nel comune"
-                status={status}
                 ring={
                   <AnelloIndicatore percentuale={100} size={88}>
                     {numero(riepilogo.territorio.addetti_totali_nel_comune)}
@@ -470,7 +440,6 @@ export function RiepilogoPersonaleOccupazione({ editing }: { editing: boolean })
               />
               <CardGrafica
                 titolo="Dipendenti nel comune"
-                status={status}
                 ring={
                   <AnelloIndicatore
                     percentuale={
@@ -491,7 +460,6 @@ export function RiepilogoPersonaleOccupazione({ editing }: { editing: boolean })
               />
               <CardGrafica
                 titolo="Indipendenti nel comune"
-                status={status}
                 ring={
                   <AnelloIndicatore
                     percentuale={
