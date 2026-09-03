@@ -13,6 +13,9 @@ export const TITOLO_SEZIONE_REGISTRO: Record<string, string> = {
   statuto: "Informazioni da statuto/atto costitutivo",
   "attivita-economica": "Attività economica",
   "unita-locali": "Sedi secondarie e unità locali",
+  "contratto-lavoro": "Contratto di lavoro",
+  "posizioni-assicurative-previdenziali": "Posizioni assicurative e previdenziali",
+  "turni-lavoro": "Turni di lavoro",
 };
 
 export const SOTTOTITOLO_SEZIONE_REGISTRO: Record<string, string> = {
@@ -25,4 +28,7 @@ export const SOTTOTITOLO_SEZIONE_REGISTRO: Record<string, string> = {
   statuto: "Denominazione, iscrizione, durata e sistema di amministrazione adottato",
   "attivita-economica": "Stato, classificazioni e indicatori generali dell'attività aziendale",
   "unita-locali": "Numero di unità locali dichiarato in visura, a confronto con quelle registrate",
+  "contratto-lavoro": "Contratto collettivo nazionale applicato dall'azienda",
+  "posizioni-assicurative-previdenziali": "Posizione INPS e posizione INAIL dell'azienda",
+  "turni-lavoro": "Organizzazione corrente dei turni di lavoro dell'azienda",
 };

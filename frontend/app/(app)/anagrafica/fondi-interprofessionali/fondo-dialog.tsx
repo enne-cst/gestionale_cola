@@ -14,18 +14,26 @@ export function FondoDialog({
   trigger,
   dati,
   statiIscrizione,
+  onSaved,
 }: {
   trigger: ReactNode;
   dati?: FondoInterprofessionale;
   statiIscrizione: CatalogoVoce[];
+  // § pannello del drawer caricato lato client (§ "falle tutte"): non passa
+  // dalla revalidazione automatica di Next.js, quindi deve poter rieseguire
+  // da sé la fetch dopo un salvataggio riuscito. Facoltativo.
+  onSaved?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const action = dati ? updateFondo.bind(null, dati.id) : createFondo;
   const [state, formAction] = useActionState<FormState, FormData>(action, {});
 
   useEffect(() => {
-    if (state.success) setOpen(false);
-  }, [state.success]);
+    if (state.success) {
+      setOpen(false);
+      onSaved?.();
+    }
+  }, [state.success, onSaved]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

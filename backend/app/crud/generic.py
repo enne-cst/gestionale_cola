@@ -31,8 +31,11 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import AziendaContext, get_current_azienda
 from app.core.moduli import require_modulo
+from app.core.registro_campi import require_consulente_ctx
 from app.core.sezioni import require_sezione
+from app.core.verifica_riga import applica_decisione_verifica_riga, leggi_stato_verifica_riga
 from app.database import Base, get_db
+from app.schemas.registro_campi import ReviewDecisionRequest
 
 
 def _noop_dependency() -> None:
@@ -65,6 +68,17 @@ def register_list_crud(
     update_schema: type[BaseModel],
     sezione: str | None = None,
     read_model: type[Base] | None = None,
+    # § "falle tutte" (migrazione delle 14 sezioni ISO 9001 a elenco alla
+    # verifica per riga): quando indicato, ogni riga letta porta con sé lo
+    # stato di verifica del consulente (stesso motore già usato da
+    # Soci/Amministratori/Sindaci e da "Sedi secondarie e unità locali",
+    # `app.core.verifica_riga` — mai un secondo sistema di verifica) e viene
+    # registrato in più un endpoint `POST {path}/{{id}}/review` per
+    # decidere quello stato. `read_schema` deve dichiarare i 5 campi di
+    # `CampiVerificaRiga` (verificationStatus/verificationVersion/
+    # revisionNote/verifiedAt/verifiedBy). None (default) lascia il
+    # comportamento di ogni chiamante esistente invariato.
+    verifica_sezione_codice: str | None = None,
 ) -> None:
     """Registra list/create/get/update/delete per un'entità con più record
     per azienda (es. sedi, contatti, soci).
@@ -78,6 +92,19 @@ def register_list_crud(
     sezione_dep = _sezione_dependency(sezione)
     query_model = read_model or model
 
+    def _con_verifica(db: Session, azienda_id: UUID, row: Any) -> Any:
+        if verifica_sezione_codice is None:
+            return row
+        stato = leggi_stato_verifica_riga(db, azienda_id, verifica_sezione_codice, row.id)
+        return {
+            **_row_to_dict(row),
+            "verificationStatus": stato["status"],
+            "verificationVersion": stato["version"],
+            "revisionNote": stato["note"],
+            "verifiedAt": stato["verified_at"],
+            "verifiedBy": stato["verified_by"],
+        }
+
     @router.get(path, response_model=list[read_schema], tags=tags)
     def list_items(
         db: Session = Depends(get_db),
@@ -86,7 +113,8 @@ def register_list_crud(
         _sezione: None = Depends(sezione_dep),
     ):
         stmt = select(query_model).where(query_model.azienda_id == ctx.azienda_id).order_by(query_model.created_at)
-        return db.scalars(stmt).all()
+        rows = db.scalars(stmt).all()
+        return [_con_verifica(db, ctx.azienda_id, r) for r in rows]
 
     @router.post(path, response_model=read_schema, status_code=status.HTTP_201_CREATED, tags=tags)
     def create_item(
@@ -100,7 +128,7 @@ def register_list_crud(
         db.add(obj)
         db.commit()
         db.refresh(obj)
-        return _get_owned_or_404(db, query_model, obj.id, ctx.azienda_id)
+        return _con_verifica(db, ctx.azienda_id, _get_owned_or_404(db, query_model, obj.id, ctx.azienda_id))
 
     @router.get(f"{path}/{{item_id}}", response_model=read_schema, tags=tags)
     def get_item(
@@ -110,7 +138,7 @@ def register_list_crud(
         _modulo: None = Depends(modulo_dep),
         _sezione: None = Depends(sezione_dep),
     ):
-        return _get_owned_or_404(db, query_model, item_id, ctx.azienda_id)
+        return _con_verifica(db, ctx.azienda_id, _get_owned_or_404(db, query_model, item_id, ctx.azienda_id))
 
     @router.put(f"{path}/{{item_id}}", response_model=read_schema, tags=tags)
     def update_item(
@@ -126,7 +154,31 @@ def register_list_crud(
             setattr(obj, field, value)
         db.commit()
         db.refresh(obj)
-        return _get_owned_or_404(db, query_model, item_id, ctx.azienda_id)
+        return _con_verifica(db, ctx.azienda_id, _get_owned_or_404(db, query_model, item_id, ctx.azienda_id))
+
+    if verifica_sezione_codice is not None:
+
+        @router.post(f"{path}/{{item_id}}/review", response_model=read_schema, tags=tags)
+        def review_item(
+            item_id: UUID,
+            payload: ReviewDecisionRequest,
+            db: Session = Depends(get_db),
+            ctx: AziendaContext = Depends(require_consulente_ctx),
+            _modulo: None = Depends(modulo_dep),
+            _sezione: None = Depends(sezione_dep),
+        ):
+            _get_owned_or_404(db, model, item_id, ctx.azienda_id)
+            applica_decisione_verifica_riga(
+                db,
+                ctx,
+                verifica_sezione_codice,
+                item_id,
+                decisione=payload.decision,
+                nota=payload.note,
+                expected_version=payload.expectedFieldVersion,
+            )
+            db.commit()
+            return _con_verifica(db, ctx.azienda_id, _get_owned_or_404(db, query_model, item_id, ctx.azienda_id))
 
     @router.delete(f"{path}/{{item_id}}", status_code=status.HTTP_204_NO_CONTENT, tags=tags)
     def delete_item(

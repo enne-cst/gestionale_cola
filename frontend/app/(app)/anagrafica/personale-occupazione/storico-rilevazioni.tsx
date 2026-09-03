@@ -57,7 +57,16 @@ type Stato =
  * stato resta comunque storicizzato lato backend per ciascuna rilevazione
  * (§ app/core/personale_occupazione.py), riusabile se servirà mostrarlo
  * in futuro. */
-export function StoricoRilevazioni({ editing }: { editing: boolean }) {
+export function StoricoRilevazioni({
+  editing,
+  stackedMode = false,
+}: {
+  editing: boolean;
+  // § Correzione 27/28: vero solo quando impilata in "Dati camerali
+  // completi" (§ commento analogo in `RiepilogoPersonaleOccupazione`) —
+  // elimina il border-b di questo blocco.
+  stackedMode?: boolean;
+}) {
   const { ruolo } = useWorkspace();
   const consulente = ruolo === "CONSULENTE";
   const [aperto, setAperto] = useState(false);
@@ -107,7 +116,7 @@ export function StoricoRilevazioni({ editing }: { editing: boolean }) {
     stato.fase === "ok" && dialogoModificaId ? stato.rilevazioniComplete[dialogoModificaId] : undefined;
 
   return (
-    <div className="border-b border-[var(--az-border)] py-6 last:border-b-0">
+    <div className={cn("py-6", !stackedMode && "border-b border-[var(--az-border)] last:border-b-0")}>
       <button
         type="button"
         onClick={() => setAperto((v) => !v)}

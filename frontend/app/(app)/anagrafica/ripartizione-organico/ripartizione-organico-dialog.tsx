@@ -10,14 +10,25 @@ import type { RipartizioneOrganico } from "@/lib/types/anagrafica-iso9001";
 import { createRipartizioneOrganico, updateRipartizioneOrganico, type FormState } from "./actions";
 import { RipartizioneOrganicoFormFields } from "./ripartizione-organico-form-fields";
 
-export function RipartizioneOrganicoDialog({ trigger, dati }: { trigger: ReactNode; dati?: RipartizioneOrganico }) {
+export function RipartizioneOrganicoDialog({
+  trigger,
+  dati,
+  onSaved,
+}: {
+  trigger: ReactNode;
+  dati?: RipartizioneOrganico;
+  onSaved?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const action = dati ? updateRipartizioneOrganico.bind(null, dati.id) : createRipartizioneOrganico;
   const [state, formAction] = useActionState<FormState, FormData>(action, {});
 
   useEffect(() => {
-    if (state.success) setOpen(false);
-  }, [state.success]);
+    if (state.success) {
+      setOpen(false);
+      onSaved?.();
+    }
+  }, [state.success, onSaved]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

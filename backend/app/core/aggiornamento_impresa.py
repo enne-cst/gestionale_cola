@@ -77,12 +77,18 @@ def calcola_indicatori(db: Session, azienda_id: UUID) -> IndicatoriAggiornamento
     partecipazioni = db.scalar(
         select(func.count()).select_from(AnaPartecipazione).where(AnaPartecipazione.azienda_id == azienda_id)
     )
+    ultimo_protocollo = db.scalar(
+        select(func.max(func.coalesce(AnaPraticaCamerale.data_protocollo, AnaPraticaCamerale.data_presentazione)))
+        .select_from(AnaPraticaCamerale)
+        .where(AnaPraticaCamerale.azienda_id == azienda_id)
+    )
 
     return IndicatoriAggiornamentoImpresa(
         pratiche_ultimi_12_mesi=pratiche_12_mesi or 0,
         trasferimenti_quote=trasferimenti_quote or 0,
         trasferimenti_sede=trasferimenti_sede or 0,
         partecipazioni=partecipazioni or 0,
+        ultimo_protocollo=ultimo_protocollo,
     )
 
 

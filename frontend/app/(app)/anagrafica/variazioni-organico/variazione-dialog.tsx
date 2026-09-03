@@ -10,14 +10,25 @@ import type { VariazioneOrganico } from "@/lib/types/anagrafica-iso9001";
 import { createVariazione, updateVariazione, type FormState } from "./actions";
 import { VariazioneFormFields } from "./variazione-form-fields";
 
-export function VariazioneDialog({ trigger, dati }: { trigger: ReactNode; dati?: VariazioneOrganico }) {
+export function VariazioneDialog({
+  trigger,
+  dati,
+  onSaved,
+}: {
+  trigger: ReactNode;
+  dati?: VariazioneOrganico;
+  onSaved?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const action = dati ? updateVariazione.bind(null, dati.id) : createVariazione;
   const [state, formAction] = useActionState<FormState, FormData>(action, {});
 
   useEffect(() => {
-    if (state.success) setOpen(false);
-  }, [state.success]);
+    if (state.success) {
+      setOpen(false);
+      onSaved?.();
+    }
+  }, [state.success, onSaved]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

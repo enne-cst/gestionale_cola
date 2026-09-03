@@ -10,14 +10,25 @@ import type { ComplianceTrasparenza } from "@/lib/types/anagrafica-iso9001";
 import { createElemento, updateElemento, type FormState } from "./actions";
 import { ElementoFormFields } from "./elemento-form-fields";
 
-export function ElementoDialog({ trigger, dati }: { trigger: ReactNode; dati?: ComplianceTrasparenza }) {
+export function ElementoDialog({
+  trigger,
+  dati,
+  onSaved,
+}: {
+  trigger: ReactNode;
+  dati?: ComplianceTrasparenza;
+  onSaved?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const action = dati ? updateElemento.bind(null, dati.id) : createElemento;
   const [state, formAction] = useActionState<FormState, FormData>(action, {});
 
   useEffect(() => {
-    if (state.success) setOpen(false);
-  }, [state.success]);
+    if (state.success) {
+      setOpen(false);
+      onSaved?.();
+    }
+  }, [state.success, onSaved]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

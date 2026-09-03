@@ -10,14 +10,25 @@ import type { IndicatoreEconomico } from "@/lib/types/anagrafica-iso9001";
 import { createIndicatore, updateIndicatore, type FormState } from "./actions";
 import { IndicatoreFormFields } from "./indicatore-form-fields";
 
-export function IndicatoreDialog({ trigger, dati }: { trigger: ReactNode; dati?: IndicatoreEconomico }) {
+export function IndicatoreDialog({
+  trigger,
+  dati,
+  onSaved,
+}: {
+  trigger: ReactNode;
+  dati?: IndicatoreEconomico;
+  onSaved?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const action = dati ? updateIndicatore.bind(null, dati.id) : createIndicatore;
   const [state, formAction] = useActionState<FormState, FormData>(action, {});
 
   useEffect(() => {
-    if (state.success) setOpen(false);
-  }, [state.success]);
+    if (state.success) {
+      setOpen(false);
+      onSaved?.();
+    }
+  }, [state.success, onSaved]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

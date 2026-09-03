@@ -14,7 +14,12 @@ import { cn } from "@/lib/utils";
 import type { FieldState } from "@/lib/types/registro";
 import { formatDate, formatDecimal } from "@/lib/format";
 
-function formattaValore(field: FieldState): string {
+// Esportata (§ Correzione 28, "Dati della sintesi"): la sintesi mostra i
+// valori dei campi a registro senza passare da `FieldRow` (che porta con
+// sé occhietto cliccabile e popover di verifica, entrambi vietati lì —
+// vedi sintesi-panel.tsx), ma la formattazione del valore deve restare
+// la stessa, un solo posto che la definisce.
+export function formattaValore(field: FieldState): string {
   if (field.value === null || field.value === "") return "—";
   if (field.dataType === "date") return formatDate(field.value);
   if (field.dataType === "importo") return formatDecimal(field.value);

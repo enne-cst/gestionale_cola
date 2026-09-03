@@ -11,6 +11,14 @@
 // `WorkspaceShell` per scegliere quale componente montare per un dato
 // `sectionKey`.
 
+// § Correzione 25: "sintesi" resta una `CciaaVistaKey` valida (stesso
+// pannello `CciaaSectionPanel`/`SintesiPanel`, stesso meccanismo di
+// rendering di `WorkspaceShell`) ma non è più aperta da una card della
+// griglia — si apre da `VisualizzaSintesiButton` nel banner "Dati CCIAA",
+// con uno stato di workspace indipendente (`openSintesi`/`closeSintesi` in
+// workspace-provider.tsx) che non tocca `mode`/`openSectionKey`. Nessuna
+// sezione di `sys_elementi`, nessun contributo al conteggio "N di N
+// sezioni completate" (vedi `page.tsx`, `cciaaCards` non la include più).
 export type CciaaVistaKey =
   | "sintesi"
   | "soci"

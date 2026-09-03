@@ -500,6 +500,7 @@ register_list_crud(
     read_schema=FondoInterprofessionaleRead,
     create_schema=FondoInterprofessionaleCreate,
     update_schema=FondoInterprofessionaleUpdate,
+    verifica_sezione_codice=SEZ_FONDO_INTERPROFESSIONALE,
 )
 
 register_list_crud(
@@ -512,6 +513,7 @@ register_list_crud(
     read_schema=DatiGeneraliRead,
     create_schema=DatiGeneraliCreate,
     update_schema=DatiGeneraliUpdate,
+    verifica_sezione_codice=SEZ_DATI_GENERALI,
 )
 
 register_singleton_crud(
@@ -535,6 +537,7 @@ register_list_crud(
     read_schema=OutsourcingRead,
     create_schema=OutsourcingCreate,
     update_schema=OutsourcingUpdate,
+    verifica_sezione_codice=SEZ_OUTSOURCING,
 )
 
 register_list_crud(
@@ -547,6 +550,7 @@ register_list_crud(
     read_schema=SubappaltatoreRead,
     create_schema=SubappaltatoreCreate,
     update_schema=SubappaltatoreUpdate,
+    verifica_sezione_codice=SEZ_SUBAPPALTATORI,
 )
 
 register_list_crud(
@@ -559,6 +563,7 @@ register_list_crud(
     read_schema=FornitoreMaterialiRead,
     create_schema=FornitoreMaterialiCreate,
     update_schema=FornitoreMaterialiUpdate,
+    verifica_sezione_codice=SEZ_FORNITORI_MATERIALI,
 )
 
 register_list_crud(
@@ -571,6 +576,7 @@ register_list_crud(
     read_schema=LavoratoreAutonomoRead,
     create_schema=LavoratoreAutonomoCreate,
     update_schema=LavoratoreAutonomoUpdate,
+    verifica_sezione_codice=SEZ_LAVORATORI_AUTONOMI,
 )
 
 # --- Categoria Trend ---
@@ -586,6 +592,7 @@ register_list_crud(
     read_schema=RipartizioneOrganicoRead,
     create_schema=RipartizioneOrganicoCreate,
     update_schema=RipartizioneOrganicoUpdate,
+    verifica_sezione_codice=SEZ_RIPARTIZIONE_ORGANICO,
 )
 
 register_list_crud(
@@ -599,6 +606,7 @@ register_list_crud(
     read_schema=IndicatoreEconomicoRead,
     create_schema=IndicatoreEconomicoCreate,
     update_schema=IndicatoreEconomicoUpdate,
+    verifica_sezione_codice=SEZ_INDICATORI_ECONOMICI,
 )
 
 register_list_crud(
@@ -612,6 +620,7 @@ register_list_crud(
     read_schema=VariazioneOrganicoRead,
     create_schema=VariazioneOrganicoCreate,
     update_schema=VariazioneOrganicoUpdate,
+    verifica_sezione_codice=SEZ_VARIAZIONI_ORGANICO,
 )
 
 # --- Categoria Assicurazioni ---
@@ -626,6 +635,7 @@ register_list_crud(
     read_schema=AssicurazioneRead,
     create_schema=AssicurazioneCreate,
     update_schema=AssicurazioneUpdate,
+    verifica_sezione_codice=SEZ_ASSICURAZIONI,
 )
 
 # --- Categoria Altre informazioni ---
@@ -654,6 +664,7 @@ register_list_crud(
     read_schema=ContrattoReteRead,
     create_schema=ContrattoReteCreate,
     update_schema=ContrattoReteUpdate,
+    verifica_sezione_codice=SEZ_CONTRATTI_RETE,
 )
 
 register_list_crud(
@@ -666,6 +677,7 @@ register_list_crud(
     read_schema=ComplianceTrasparenzaRead,
     create_schema=ComplianceTrasparenzaCreate,
     update_schema=ComplianceTrasparenzaUpdate,
+    verifica_sezione_codice=SEZ_COMPLIANCE_TRASPARENZA,
 )
 
 register_list_crud(
@@ -678,6 +690,7 @@ register_list_crud(
     read_schema=ProcedimentoLegaleRead,
     create_schema=ProcedimentoLegaleCreate,
     update_schema=ProcedimentoLegaleUpdate,
+    verifica_sezione_codice=SEZ_PROCEDIMENTI_LEGALI,
 )
 
 register_list_crud(
@@ -690,6 +703,7 @@ register_list_crud(
     read_schema=VisitaEnteControlloRead,
     create_schema=VisitaEnteControlloCreate,
     update_schema=VisitaEnteControlloUpdate,
+    verifica_sezione_codice=SEZ_VISITE_ENTI_CONTROLLO,
 )
 
 # ---------------------------------------------------------------------------

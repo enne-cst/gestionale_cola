@@ -14,18 +14,23 @@ export function FornitoreDialog({
   trigger,
   dati,
   stati,
+  onSaved,
 }: {
   trigger: ReactNode;
   dati?: FornitoreMateriali;
   stati: CatalogoVoce[];
+  onSaved?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const action = dati ? updateFornitore.bind(null, dati.id) : createFornitore;
   const [state, formAction] = useActionState<FormState, FormData>(action, {});
 
   useEffect(() => {
-    if (state.success) setOpen(false);
-  }, [state.success]);
+    if (state.success) {
+      setOpen(false);
+      onSaved?.();
+    }
+  }, [state.success, onSaved]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

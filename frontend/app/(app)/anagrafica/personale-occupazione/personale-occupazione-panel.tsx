@@ -32,16 +32,35 @@ import { StoricoRilevazioni } from "./storico-rilevazioni";
  * volta dentro, "Annulla" e "Salva modifiche" hanno lo stesso effetto
  * (uscire dalla modalità modifica) perché non c'è nulla da annullare — la
  * coppia esiste per l'uniformità visiva con `SectionFooter`, richiesta
- * esplicitamente dall'utente. */
-export function PersonaleOccupazionePanel() {
+ * esplicitamente dall'utente.
+ *
+ * § Correzione 27 ("Dati camerali completi"): `editing`/`onEditingChange`
+ * sono opzionali — quando assenti (ogni uso preesistente, card aperta da
+ * sola) il componente gestisce lo stato da sé come prima. Quando la card è
+ * impilata nella pagina che mostra tutte le sezioni CCIAA, chi la monta
+ * (`CciaaSectionPanel`) passa il proprio stato e imposta `hideBanner` per
+ * spostare "Modifica" nell'intestazione condivisa invece di ripetere il
+ * banner legenda dopo ogni sezione — il banner in modifica (Annulla/Salva)
+ * resta comunque, qui, perché resta indispensabile per uscirne. */
+export function PersonaleOccupazionePanel({
+  editing: editingControllata,
+  onEditingChange,
+  hideBanner = false,
+}: {
+  editing?: boolean;
+  onEditingChange?: (value: boolean) => void;
+  hideBanner?: boolean;
+} = {}) {
   const { ruolo } = useWorkspace();
   const consulente = ruolo === "CONSULENTE";
-  const [editing, setEditing] = useState(false);
+  const [editingPropria, setEditingPropria] = useState(false);
+  const editing = editingControllata ?? editingPropria;
+  const setEditing = onEditingChange ?? setEditingPropria;
 
   return (
     <>
-      <RiepilogoPersonaleOccupazione editing={editing} />
-      <StoricoRilevazioni editing={editing} />
+      <RiepilogoPersonaleOccupazione editing={editing} stackedMode={hideBanner} />
+      <StoricoRilevazioni editing={editing} stackedMode={hideBanner} />
 
       {/* § "banner" nello stile di `SectionFooter`, ma contenuto nell'area
           scrollabile del pannello (non un vero sibling dopo lo scroll come
@@ -56,7 +75,12 @@ export function PersonaleOccupazionePanel() {
           quindi i due pulsanti condividono lo stesso effetto (uscire dalla
           modalità modifica); la coppia esiste per l'uniformità visiva e di
           comportamento con `SectionFooter`, non per introdurre un salvataggio
-          fittizio. */}
+          fittizio.
+          § richiesta esplicita ("Dati camerali completi" > Annulla/Salva
+          restano dove stava "Modifica"): impilata (`hideBanner` vero),
+          questo banner non va mai montato, nemmeno in modifica — quei due
+          pulsanti vivono ora nell'header di `CciaaSectionPanel`. */}
+      {!hideBanner && (
       <div className="mt-4 border-t border-[var(--az-border)]">
         {editing ? (
           <div className="flex min-h-[72px] items-center justify-end gap-3">
@@ -94,6 +118,7 @@ export function PersonaleOccupazionePanel() {
           </div>
         )}
       </div>
+      )}
     </>
   );
 }

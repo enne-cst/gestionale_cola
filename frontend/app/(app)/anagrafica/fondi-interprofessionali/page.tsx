@@ -1,26 +1,10 @@
-import { PageHeader } from "@/components/page-header";
-import { SectionStatusBadge } from "@/components/section-status-badge";
-import { apiFetch } from "@/lib/api";
-import { SEZIONE_ICONE } from "@/lib/anagrafica-icons";
-import type { CatalogoVoce, FondoInterprofessionale } from "@/lib/types/anagrafica-iso9001";
+import { redirect } from "next/navigation";
 
-import { FondiTable } from "./fondi-table";
-
-export default async function FondiInterprofessionaliPage() {
-  const [fondi, statiIscrizione] = await Promise.all([
-    apiFetch<FondoInterprofessionale[]>("/api/anagrafica/fondi-interprofessionali"),
-    apiFetch<CatalogoVoce[]>("/api/anagrafica/cataloghi/stati-iscrizione-fondo"),
-  ]);
-
-  return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        icon={SEZIONE_ICONE["fondi-interprofessionali"]}
-        title="Fondi interprofessionali"
-        subtitle="Storico delle iscrizioni ai fondi interprofessionali."
-        badge={<SectionStatusBadge compilata={fondi.length > 0} />}
-      />
-      <FondiTable fondi={fondi} statiIscrizione={statiIscrizione} />
-    </div>
-  );
+// § migrazione alla verifica per riga nel workspace (§ "falle tutte", stesso
+// trattamento delle sezioni a registro campo-per-campo): modifica e
+// consultazione sono ora nel drawer aperto dalla card della griglia
+// "Organizzazione". Questa route resta solo per non rompere i link
+// esistenti che puntano allo slug.
+export default function FondiInterprofessionaliPage() {
+  redirect("/anagrafica");
 }

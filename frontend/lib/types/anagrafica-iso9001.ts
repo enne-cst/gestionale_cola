@@ -2,11 +2,23 @@
 // backend/app/schemas/anagrafica_iso9001.py: le sezioni dell'Anagrafica
 // Aziendale soggette all'abbonamento ISO 9001 (cap. 4.2.2/4.2.3).
 
+import type { VerificationStatus } from "@/lib/types/registro";
+
 interface ConMetadati {
   id: string;
   azienda_id: string;
   created_at: string;
   updated_at: string;
+}
+
+// 5 campi condivisi da ogni sezione "a elenco" (§ backend
+// `_ConVerificaRiga` in app/schemas/anagrafica_iso9001.py, "falle tutte").
+export interface ConVerificaRiga {
+  verificationStatus: VerificationStatus | null;
+  verificationVersion: number | null;
+  revisionNote: string | null;
+  verifiedAt: string | null;
+  verifiedBy: string | null;
 }
 
 export interface CatalogoVoce {
@@ -35,7 +47,7 @@ export interface PosizioniAssicurativePrevidenziali extends ConMetadati {
 }
 
 // --- Fondo interprofessionale (elenco) ---
-export interface FondoInterprofessionale extends ConMetadati {
+export interface FondoInterprofessionale extends ConMetadati, ConVerificaRiga {
   fondo_interprofessionale: string;
   stato_iscrizione_id: string;
   data_adesione: string;
@@ -45,7 +57,7 @@ export interface FondoInterprofessionale extends ConMetadati {
 }
 
 // --- Dati generali (elenco, una riga per anno) ---
-export interface DatiGenerali extends ConMetadati {
+export interface DatiGenerali extends ConMetadati, ConVerificaRiga {
   anno_riferimento: number;
   numero_addetti: number;
   numero_dipendenti: number;
@@ -55,7 +67,7 @@ export interface DatiGenerali extends ConMetadati {
 }
 
 // --- Ripartizione organico (elenco, una riga per anno) + percentuali ---
-export interface RipartizioneOrganico extends ConMetadati {
+export interface RipartizioneOrganico extends ConMetadati, ConVerificaRiga {
   anno_riferimento: number;
   numero_amministrativi: number;
   numero_project_manager: number;
@@ -101,7 +113,7 @@ export interface TurniLavoro extends ConMetadati {
 }
 
 // --- Outsourcing (elenco) ---
-export interface Outsourcing extends ConMetadati {
+export interface Outsourcing extends ConMetadati, ConVerificaRiga {
   processo_attivita_affidata: string;
   data_inizio: string;
   data_fine: string | null;
@@ -112,7 +124,7 @@ export interface Outsourcing extends ConMetadati {
 }
 
 // --- Subappaltatori (elenco) ---
-export interface Subappaltatore extends ConMetadati {
+export interface Subappaltatore extends ConMetadati, ConVerificaRiga {
   ragione_sociale: string;
   codice_fiscale_partita_iva: string;
   categoria_lavori: string;
@@ -125,7 +137,7 @@ export interface Subappaltatore extends ConMetadati {
 }
 
 // --- Fornitori di materiali (elenco) ---
-export interface FornitoreMateriali extends ConMetadati {
+export interface FornitoreMateriali extends ConMetadati, ConVerificaRiga {
   ragione_sociale: string;
   referente: string;
   telefono: string;
@@ -141,7 +153,7 @@ export interface FornitoreMateriali extends ConMetadati {
 }
 
 // --- Lavoratori autonomi (elenco) ---
-export interface LavoratoreAutonomo extends ConMetadati {
+export interface LavoratoreAutonomo extends ConMetadati, ConVerificaRiga {
   nominativo_ragione_sociale: string;
   codice_fiscale_partita_iva: string;
   mansione: string;
@@ -154,7 +166,7 @@ export interface LavoratoreAutonomo extends ConMetadati {
 }
 
 // --- Indicatori economici (elenco, una riga per anno) + scostamento ---
-export interface IndicatoreEconomico extends ConMetadati {
+export interface IndicatoreEconomico extends ConMetadati, ConVerificaRiga {
   anno_riferimento: number;
   fatturato: string;
   obiettivo: string;
@@ -163,7 +175,7 @@ export interface IndicatoreEconomico extends ConMetadati {
 }
 
 // --- Variazioni organico (elenco, una riga per anno) + calcoli ---
-export interface VariazioneOrganico extends ConMetadati {
+export interface VariazioneOrganico extends ConMetadati, ConVerificaRiga {
   anno_riferimento: number;
   numero_nuove_assunzioni: number;
   numero_cessazioni: number;
@@ -175,7 +187,7 @@ export interface VariazioneOrganico extends ConMetadati {
 }
 
 // --- Assicurazioni (elenco) ---
-export interface Assicurazione extends ConMetadati {
+export interface Assicurazione extends ConMetadati, ConVerificaRiga {
   tipologia_polizza: string;
   compagnia_assicurativa: string;
   numero_polizza: string;
@@ -197,7 +209,7 @@ export interface ContrattiRetePresenza extends ConMetadati {
   presenza: boolean;
 }
 
-export interface ContrattoRete extends ConMetadati {
+export interface ContrattoRete extends ConMetadati, ConVerificaRiga {
   numero_registrazione: string;
   numero_repertorio: string;
   nome_contratto: string;
@@ -208,7 +220,7 @@ export interface ContrattoRete extends ConMetadati {
 }
 
 // --- Compliance e trasparenza (elenco) ---
-export interface ComplianceTrasparenza extends ConMetadati {
+export interface ComplianceTrasparenza extends ConMetadati, ConVerificaRiga {
   elemento: string;
   presenza: boolean;
   data_adozione: string | null;
@@ -217,7 +229,7 @@ export interface ComplianceTrasparenza extends ConMetadati {
 }
 
 // --- Procedimenti legali (elenco) ---
-export interface ProcedimentoLegale extends ConMetadati {
+export interface ProcedimentoLegale extends ConMetadati, ConVerificaRiga {
   tipologia_procedimento: string;
   controparte: string;
   data_inizio: string;
@@ -229,7 +241,7 @@ export interface ProcedimentoLegale extends ConMetadati {
 }
 
 // --- Visite enti di controllo (elenco) ---
-export interface VisitaEnteControllo extends ConMetadati {
+export interface VisitaEnteControllo extends ConMetadati, ConVerificaRiga {
   ente: string;
   tipologia_visita: string;
   data_visita: string;

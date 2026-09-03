@@ -15,7 +15,6 @@ import {
   HardHat,
   History,
   Landmark,
-  LayoutDashboard,
   MapPin,
   Network,
   Phone,
@@ -34,9 +33,10 @@ import type { LucideIcon } from "lucide-react";
 
 // Icona per ciascuna delle 10 card della griglia "Dati CCIAA" (§6.3 del
 // protocollo), chiavi = CciaaVistaKey più "capitale-sociale" (card semplice,
-// apre direttamente la sezione a registro con lo stesso nome).
+// apre direttamente la sezione a registro con lo stesso nome). "sintesi" non
+// è più tra queste (§ Correzione 25: è una funzione del banner, non una
+// card — vedi VisualizzaSintesiButton).
 export const CCIAA_CARD_ICONE: Record<string, LucideIcon> = {
-  sintesi: LayoutDashboard,
   sede: MapPin,
   statuto: Building2,
   "capitale-sociale": Landmark,

@@ -124,6 +124,7 @@ export function SectionContent({
   onClose,
   embedded = false,
   hideFooter = false,
+  stackedMode = false,
   groupTitleOverrides,
 }: {
   sectionKey: string;
@@ -140,6 +141,14 @@ export function SectionContent({
   // Amministratori/Sindaci): banner di modifica e legenda vanno in fondo
   // alla pagina, non tra i campi e la tabella (vedi CciaaSectionPanel).
   hideFooter?: boolean;
+  // § Correzione 27 ("Dati camerali completi"): quando la sezione è
+  // impilata nella pagina che mostra tutte le card CCIAA una sotto
+  // l'altra, ripetere il banner legenda + "Modifica dati" dopo ognuna non
+  // ha senso (§ richiesta esplicita dell'utente) — con `stackedMode` il
+  // pulsante "Modifica" si sposta nell'intestazione (allineato al titolo,
+  // sul margine destro) e il footer resta nascosto finché non si è
+  // davvero in modifica (dove Annulla/Salva restano indispensabili).
+  stackedMode?: boolean;
   // Testo alternativo, solo di visualizzazione, per il titolo di un gruppo
   // (chiave = `group.key`). Non tocca i dati né la sezione condivisa: serve
   // quando lo stesso gruppo compare in più card composite con un'etichetta
@@ -147,9 +156,14 @@ export function SectionContent({
   // "amministratori" in CciaaSectionPanel, che non deve toccare "sindaci").
   groupTitleOverrides?: Partial<Record<string, string>>;
 }) {
-  const { state, ruolo, ensureLoaded, reload, updateField, toggleGroupVisibility } = useWorkspace();
+  const { state, ruolo, ensureLoaded, reload, updateField, toggleGroupVisibility, enterEdit, requestDiscard, save } =
+    useWorkspace();
   const entry = state.sections[sectionKey];
   const consulente = ruolo === "CONSULENTE";
+
+  async function onSalvaHeader() {
+    await save(sectionKey);
+  }
 
   useEffect(() => {
     ensureLoaded(sectionKey);
@@ -181,7 +195,7 @@ export function SectionContent({
       </div>
     )
   ) : (
-    <div className="flex items-start justify-between gap-4 border-b border-[#edf1f7] px-[30px] py-6">
+    <div className={cn("flex items-start justify-between gap-4 px-[30px] py-6", !stackedMode && "border-b border-[#edf1f7]")}>
       <div className="min-w-0">
         <h2 className="text-2xl font-extrabold tracking-tight text-[var(--az-ink)]">
           {titolo}
@@ -194,6 +208,41 @@ export function SectionContent({
         )}
       </div>
       <div className="flex shrink-0 items-center gap-2">
+        {stackedMode &&
+          (entry?.editing ? (
+            // § richiesta esplicita ("Dati camerali completi" > i tasti
+            // Annulla/Salva devono restare dove stava "Modifica", non
+            // spostarsi sotto la sezione): stessa azione di
+            // `SectionFooter` (requestDiscard/save), montata qui invece
+            // che in fondo — il footer vero e proprio resta quindi sempre
+            // nascosto in modalità impilata (vedi sotto).
+            <>
+              <button
+                type="button"
+                onClick={() => requestDiscard(sectionKey)}
+                disabled={entry.saving}
+                className="inline-flex h-9 items-center rounded-[7px] border border-[var(--az-blue)] bg-white px-3 text-xs font-bold text-[var(--az-blue)] hover:bg-[#f5f8ff] disabled:opacity-60"
+              >
+                Annulla
+              </button>
+              <button
+                type="button"
+                onClick={onSalvaHeader}
+                disabled={entry.saving || Object.keys(entry.fieldErrors).length > 0}
+                className="inline-flex h-9 items-center rounded-[7px] bg-[var(--az-blue)] px-3 text-xs font-bold text-white hover:bg-[var(--az-blue-dark)] disabled:opacity-60"
+              >
+                {entry.saving ? "Salvataggio…" : "Salva modifiche"}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => enterEdit(sectionKey)}
+              className="inline-flex h-9 items-center gap-2 rounded-[7px] border border-[#cedaf0] bg-white px-3 text-xs font-bold text-[var(--az-blue)] hover:bg-[#f6f9ff]"
+            >
+              ✎ Modifica
+            </button>
+          ))}
         {headerActions}
         {onClose && (
           <button
@@ -269,7 +318,15 @@ export function SectionContent({
             <section
               key={group.key}
               className={cn(
-                "border-b border-[var(--az-border)] py-6",
+                "py-6",
+                // § Correzione 27/28 ("Dati camerali completi" > elimina le
+                // righe di separazione interne, tranne le 9 che separano le
+                // card impilate — quelle vivono nel `divide-y` esterno di
+                // `DatiCameraliCompletiView`, mai qui): impilata, questo
+                // bordo tra gruppi di campi (o tra campi e una tabella
+                // annidata subito sotto, montata dal chiamante) resta
+                // eliminato sempre, non solo sull'ultimo gruppo.
+                !stackedMode && "border-b border-[var(--az-border)]",
                 modificando && "border-0 py-[22px]",
                 // § correzione grafica "Attività, albi, ruoli e licenze" >
                 // blocco "Attività economica": aggancio per le regole CSS
@@ -359,7 +416,12 @@ export function SectionContent({
                         // sempre. Scoped a questo unico campo di questa
                         // sezione, nessun altro campo della piattaforma è
                         // toccato.
-                        multiline={sectionKey === "attivita-economica" && field.key === "descrizione_attivita_esercitata"}
+                        multiline={
+                          (sectionKey === "attivita-economica" && field.key === "descrizione_attivita_esercitata") ||
+                          (sectionKey === "contratto-lavoro" && field.key === "note") ||
+                          (sectionKey === "turni-lavoro" &&
+                            ["fasce_orarie", "rotazione_turni", "note"].includes(field.key))
+                        }
                       />
                     ),
                   )}
@@ -386,7 +448,10 @@ export function SectionContent({
         })}
       </div>
 
-      {!hideFooter && <SectionFooter sectionKey={sectionKey} embedded={embedded} />}
+      {/* § richiesta esplicita: impilata, Annulla/Salva vivono nell'header
+          (vedi sopra) — il footer in fondo non va mai montato qui, nemmeno
+          in modifica. */}
+      {!hideFooter && !stackedMode && <SectionFooter sectionKey={sectionKey} embedded={embedded} />}
     </div>
   );
 }

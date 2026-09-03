@@ -24,6 +24,12 @@ class IndicatoriAggiornamentoImpresa(_OrmModel):
     trasferimenti_quote: int
     trasferimenti_sede: int
     partecipazioni: int
+    # § Correzione 26 (campo "Data ultimo protocollo" della Sintesi
+    # camerale, sottosezione DATI ANAGRAFICI): data di protocollo più
+    # recente tra le pratiche camerali dell'azienda, calcolata qui invece
+    # che aggiunta come colonna — nessun dato nuovo da salvare, stessa
+    # tabella `ana_pratiche_camerali` già letta da `pratiche_ultimi_12_mesi`.
+    ultimo_protocollo: date | None = None
 
 
 # ===========================================================================

@@ -4,6 +4,8 @@ import { PencilIcon, ScaleIcon } from "lucide-react";
 
 import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { DeleteButton } from "@/components/delete-button";
+import { RigaIso9001VerificationPopover } from "@/components/registro/riga-iso9001-verification-popover";
+import { useWorkspace } from "@/components/registro/workspace-provider";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { catalogoLabel } from "@/lib/catalogo-helpers";
@@ -13,12 +15,25 @@ import type { CatalogoVoce, ProcedimentoLegale } from "@/lib/types/anagrafica-is
 import { deleteProcedimento } from "./actions";
 import { ProcedimentoDialog } from "./procedimento-dialog";
 
-export function ProcedimentiTable({ dati, stati }: { dati: ProcedimentoLegale[]; stati: CatalogoVoce[] }) {
+const RESOURCE_PATH = "procedimenti-legali";
+
+export function ProcedimentiTable({
+  dati,
+  stati,
+  onChanged,
+}: {
+  dati: ProcedimentoLegale[];
+  stati: CatalogoVoce[];
+  onChanged?: () => void;
+}) {
+  const { ruolo } = useWorkspace();
+  const consulente = ruolo === "CONSULENTE";
+
   return (
     <DataTableCard
       title="Procedimenti legali"
       count={dati.length}
-      addTrigger={<ProcedimentoDialog stati={stati} trigger={<AddRowButton icon={ScaleIcon} />} />}
+      addTrigger={<ProcedimentoDialog stati={stati} onSaved={onChanged} trigger={<AddRowButton icon={ScaleIcon} />} />}
     >
       {dati.length === 0 ? (
         <EmptyTableMessage>Nessun procedimento registrato.</EmptyTableMessage>
@@ -30,6 +45,7 @@ export function ProcedimentiTable({ dati, stati }: { dati: ProcedimentoLegale[];
               <TableHead>Controparte</TableHead>
               <TableHead>Stato</TableHead>
               <TableHead>Data inizio</TableHead>
+              <TableHead className="w-16">Verifica</TableHead>
               <TableHead className="w-24" />
             </TableRow>
           </TableHeader>
@@ -40,10 +56,20 @@ export function ProcedimentiTable({ dati, stati }: { dati: ProcedimentoLegale[];
                 <TableCell>{riga.controparte}</TableCell>
                 <TableCell>{catalogoLabel(stati, riga.stato_id)}</TableCell>
                 <TableCell>{formatDate(riga.data_inizio)}</TableCell>
+                <TableCell>
+                  <RigaIso9001VerificationPopover
+                    resourcePath={RESOURCE_PATH}
+                    riga={riga}
+                    nomeRiga={riga.tipologia_procedimento}
+                    consulente={consulente}
+                    onDecided={() => onChanged?.()}
+                  />
+                </TableCell>
                 <TableCell className="flex justify-end gap-1">
                   <ProcedimentoDialog
                     dati={riga}
                     stati={stati}
+                    onSaved={onChanged}
                     trigger={
                       <Button variant="ghost" size="icon" aria-label="Modifica">
                         <PencilIcon className="size-4" />
@@ -53,6 +79,7 @@ export function ProcedimentiTable({ dati, stati }: { dati: ProcedimentoLegale[];
                   <DeleteButton
                     action={deleteProcedimento.bind(null, riga.id)}
                     confirmMessage={`Eliminare il procedimento "${riga.tipologia_procedimento}"?`}
+                    onDeleted={onChanged}
                   />
                 </TableCell>
               </TableRow>

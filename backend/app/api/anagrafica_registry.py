@@ -32,6 +32,7 @@ from app.core.registro_campi import (
     ultime_modifiche,
     valida_campo,
     valuta_qualita,
+    verifica_abbonamento_sezione,
     verifica_coerenza_affidatario_revisione_legale,
 )
 from app.database import get_db
@@ -91,6 +92,7 @@ def leggi_sezione(
     _modulo: None = Depends(_modulo_dep),
 ):
     sezione = _sezione_o_404(section_key)
+    verifica_abbonamento_sezione(db, ctx, sezione)
     row = _carica_record(db, ctx, sezione)
     return costruisci_sezione(db, ctx, sezione, row=row)
 
@@ -116,6 +118,7 @@ def salva_sezione(
     confirm_riduzione_sindaci_effettivi: bool = False,
 ):
     sezione = _sezione_o_404(section_key)
+    verifica_abbonamento_sezione(db, ctx, sezione)
     row = _carica_record(db, ctx, sezione)
 
     # Concorrenza ottimistica (§15.6): la sezione appena creata (row is None,
@@ -233,6 +236,7 @@ def imposta_visibilita_campo(
     _modulo: None = Depends(_modulo_dep),
 ):
     sezione = _sezione_o_404(section_key)
+    verifica_abbonamento_sezione(db, ctx, sezione)
     row = _carica_record(db, ctx, sezione)
     # Nessun guard "sezione non compilata": la visibilità è una
     # configurazione autonoma (§13.3) e deve poter nascondere anche un campo
@@ -255,6 +259,7 @@ def decidi_verifica_campo(
     _modulo: None = Depends(_modulo_dep),
 ):
     sezione = _sezione_o_404(section_key)
+    verifica_abbonamento_sezione(db, ctx, sezione)
     row = _carica_record(db, ctx, sezione)
     # Nessun guard "sezione non compilata": se il campo è vuoto (inclusa una
     # sezione mai salvata) `applica_decisione_verifica` risponde già 409

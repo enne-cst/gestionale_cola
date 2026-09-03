@@ -14,18 +14,23 @@ export function SubappaltatoreDialog({
   trigger,
   dati,
   stati,
+  onSaved,
 }: {
   trigger: ReactNode;
   dati?: Subappaltatore;
   stati: CatalogoVoce[];
+  onSaved?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const action = dati ? updateSubappaltatore.bind(null, dati.id) : createSubappaltatore;
   const [state, formAction] = useActionState<FormState, FormData>(action, {});
 
   useEffect(() => {
-    if (state.success) setOpen(false);
-  }, [state.success]);
+    if (state.success) {
+      setOpen(false);
+      onSaved?.();
+    }
+  }, [state.success, onSaved]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

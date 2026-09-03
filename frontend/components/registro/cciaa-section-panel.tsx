@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { GavelIcon, HandshakeIcon, ShieldCheckIcon } from "lucide-react";
 
@@ -11,10 +11,12 @@ import { UnitaLocaliTable } from "@/app/(app)/anagrafica/unita-locali/unita-loca
 import { IncaricoTable } from "@/components/registro/incarico-table";
 import { SectionContent } from "@/components/registro/section-content";
 import { SectionFooter } from "@/components/registro/section-footer";
+import { SintesiFooter } from "@/components/registro/sintesi-footer";
 import { SintesiPanel } from "@/components/registro/sintesi-panel";
 import { StatoPill } from "@/components/registro/stato-pill";
 import { useWorkspace } from "@/components/registro/workspace-provider";
 import { TITOLO_VISTA_CCIAA, type CciaaVistaKey } from "@/lib/cciaa-viste";
+import { cn } from "@/lib/utils";
 
 // Vista -> sectionKey il cui SectionFooter (legenda + banner di modifica)
 // va montato in fondo al pannello, come sibling dopo l'area di scroll —
@@ -57,8 +59,14 @@ const CAMPO_PRINCIPALE_VISTA: Partial<Record<CciaaVistaKey, string>> = {
   sindaci: "assetto_controllo_in_carica",
 };
 
-const SOTTOTITOLO_VISTA_CCIAA: Record<CciaaVistaKey, string> = {
-  sintesi: "Indicatori non presenti nelle altre sezioni, in sola lettura",
+// § Correzione 26: "sintesi" non ha più un sottotitolo statico qui — il
+// prototipo ne mostra uno derivato dal tipo di visura importata
+// ("VISURA ORDINARIA SOCIETA' DI CAPITALE"), ma quella pipeline non
+// esiste ancora (§ Correzione 25/26, nessuna riga reale in
+// `sys_importazioni_visure_cciaa` finché "Carica nuova visura" non è
+// costruita) — omesso invece di un valore statico non veritiero (§19
+// "campi inventati"), non una svista.
+const SOTTOTITOLO_VISTA_CCIAA: Partial<Record<CciaaVistaKey, string>> = {
   soci: "Elenco dei soci e titolari di diritti su azioni e quote",
   amministratori: "Organo amministrativo in carica ed elenco degli amministratori",
   sindaci: "Organo di controllo ed elenco di sindaci e revisori",
@@ -194,6 +202,10 @@ function AvvisoNumeroUnitaLocali() {
 function ContenutoVista({
   vistaKey,
   campoPrincipale,
+  editingLocale,
+  onEditingLocaleChange,
+  nascondiBannerLocale,
+  stackedMode = false,
 }: {
   vistaKey: CciaaVistaKey;
   // Valore corrente del campo principale della sezione (§ Correzione 04
@@ -204,6 +216,21 @@ function ContenutoVista({
   // (quelli già filtrati dal backend). Vedi `CAMPO_PRINCIPALE_VISTA` per
   // quale campo, di quale sezione, ciascuna vista legge.
   campoPrincipale?: string | null;
+  // § Correzione 27: solo per "personale-occupazione"/"aggiornamento-impresa"
+  // (le uniche due viste il cui banner "Modifica dati" non vive in un vero
+  // `state.sections[...]`, ma in uno stato locale del proprio pannello —
+  // vedi `PersonaleOccupazionePanel`/`AggiornamentoImpresaPanel`): passati
+  // da `CciaaSectionPanel` solo quando è impilata in "Dati camerali
+  // completi", altrimenti ciascun pannello gestisce lo stato da sé.
+  editingLocale?: boolean;
+  onEditingLocaleChange?: (value: boolean) => void;
+  nascondiBannerLocale?: boolean;
+  // § Correzione 27/28 seguito: vero solo quando questa vista è impilata in
+  // "Dati camerali completi" — propagato al blocco `SectionContent`
+  // annidato qui sotto perché elimini anche lì ogni linea di separazione
+  // interna (vedi `stackedMode` in `SectionContent`), non solo quella del
+  // proprio header già gestita più sopra.
+  stackedMode?: boolean;
 }) {
   const { state, updateField } = useWorkspace();
   switch (vistaKey) {
@@ -221,7 +248,7 @@ function ContenutoVista({
       const numeroSoci = numeroSociRaw ? Number(numeroSociRaw) : 0;
       return (
         <>
-          <SectionContent sectionKey="elenco-soci-estremi" embedded hideFooter />
+          <SectionContent sectionKey="elenco-soci-estremi" embedded hideFooter stackedMode={stackedMode} />
           <section className="py-2">
             <IncaricoTable
               titolo="Soci"
@@ -255,6 +282,7 @@ function ContenutoVista({
             embedded
             hideFooter
             groupTitleOverrides={{ "amministrazione-controllo": "Amministrazione" }}
+            stackedMode={stackedMode}
           />
           {campoPrincipale && (
             <section className="py-2">
@@ -326,7 +354,7 @@ function ContenutoVista({
            * gruppo unico si chiama già "Organi di controllo" come la
            * sezione stessa, nessun `groupTitleOverrides` necessario (vedi
            * `sottotitoloDuplicato` in section-content.tsx). */}
-          <SectionContent sectionKey="organi-controllo" embedded hideFooter />
+          <SectionContent sectionKey="organi-controllo" embedded hideFooter stackedMode={stackedMode} />
           {proponiAssettoCombinato && (
             <div className="mt-3 flex items-center justify-between gap-3 rounded-[8px] border border-[#cedaf0] bg-[#f5f8ff] px-4 py-3 text-sm text-[var(--az-ink)]">
               <span>
@@ -384,7 +412,7 @@ function ContenutoVista({
     case "attivita-albi":
       return (
         <>
-          <SectionContent sectionKey="attivita-economica" embedded hideFooter />
+          <SectionContent sectionKey="attivita-economica" embedded hideFooter stackedMode={stackedMode} />
           {/* § richiesta esplicita: tabella "Codici ATECO" rimossa da
               questo pannello (§ convenzione "rimozione rimandata a
               decisione esplicita" — qui la decisione è stata esplicita).
@@ -402,7 +430,7 @@ function ContenutoVista({
               EmbeddedResourceBlock (niente panoramicaSlug/PinRecordButton
               per questa risorsa, fuori scopo per questa correzione): la
               stessa fascia di spaziatura/bordo è replicata qui a mano. */}
-          <section className="border-b border-[var(--az-border)] py-6 last:border-b-0">
+          <section className={cn("py-6", !stackedMode && "border-b border-[var(--az-border)] last:border-b-0")}>
             <TitoliAbilitativiTable sectionKey="attivita-economica" />
           </section>
         </>
@@ -418,7 +446,13 @@ function ContenutoVista({
       // perché non passa dal motore campo-per-campo). "Addetti da visura" e
       // "Addetti per comune" sono state messe insieme: il comune si
       // compila in fondo allo stesso form di "Addetti da visura".
-      return <PersonaleOccupazionePanel />;
+      return (
+        <PersonaleOccupazionePanel
+          editing={editingLocale}
+          onEditingChange={onEditingLocaleChange}
+          hideBanner={nascondiBannerLocale}
+        />
+      );
     case "sedi-secondarie":
       // § Correzione 23: estende ana_sedi (già l'entità autorevole per le
       // sedi, sede legale inclusa — non toccata da questa card) invece di
@@ -427,9 +461,9 @@ function ContenutoVista({
       // tabella riepilogativa, stesso pattern di "attivita-albi" sopra.
       return (
         <>
-          <SectionContent sectionKey="unita-locali" embedded hideFooter />
+          <SectionContent sectionKey="unita-locali" embedded hideFooter stackedMode={stackedMode} />
           <AvvisoNumeroUnitaLocali />
-          <section className="border-b border-[var(--az-border)] py-6 last:border-b-0">
+          <section className={cn("py-6", !stackedMode && "border-b border-[var(--az-border)] last:border-b-0")}>
             <UnitaLocaliTable sectionKey="unita-locali" />
           </section>
         </>
@@ -440,7 +474,13 @@ function ContenutoVista({
       // l'embed di "informazioni-societarie" (sezione sbagliata, § nota
       // storica nella mappatura CCIAA — quella sezione resta comunque
       // raggiungibile dalla propria card "Informazioni societarie").
-      return <AggiornamentoImpresaPanel />;
+      return (
+        <AggiornamentoImpresaPanel
+          editing={editingLocale}
+          onEditingChange={onEditingLocaleChange}
+          hideBanner={nascondiBannerLocale}
+        />
+      );
   }
 }
 
@@ -453,13 +493,24 @@ export function CciaaSectionPanel({
   vistaKey,
   headerActions,
   onClose,
+  stackedMode = false,
 }: {
   vistaKey: CciaaVistaKey;
   headerActions?: ReactNode;
   onClose?: () => void;
+  // § Correzione 27 ("Dati camerali completi"): stesso significato di
+  // `SectionContent`'s `stackedMode` — sposta "Modifica" nell'intestazione
+  // e nasconde il banner legenda finché non si è davvero in modifica.
+  // "sintesi" non è mai impilata in quella pagina, quindi ignora questo
+  // prop (mantiene il proprio meccanismo dedicato di Correzione 26).
+  stackedMode?: boolean;
 }) {
   const footerSectionKey = VISTA_FOOTER_SECTION_KEY[vistaKey];
-  const { state } = useWorkspace();
+  const { state, enterEdit, enterSintesiEdit, requestDiscard, save } = useWorkspace();
+  // § Correzione 27: solo per "personale-occupazione"/"aggiornamento-impresa"
+  // in `stackedMode` — le uniche due viste senza una vera `state.sections[...]`
+  // da cui leggere `editing` (vedi commento su `ContenutoVista`).
+  const [editingLocale, setEditingLocale] = useState(false);
   const entryPrincipale = footerSectionKey ? state.sections[footerSectionKey] : undefined;
   const sezionePrincipale = entryPrincipale?.server;
   // Quando il blocco embedded principale del pannello ha un solo gruppo
@@ -490,17 +541,88 @@ export function CciaaSectionPanel({
         : (sezionePrincipale?.groups.flatMap((g) => g.fields).find((f) => f.key === campoPrincipaleChiave)
             ?.value ?? null))
     : null;
+  // § Correzione 27: unifica le due sorgenti di "editing" possibili quando
+  // impilata in "Dati camerali completi" — una vera sezione a registro
+  // (`footerSectionKey`) o lo stato locale delle due viste che non ne
+  // hanno una (vedi sopra). "sintesi" resta fuori (mai impilata lì).
+  const editingStackato = footerSectionKey ? Boolean(entryPrincipale?.editing) : editingLocale;
+  const avviaModificaStackata = footerSectionKey ? () => enterEdit(footerSectionKey) : () => setEditingLocale(true);
+  // § richiesta esplicita ("Dati camerali completi" > Annulla/Salva devono
+  // restare dove stava "Modifica", non spostarsi sotto la sezione): stesse
+  // due sorgenti di "editing" unificate sopra da `editingStackato`, qui per
+  // le azioni di uscita — `requestDiscard`/`save` per le viste con una vera
+  // sezione a registro, altrimenti lo stesso "esci dalla modalità modifica"
+  // già usato dal banner interno di Personale e occupazione/Aggiornamento
+  // impresa (nessuna bozza reale da annullare/salvare lì, § quei due file).
+  const annullaModificaStackata = footerSectionKey ? () => requestDiscard(footerSectionKey) : () => setEditingLocale(false);
+  async function salvaModificaStackata() {
+    if (footerSectionKey) {
+      await save(footerSectionKey);
+    } else {
+      setEditingLocale(false);
+    }
+  }
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <div className="flex items-start justify-between gap-4 border-b border-[#edf1f7] px-[30px] py-6">
+      <div className={cn("flex items-start justify-between gap-4 px-[30px] py-6", !stackedMode && "border-b border-[#edf1f7]")}>
         <div className="min-w-0">
           <h2 className="text-2xl font-extrabold tracking-tight text-[var(--az-ink)]">
             {TITOLO_VISTA_CCIAA[vistaKey]}
             {statoNelTitolo && <StatoPill status={statoNelTitolo} />}
+            {vistaKey === "sintesi" && (
+              <span className="ml-2 inline-flex min-h-[26px] items-center rounded-full bg-[var(--az-green-soft)] px-3 align-middle text-xs font-semibold text-[#087a5c]">
+                Aggiornata
+              </span>
+            )}
           </h2>
-          <p className="mt-[9px] text-sm text-[#354a89]">{SOTTOTITOLO_VISTA_CCIAA[vistaKey]}</p>
+          {SOTTOTITOLO_VISTA_CCIAA[vistaKey] && (
+            <p className="mt-[9px] text-sm text-[#354a89]">{SOTTOTITOLO_VISTA_CCIAA[vistaKey]}</p>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {vistaKey === "sintesi" && !state.sintesi.editing && (
+            <button
+              type="button"
+              onClick={enterSintesiEdit}
+              className="inline-flex h-9 items-center gap-2 rounded-[7px] border border-[#cedaf0] bg-white px-3 text-xs font-bold text-[var(--az-blue)] hover:bg-[#f6f9ff]"
+            >
+              ✎ Modifica
+            </button>
+          )}
+          {stackedMode &&
+            vistaKey !== "sintesi" &&
+            (editingStackato ? (
+              <>
+                <button
+                  type="button"
+                  onClick={annullaModificaStackata}
+                  disabled={footerSectionKey ? entryPrincipale?.saving : false}
+                  className="inline-flex h-9 items-center rounded-[7px] border border-[var(--az-blue)] bg-white px-3 text-xs font-bold text-[var(--az-blue)] hover:bg-[#f5f8ff] disabled:opacity-60"
+                >
+                  Annulla
+                </button>
+                <button
+                  type="button"
+                  onClick={salvaModificaStackata}
+                  disabled={
+                    footerSectionKey
+                      ? entryPrincipale?.saving || Object.keys(entryPrincipale?.fieldErrors ?? {}).length > 0
+                      : false
+                  }
+                  className="inline-flex h-9 items-center rounded-[7px] bg-[var(--az-blue)] px-3 text-xs font-bold text-white hover:bg-[var(--az-blue-dark)] disabled:opacity-60"
+                >
+                  {footerSectionKey && entryPrincipale?.saving ? "Salvataggio…" : "Salva modifiche"}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={avviaModificaStackata}
+                className="inline-flex h-9 items-center gap-2 rounded-[7px] border border-[#cedaf0] bg-white px-3 text-xs font-bold text-[var(--az-blue)] hover:bg-[#f6f9ff]"
+              >
+                ✎ Modifica
+              </button>
+            ))}
           {headerActions}
           {onClose && (
             <button
@@ -515,9 +637,23 @@ export function CciaaSectionPanel({
         </div>
       </div>
       <div className="az-scroll-thin flex-1 overflow-y-auto px-[30px] pb-6">
-        <ContenutoVista vistaKey={vistaKey} campoPrincipale={campoPrincipale} />
+        <ContenutoVista
+          vistaKey={vistaKey}
+          campoPrincipale={campoPrincipale}
+          editingLocale={stackedMode ? editingLocale : undefined}
+          onEditingLocaleChange={stackedMode ? setEditingLocale : undefined}
+          nascondiBannerLocale={stackedMode}
+          stackedMode={stackedMode}
+        />
       </div>
-      {footerSectionKey && <SectionFooter sectionKey={footerSectionKey} />}
+      {vistaKey === "sintesi" ? (
+        <SintesiFooter />
+      ) : (
+        // § richiesta esplicita: impilata, Annulla/Salva vivono
+        // nell'header (vedi sopra) — mai più il footer in fondo qui,
+        // nemmeno in modifica.
+        footerSectionKey && !stackedMode && <SectionFooter sectionKey={footerSectionKey} />
+      )}
     </div>
   );
 }

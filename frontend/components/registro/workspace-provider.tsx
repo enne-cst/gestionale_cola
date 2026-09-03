@@ -117,6 +117,49 @@ type CambioAssettoAffidatarioState = {
   nuovoAssettoLabel: string;
 } | null;
 
+// § Correzione 25: "Visualizza sintesi" è una funzione del banner "Dati
+// CCIAA", non una sezione — il suo pannello deve poter aprirsi/espandersi
+// senza toccare `mode`/`openSectionKey`/`tabs`/`activeSurface` (che
+// restano quelli dell'eventuale sezione CCIAA già selezionata). Stato
+// interamente separato apposta: chiudere la sintesi deve riportare
+// l'utente esattamente alla situazione precedente, il che è automatico se
+// aprirla non ha mai modificato nient'altro.
+//
+// § Correzione 26: la sintesi guadagna una propria modalità modifica, ma
+// SOLO per i 4 campi booleani di "ATTIVITA'" (§8.2) — non una bozza
+// dell'intera sezione "attivita-economica" (che resta indipendente, mai
+// aperta in `enterEdit`/`state.sections["attivita-economica"].draft` da
+// qui: scriverebbe un'intera sezione quando la sintesi ne cambia solo 4
+// campi). `draft` contiene solo le chiavi dei 4 campi effettivamente
+// toccati dall'utente in questa sessione di modifica — mai le altre 8
+// chiavi della sezione, così `saveSintesiEdit` può inviarle come PATCH
+// parziale (§16, `applica_modifiche_sezione` applica solo i campi
+// presenti nel payload, non li sostituisce tutti).
+type SintesiState = { open: boolean; full: boolean; editing: boolean; draft: Record<string, string | null>; saving: boolean };
+
+// § richiesta esplicita (03/09/2026): sectionKey REALI (`state.sections`,
+// non i vistaKey delle card) delle sezioni di "Dati camerali completi" che
+// hanno davvero una bozza da poter perdere — esclude "personale-occupazione"
+// e "aggiornamento-impresa" (nessuna bozza di sezione lì: ogni azione salva
+// già subito tramite il proprio dialog, § i rispettivi pannelli). Duplica
+// apposta la mappatura vistaKey→sectionKey di `VISTA_FOOTER_SECTION_KEY` in
+// cciaa-section-panel.tsx (soci→elenco-soci-estremi,
+// amministratori→amministrazione-controllo, sindaci→organi-controllo,
+// attivita-albi→attivita-economica, sedi-secondarie→unita-locali): questo
+// file non importa da `cciaa-section-panel.tsx` per evitare un ciclo,
+// stesso principio già seguito da `SEZIONI_DATI_COMPLETI` in
+// `dati-camerali-completi-view.tsx`.
+const SEZIONI_DATI_COMPLETI_CON_BOZZA = [
+  "sede",
+  "statuto",
+  "capitale-sociale",
+  "elenco-soci-estremi",
+  "amministrazione-controllo",
+  "organi-controllo",
+  "attivita-economica",
+  "unita-locali",
+];
+
 type State = {
   mode: WorkspaceMode;
   openSectionKey: string | null;
@@ -129,6 +172,14 @@ type State = {
   riduzioneSindaciEffettivi: RiduzioneSindaciEffettiviState;
   cancellazioneConfigurazione: CancellazioneConfigurazioneState;
   cambioAssettoAffidatario: CambioAssettoAffidatarioState;
+  sintesi: SintesiState;
+  // § Correzione 26 §15: "Apri dati camerali completi", nel footer della
+  // sintesi — pagina dedicata che impila tutte le sezioni CCIAA una sotto
+  // l'altra (nessuna vista del genere esisteva prima). Booleano semplice,
+  // stesso principio di indipendenza di `sintesi`: aprirla chiude sempre
+  // prima la sintesi (mai le due insieme, § "non deve aprire la Sintesi e
+  // i dati completi contemporaneamente"), ma non tocca `mode`/`tabs`.
+  datiCompletiOpen: boolean;
 };
 
 function sectionValues(section: Section): Record<string, string | null> {
@@ -191,7 +242,18 @@ type Action =
   | { type: "REQUEST_CANCELLAZIONE_CONFIGURAZIONE_CONFIRM"; sectionKey: string }
   | { type: "CANCEL_CANCELLAZIONE_CONFIGURAZIONE_CONFIRM" }
   | { type: "REQUEST_CAMBIO_ASSETTO_AFFIDATARIO_CONFIRM"; cambio: NonNullable<CambioAssettoAffidatarioState> }
-  | { type: "CANCEL_CAMBIO_ASSETTO_AFFIDATARIO_CONFIRM" };
+  | { type: "CANCEL_CAMBIO_ASSETTO_AFFIDATARIO_CONFIRM" }
+  | { type: "OPEN_SINTESI" }
+  | { type: "CLOSE_SINTESI" }
+  | { type: "EXPAND_SINTESI" }
+  | { type: "COLLAPSE_SINTESI" }
+  | { type: "ENTER_SINTESI_EDIT" }
+  | { type: "UPDATE_SINTESI_FIELD"; fieldKey: string; value: string | null }
+  | { type: "DISCARD_SINTESI_DRAFT" }
+  | { type: "SINTESI_SAVE_START" }
+  | { type: "SINTESI_SAVE_ERROR" }
+  | { type: "OPEN_DATI_COMPLETI" }
+  | { type: "CLOSE_DATI_COMPLETI" };
 
 function withSection(state: State, sectionKey: string, patch: Partial<SectionEntry>): State {
   const attuale = state.sections[sectionKey] ?? nuovaSectionEntry();
@@ -319,6 +381,52 @@ function reducer(state: State, action: Action): State {
       return { ...state, cambioAssettoAffidatario: action.cambio };
     case "CANCEL_CAMBIO_ASSETTO_AFFIDATARIO_CONFIRM":
       return { ...state, cambioAssettoAffidatario: null };
+    case "OPEN_SINTESI":
+      return { ...state, sintesi: { open: true, full: false, editing: false, draft: {}, saving: false } };
+    case "CLOSE_SINTESI":
+      return { ...state, sintesi: { open: false, full: false, editing: false, draft: {}, saving: false } };
+    case "EXPAND_SINTESI":
+      // § Correzione 26 §3: il passaggio 50%/100% conserva modalità
+      // modifica e valori non salvati — mai un CLOSE_SINTESI/OPEN_SINTESI
+      // travestito, solo il flag `full`.
+      return state.sintesi.open ? { ...state, sintesi: { ...state.sintesi, full: true } } : state;
+    case "COLLAPSE_SINTESI":
+      return state.sintesi.open ? { ...state, sintesi: { ...state.sintesi, full: false } } : state;
+    case "ENTER_SINTESI_EDIT":
+      return state.sintesi.open ? { ...state, sintesi: { ...state.sintesi, editing: true, draft: {} } } : state;
+    case "UPDATE_SINTESI_FIELD":
+      return state.sintesi.editing
+        ? { ...state, sintesi: { ...state.sintesi, draft: { ...state.sintesi.draft, [action.fieldKey]: action.value } } }
+        : state;
+    case "DISCARD_SINTESI_DRAFT":
+      return { ...state, sintesi: { ...state.sintesi, editing: false, draft: {}, saving: false } };
+    case "SINTESI_SAVE_START":
+      return { ...state, sintesi: { ...state.sintesi, saving: true } };
+    case "SINTESI_SAVE_ERROR":
+      return { ...state, sintesi: { ...state.sintesi, saving: false } };
+    case "OPEN_DATI_COMPLETI": {
+      // § richiesta esplicita (03/09/2026): "alla riapertura della pagina
+      // non deve esserci nessuna sezione con la modalità modifica già
+      // aperta" — `state.sections` è condiviso con il resto del workspace
+      // (le stesse sezioni si aprono anche da una card della griglia), quindi
+      // una modifica lasciata a metà altrove resterebbe visibile qui se non
+      // resettata esplicitamente all'apertura.
+      let sections = state.sections;
+      for (const sectionKey of SEZIONI_DATI_COMPLETI_CON_BOZZA) {
+        const entry = sections[sectionKey];
+        if (entry?.editing) {
+          sections = { ...sections, [sectionKey]: { ...entry, editing: false, draft: null, fieldErrors: {}, saving: false } };
+        }
+      }
+      return {
+        ...state,
+        datiCompletiOpen: true,
+        sections,
+        sintesi: { open: false, full: false, editing: false, draft: {}, saving: false },
+      };
+    }
+    case "CLOSE_DATI_COMPLETI":
+      return { ...state, datiCompletiOpen: false };
     default:
       return state;
   }
@@ -370,6 +478,28 @@ type WorkspaceApi = {
   confermaCancellazioneConfigurazione: () => void;
   cancelCambioAssettoAffidatario: () => void;
   confermaCambioAssettoAffidatario: () => void;
+  // § Correzione 25: "Visualizza sintesi" del banner CCIAA — vedi `SintesiState`.
+  openSintesi: () => void;
+  // § Correzione 26: chiusura "guardata" (mostra il dialogo di modifiche
+  // non salvate se editing+dirty, stesso dialogo delle sezioni normali,
+  // vedi `requestCloseSintesi` sotto) — a differenza di `expandSintesi`/
+  // `collapseSintesi`, che non perdono mai nulla e restano dirette.
+  requestCloseSintesi: () => void;
+  expandSintesi: () => void;
+  collapseSintesi: () => void;
+  enterSintesiEdit: () => void;
+  updateSintesiField: (fieldKey: string, value: string | null) => void;
+  cancelSintesiEdit: () => void;
+  saveSintesiEdit: () => Promise<boolean>;
+  // § Correzione 26 §15: "Apri dati camerali completi" — vedi commento su
+  // `datiCompletiOpen`.
+  openDatiCompleti: () => void;
+  // § richiesta esplicita (03/09/2026): chiusura guardata (mostra il
+  // dialogo di modifiche non salvate se una o più sezioni della pagina sono
+  // dirty) — a differenza della vecchia `closeDatiCompleti` diretta, non più
+  // esposta apposta (stesso principio di `requestCloseSintesi`, che non
+  // espone nemmeno una `closeSintesi` diretta bypassabile).
+  requestCloseDatiCompleti: () => void;
 };
 
 const WorkspaceContext = createContext<WorkspaceApi | null>(null);
@@ -395,6 +525,8 @@ export function WorkspaceProvider({
     riduzioneSindaciEffettivi: null,
     cancellazioneConfigurazione: null,
     cambioAssettoAffidatario: null,
+    sintesi: { open: false, full: false, editing: false, draft: {}, saving: false },
+    datiCompletiOpen: false,
   });
 
   // Evita richieste duplicate quando piu' componenti montano nello stesso
@@ -660,6 +792,62 @@ export function WorkspaceProvider({
     [state.sections, rinfrescaOverview],
   );
 
+  // § Correzione 26 §8.2/§16: salva SOLO i campi booleani toccati nella
+  // sintesi, come PATCH parziale sulla vera sezione "attivita-economica"
+  // (stesso endpoint di `save`, mai un salvataggio parallelo) — così il
+  // valore risulta aggiornato anche nella sezione completa, senza toccare
+  // gli altri campi di quella sezione che la sintesi non ha mai caricato
+  // in bozza. Se non c'è nulla di cambiato non chiama il backend.
+  const saveSintesiEdit = useCallback(async (): Promise<boolean> => {
+    const draft = state.sintesi.draft;
+    if (Object.keys(draft).length === 0) {
+      dispatch({ type: "DISCARD_SINTESI_DRAFT" });
+      return true;
+    }
+    const entry = state.sections["attivita-economica"];
+    dispatch({ type: "SINTESI_SAVE_START" });
+    const esito = await salvaSezioneRegistro("attivita-economica", entry?.server?.version ?? null, draft);
+    if (esito.esito === "ok") {
+      dispatch({ type: "FIELD_SNAPSHOT", sectionKey: "attivita-economica", section: esito.sezione });
+      dispatch({ type: "DISCARD_SINTESI_DRAFT" });
+      rinfrescaOverview();
+      return true;
+    }
+    dispatch({ type: "SINTESI_SAVE_ERROR" });
+    return false;
+  }, [state.sintesi.draft, state.sections, rinfrescaOverview]);
+
+  const enterSintesiEdit = useCallback(() => dispatch({ type: "ENTER_SINTESI_EDIT" }), []);
+  const updateSintesiField = useCallback(
+    (fieldKey: string, value: string | null) => dispatch({ type: "UPDATE_SINTESI_FIELD", fieldKey, value }),
+    [],
+  );
+  const cancelSintesiEdit = useCallback(() => dispatch({ type: "DISCARD_SINTESI_DRAFT" }), []);
+
+  // § Correzione 26 §4: chiudere la sintesi mentre ci sono modifiche non
+  // salvate deve chiedere conferma, stesso dialogo/stessa struttura già
+  // usata per le sezioni (`chiudiSeNonSporca`), qui riadattata alla bozza
+  // indipendente della sintesi invece di `state.sections`.
+  const requestCloseSintesi = useCallback(() => {
+    if (state.sintesi.editing && Object.keys(state.sintesi.draft).length > 0) {
+      dispatch({
+        type: "REQUEST_CONFIRM",
+        confirm: {
+          sectionKey: "__sintesi__",
+          saving: false,
+          error: null,
+          onDiscard: () => {
+            dispatch({ type: "DISCARD_SINTESI_DRAFT" });
+            dispatch({ type: "CLOSE_SINTESI" });
+          },
+          onSaved: () => dispatch({ type: "CLOSE_SINTESI" }),
+        },
+      });
+      return;
+    }
+    dispatch({ type: "CLOSE_SINTESI" });
+  }, [state.sintesi]);
+
   const toggleVisibility = useCallback(
     (sectionKey: string, fieldKey: string, visible: boolean) => {
       // Ottimistico: applica subito, ripristina in caso di errore (§13.3/§19).
@@ -755,11 +943,42 @@ export function WorkspaceProvider({
     dispatch({ type: "CANCEL_CONFIRM" });
   }, [state.confirm]);
 
+  // § richiesta esplicita (03/09/2026): salva TUTTE le sezioni con bozza non
+  // salvata di "Dati camerali completi" (possono essere più di una, a
+  // differenza di `save`/`saveSintesiEdit` che operano su una sola sezione)
+  // — usata solo dalla sentinella "__dati_completi__" di `confirmSaveAndExit`
+  // sotto. Si ferma al primo salvataggio fallito (`SAVE_VALIDATION_ERROR`/
+  // `SAVE_CONFLICT` restano visibili su quella sezione quando si riapre la
+  // pagina), senza tentare le successive.
+  const saveAllDatiCompleti = useCallback(async (): Promise<boolean> => {
+    const daSalvare = SEZIONI_DATI_COMPLETI_CON_BOZZA.filter((sectionKey) => {
+      const entry = state.sections[sectionKey];
+      return entry ? isSectionDirty(entry) : false;
+    });
+    for (const sectionKey of daSalvare) {
+      const ok = await save(sectionKey);
+      if (!ok) return false;
+    }
+    return true;
+  }, [state.sections, save]);
+
   const confirmSaveAndExit = useCallback(() => {
     if (!state.confirm) return;
     const { sectionKey, onSaved } = state.confirm;
     dispatch({ type: "CONFIRM_SAVE_START" });
-    save(sectionKey).then((ok) => {
+    // § Correzione 26: "__sintesi__" è la sentinella di `requestCloseSintesi`
+    // per la bozza indipendente della sintesi — mai una vera sectionKey,
+    // mai passata a `save` (che leggerebbe `state.sections["__sintesi__"]`,
+    // inesistente). "__dati_completi__" (03/09/2026): stessa idea, sentinella
+    // di `requestCloseDatiCompleti` sotto, ma può coprire più sezioni dirty
+    // insieme (vedi `saveAllDatiCompleti`).
+    const esito =
+      sectionKey === "__sintesi__"
+        ? saveSintesiEdit()
+        : sectionKey === "__dati_completi__"
+          ? saveAllDatiCompleti()
+          : save(sectionKey);
+    esito.then((ok) => {
       if (ok) {
         onSaved();
         dispatch({ type: "CANCEL_CONFIRM" });
@@ -767,7 +986,38 @@ export function WorkspaceProvider({
         dispatch({ type: "CONFIRM_SAVE_ERROR", message: "Impossibile salvare: correggi gli errori e riprova." });
       }
     });
-  }, [state.confirm, save]);
+  }, [state.confirm, save, saveSintesiEdit, saveAllDatiCompleti]);
+
+  // § richiesta esplicita (03/09/2026): chiusura "guardata" del pulsante
+  // "Chiudi" (X) di "Dati camerali completi" — stesso principio di
+  // `requestCloseSintesi`/`chiudiSeNonSporca`, ma controlla tutte le
+  // sezioni della pagina insieme (`SEZIONI_DATI_COMPLETI_CON_BOZZA`) invece
+  // di una sola. "Esci senza salvare" scarta la bozza di OGNI sezione
+  // dirty, non solo la prima — mai lasciarne una a metà scartata e le
+  // altre no.
+  const requestCloseDatiCompleti = useCallback(() => {
+    const dirtyKeys = SEZIONI_DATI_COMPLETI_CON_BOZZA.filter((sectionKey) => {
+      const entry = state.sections[sectionKey];
+      return entry ? isSectionDirty(entry) : false;
+    });
+    if (dirtyKeys.length > 0) {
+      dispatch({
+        type: "REQUEST_CONFIRM",
+        confirm: {
+          sectionKey: "__dati_completi__",
+          saving: false,
+          error: null,
+          onDiscard: () => {
+            for (const sectionKey of dirtyKeys) dispatch({ type: "DISCARD_DRAFT", sectionKey });
+            dispatch({ type: "CLOSE_DATI_COMPLETI" });
+          },
+          onSaved: () => dispatch({ type: "CLOSE_DATI_COMPLETI" }),
+        },
+      });
+      return;
+    }
+    dispatch({ type: "CLOSE_DATI_COMPLETI" });
+  }, [state.sections]);
 
   // § Correzione 12: seconda chiamata dello stesso salvataggio, questa
   // volta con il flag di conferma — il backend cessa gli incarichi attivi
@@ -834,9 +1084,24 @@ export function WorkspaceProvider({
       confermaCancellazioneConfigurazione,
       cancelCambioAssettoAffidatario,
       confermaCambioAssettoAffidatario,
+      openSintesi: () => dispatch({ type: "OPEN_SINTESI" }),
+      requestCloseSintesi,
+      expandSintesi: () => dispatch({ type: "EXPAND_SINTESI" }),
+      collapseSintesi: () => dispatch({ type: "COLLAPSE_SINTESI" }),
+      enterSintesiEdit,
+      updateSintesiField,
+      cancelSintesiEdit,
+      saveSintesiEdit,
+      openDatiCompleti: () => dispatch({ type: "OPEN_DATI_COMPLETI" }),
+      requestCloseDatiCompleti,
     }),
     [
       state,
+      requestCloseSintesi,
+      enterSintesiEdit,
+      updateSintesiField,
+      cancelSintesiEdit,
+      saveSintesiEdit,
       ruolo,
       ensureLoaded,
       reload,
@@ -858,6 +1123,7 @@ export function WorkspaceProvider({
       confermaCancellazioneConfigurazione,
       cancelCambioAssettoAffidatario,
       confermaCambioAssettoAffidatario,
+      requestCloseDatiCompleti,
     ],
   );
 

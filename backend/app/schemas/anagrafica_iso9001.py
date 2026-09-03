@@ -11,6 +11,8 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict
 
+from app.schemas.registro_campi import VerificationStatus
+
 
 class _OrmModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -21,6 +23,21 @@ class _ReadMeta(_OrmModel):
     azienda_id: uuid.UUID
     created_at: datetime
     updated_at: datetime
+
+
+class _ConVerificaRiga(_OrmModel):
+    """5 campi condivisi da ogni sezione "a elenco" registrata con
+    `verifica_sezione_codice` (`app/crud/generic.py`): stato di verifica del
+    consulente sull'intera riga, stesso motore già usato da Soci/
+    Amministratori/Sindaci e da "Sedi secondarie e unità locali"
+    (`app.core.verifica_riga`, mai un secondo sistema di verifica) —
+    § "falle tutte", migrazione delle 14 sezioni ISO 9001 a elenco."""
+
+    verificationStatus: VerificationStatus | None = None
+    verificationVersion: int | None = None
+    revisionNote: str | None = None
+    verifiedAt: str | None = None
+    verifiedBy: str | None = None
 
 
 class CatalogoRead(_OrmModel):
@@ -87,7 +104,7 @@ class FondoInterprofessionaleUpdate(_OrmModel):
     note: str | None = None
 
 
-class FondoInterprofessionaleRead(FondoInterprofessionaleCreate, _ReadMeta):
+class FondoInterprofessionaleRead(FondoInterprofessionaleCreate, _ReadMeta, _ConVerificaRiga):
     pass
 
 
@@ -114,7 +131,7 @@ class DatiGeneraliUpdate(_OrmModel):
     eta_media: Decimal | None = None
 
 
-class DatiGeneraliRead(DatiGeneraliCreate, _ReadMeta):
+class DatiGeneraliRead(DatiGeneraliCreate, _ReadMeta, _ConVerificaRiga):
     pass
 
 
@@ -159,7 +176,7 @@ class RipartizioneOrganicoUpdate(_OrmModel):
     numero_diplomati: int | None = None
 
 
-class RipartizioneOrganicoRead(RipartizioneOrganicoCreate, _ReadMeta):
+class RipartizioneOrganicoRead(RipartizioneOrganicoCreate, _ReadMeta, _ConVerificaRiga):
     percentuale_amministrativi: Decimal | None = None
     percentuale_project_manager: Decimal | None = None
     percentuale_tecnici: Decimal | None = None
@@ -222,7 +239,7 @@ class OutsourcingUpdate(_OrmModel):
     note: str | None = None
 
 
-class OutsourcingRead(OutsourcingCreate, _ReadMeta):
+class OutsourcingRead(OutsourcingCreate, _ReadMeta, _ConVerificaRiga):
     pass
 
 
@@ -255,7 +272,7 @@ class SubappaltatoreUpdate(_OrmModel):
     note: str | None = None
 
 
-class SubappaltatoreRead(SubappaltatoreCreate, _ReadMeta):
+class SubappaltatoreRead(SubappaltatoreCreate, _ReadMeta, _ConVerificaRiga):
     pass
 
 
@@ -294,7 +311,7 @@ class FornitoreMaterialiUpdate(_OrmModel):
     altri_documenti: str | None = None
 
 
-class FornitoreMaterialiRead(FornitoreMaterialiCreate, _ReadMeta):
+class FornitoreMaterialiRead(FornitoreMaterialiCreate, _ReadMeta, _ConVerificaRiga):
     pass
 
 
@@ -327,7 +344,7 @@ class LavoratoreAutonomoUpdate(_OrmModel):
     note: str | None = None
 
 
-class LavoratoreAutonomoRead(LavoratoreAutonomoCreate, _ReadMeta):
+class LavoratoreAutonomoRead(LavoratoreAutonomoCreate, _ReadMeta, _ConVerificaRiga):
     pass
 
 
@@ -350,7 +367,7 @@ class IndicatoreEconomicoUpdate(_OrmModel):
     note: str | None = None
 
 
-class IndicatoreEconomicoRead(IndicatoreEconomicoCreate, _ReadMeta):
+class IndicatoreEconomicoRead(IndicatoreEconomicoCreate, _ReadMeta, _ConVerificaRiga):
     scostamento: Decimal | None = None
 
 
@@ -375,7 +392,7 @@ class VariazioneOrganicoUpdate(_OrmModel):
     note: str | None = None
 
 
-class VariazioneOrganicoRead(VariazioneOrganicoCreate, _ReadMeta):
+class VariazioneOrganicoRead(VariazioneOrganicoCreate, _ReadMeta, _ConVerificaRiga):
     organico_medio_annuo: Decimal | None = None
     incremento_decremento_personale_percentuale: Decimal | None = None
     scostamento: Decimal | None = None
@@ -420,7 +437,7 @@ class AssicurazioneUpdate(_OrmModel):
     note: str | None = None
 
 
-class AssicurazioneRead(AssicurazioneCreate, _ReadMeta):
+class AssicurazioneRead(AssicurazioneCreate, _ReadMeta, _ConVerificaRiga):
     pass
 
 
@@ -457,7 +474,7 @@ class ContrattoReteUpdate(_OrmModel):
     documentazione_associata: str | None = None
 
 
-class ContrattoReteRead(ContrattoReteCreate, _ReadMeta):
+class ContrattoReteRead(ContrattoReteCreate, _ReadMeta, _ConVerificaRiga):
     pass
 
 
@@ -482,7 +499,7 @@ class ComplianceTrasparenzaUpdate(_OrmModel):
     documentazione_associata: str | None = None
 
 
-class ComplianceTrasparenzaRead(ComplianceTrasparenzaCreate, _ReadMeta):
+class ComplianceTrasparenzaRead(ComplianceTrasparenzaCreate, _ReadMeta, _ConVerificaRiga):
     pass
 
 
@@ -513,7 +530,7 @@ class ProcedimentoLegaleUpdate(_OrmModel):
     documentazione_associata: str | None = None
 
 
-class ProcedimentoLegaleRead(ProcedimentoLegaleCreate, _ReadMeta):
+class ProcedimentoLegaleRead(ProcedimentoLegaleCreate, _ReadMeta, _ConVerificaRiga):
     pass
 
 
@@ -542,5 +559,5 @@ class VisitaEnteControlloUpdate(_OrmModel):
     note: str | None = None
 
 
-class VisitaEnteControlloRead(VisitaEnteControlloCreate, _ReadMeta):
+class VisitaEnteControlloRead(VisitaEnteControlloCreate, _ReadMeta, _ConVerificaRiga):
     pass

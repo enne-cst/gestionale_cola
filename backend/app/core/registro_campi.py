@@ -32,6 +32,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.deps import AziendaContext, get_current_azienda
+from app.core.sezioni import get_sezioni_abilitate
 from app.models.anagrafica import (
     AnaAmministrazioneControllo,
     AnaAttivitaEsercitata,
@@ -62,6 +63,11 @@ from app.models.anagrafica import (
     CatStatoAttivita,
     CatStatoUnitaLocale,
     CatTitoloNominaOrganoControllo,
+)
+from app.models.anagrafica_iso9001 import (
+    AnaContrattoLavoro,
+    AnaPosizioniAssicurativePrevidenziali,
+    AnaTurniLavoro,
 )
 from app.models.personale import CatCaratteristicaIncarico, CatRuolo, PerIncarico, PerIncaricoValore
 from app.models.sistema import SysRegistroAudit, SysRegistroStatoCampi, SysUtente
@@ -207,6 +213,15 @@ class SezioneRegistro:
     campo_completamento: str | None = None
     campi_derivati: dict[str, CampoDerivatoLoader] = field(default_factory=dict)
     campi_catalogo: dict[str, CampoCatalogo] = field(default_factory=dict)
+    # `sys_elementi.codice` che protegge questa sezione con l'abbonamento
+    # ISO 9001 (§ app.core.sezioni): None per le sezioni del modulo base
+    # (Dati CCIAA), sempre visibili senza certificazione aggiuntiva. Le
+    # sezioni Organizzazione/Trend/Assicurazioni/Altre informazioni hanno
+    # invece lo stesso codice già usato da `sezione=` in
+    # `app/api/anagrafica.py` per la loro registrazione CRUD "piatta" — le
+    # due strade scrivono la stessa tabella, quindi devono essere protette
+    # dallo stesso codice.
+    codice_abbonamento: str | None = None
 
 
 @dataclass(frozen=True)
@@ -1148,6 +1163,21 @@ def require_consulente_ctx(ctx: AziendaContext = Depends(get_current_azienda)) -
     if ctx.profilo != "CONSULENTE":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Operazione riservata al consulente")
     return ctx
+
+
+def verifica_abbonamento_sezione(db: Session, ctx: AziendaContext, sezione: SezioneRegistro) -> None:
+    """403 se `sezione.codice_abbonamento` è impostato e non abilitato per
+    l'azienda corrente (stesso controllo di `app.core.sezioni.require_sezione`,
+    riapplicato qui perché le rotte del registro campo-per-campo non passano
+    da `app/crud/generic.py`). Nessun controllo per le sezioni del modulo
+    base (`codice_abbonamento is None`)."""
+    if sezione.codice_abbonamento is None:
+        return
+    if sezione.codice_abbonamento not in get_sezioni_abilitate(db, ctx.azienda_id):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            f"La sezione '{sezione.codice_abbonamento}' non è abilitata per questa azienda.",
+        )
 
 
 # ===========================================================================
@@ -2163,6 +2193,93 @@ SEZIONE_UNITA_LOCALI = SezioneRegistro(
     ],
 )
 
+# § pilota migrazione al motore campo-per-campo delle sezioni Organizzazione/
+# Trend/Assicurazioni/Altre informazioni (soggette all'abbonamento ISO 9001,
+# a differenza di tutte le sezioni sopra): "Contratto di lavoro" è la prima,
+# scelta come pilota. Stessa tabella `ana_contratti_lavoro` già scritta
+# dall'endpoint CRUD "piatto" registrato in `app/api/anagrafica.py`
+# (`SEZ_CONTRATTO_LAVORO`, valore duplicato qui apposta — vedi
+# `codice_abbonamento` sopra, `app.core.registro_campi` non importa
+# `app.api.anagrafica` per non invertire la dipendenza core -> api): le due
+# strade restano entrambe valide finché anche le altre sezioni non
+# migrano. `ccnl_applicato`/`settore_ccnl`/`data_applicazione` erano NOT
+# NULL sulla tabella originale (compilazione atomica del vecchio form) — resi
+# nullable dalla migrazione 0094 perché il registro campo-per-campo richiede
+# la compilazione progressiva di ciascun campo indipendentemente dagli altri
+# (§9.2 "nessun campo è mai obbligatorio").
+SEZIONE_CONTRATTO_LAVORO = SezioneRegistro(
+    section_key="contratto-lavoro",
+    sezione_codice="ANAGRAFICA_AZIENDALE.ORGANIZZAZIONE.CONTRATTO_LAVORO",
+    title="Contratto di lavoro",
+    model=AnaContrattoLavoro,
+    campo_completamento="ccnl_applicato",
+    codice_abbonamento="ANAGRAFICA_AZIENDALE.ORGANIZZAZIONE.CONTRATTO_LAVORO",
+    gruppi=[
+        GruppoDef(
+            key="contratto-lavoro",
+            title="Contratto di lavoro",
+            campi=[
+                CampoDef("ccnl_applicato", "CCNL applicato", "text"),
+                CampoDef("settore_ccnl", "Settore CCNL", "text"),
+                CampoDef("data_applicazione", "Data di applicazione", "date"),
+                CampoDef("ccnl_precedente", "Eventuale CCNL precedente", "text"),
+                CampoDef("note", "Note", "text"),
+            ],
+        ),
+    ],
+)
+
+# § stesso pilota, seconda e terza sezione singleton ISO 9001 migrate al
+# motore campo-per-campo insieme a "Contratto di lavoro" (§ richiesta
+# esplicita "falle tutte"): stesso schema, stessa tabella già scritta
+# dall'endpoint CRUD "piatto".
+SEZIONE_POSIZIONI_ASSICURATIVE_PREVIDENZIALI = SezioneRegistro(
+    section_key="posizioni-assicurative-previdenziali",
+    sezione_codice="ANAGRAFICA_AZIENDALE.ORGANIZZAZIONE.POSIZIONI_ASSICURATIVE_PREVIDENZIALI",
+    title="Posizioni assicurative e previdenziali",
+    model=AnaPosizioniAssicurativePrevidenziali,
+    campo_completamento="numero_posizione_inps",
+    codice_abbonamento="ANAGRAFICA_AZIENDALE.ORGANIZZAZIONE.POSIZIONI_ASSICURATIVE_PREVIDENZIALI",
+    gruppi=[
+        GruppoDef(
+            key="posizioni-assicurative-previdenziali",
+            title="Posizioni assicurative e previdenziali",
+            campi=[
+                CampoDef("numero_posizione_inps", "Numero posizione INPS", "text"),
+                CampoDef("sede_territoriale_inps", "Sede territoriale INPS", "text"),
+                CampoDef("numero_posizione_inail", "Numero posizione INAIL", "text"),
+                CampoDef("sede_territoriale_inail", "Sede territoriale INAIL", "text"),
+            ],
+        ),
+    ],
+)
+
+SEZIONE_TURNI_LAVORO = SezioneRegistro(
+    section_key="turni-lavoro",
+    sezione_codice="ANAGRAFICA_AZIENDALE.ORGANIZZAZIONE.TURNI_LAVORO",
+    title="Turni di lavoro",
+    model=AnaTurniLavoro,
+    campo_completamento="tipologia_turno",
+    codice_abbonamento="ANAGRAFICA_AZIENDALE.ORGANIZZAZIONE.TURNI_LAVORO",
+    gruppi=[
+        GruppoDef(
+            key="turni-lavoro",
+            title="Turni di lavoro",
+            campi=[
+                CampoDef("presenza_turnazioni", "Presenza di turnazioni", "boolean"),
+                CampoDef("tipologia_turno", "Tipologia turno", "text"),
+                CampoDef("numero_turni", "Numero turni", "number", valore_minimo=0),
+                CampoDef("fasce_orarie", "Fasce orarie", "text"),
+                CampoDef("rotazione_turni", "Rotazione turni", "text"),
+                CampoDef("lavoro_notturno", "Lavoro notturno", "boolean"),
+                CampoDef("lavoro_festivo", "Lavoro festivo", "boolean"),
+                CampoDef("lavoro_ciclo_continuo", "Lavoro a ciclo continuo", "boolean"),
+                CampoDef("note", "Note", "text"),
+            ],
+        ),
+    ],
+)
+
 SEZIONI: dict[str, SezioneRegistro] = {
     s.section_key: s
     for s in (
@@ -2176,5 +2293,8 @@ SEZIONI: dict[str, SezioneRegistro] = {
         SEZIONE_STATUTO,
         SEZIONE_ATTIVITA_ECONOMICA,
         SEZIONE_UNITA_LOCALI,
+        SEZIONE_CONTRATTO_LAVORO,
+        SEZIONE_POSIZIONI_ASSICURATIVE_PREVIDENZIALI,
+        SEZIONE_TURNI_LAVORO,
     )
 }

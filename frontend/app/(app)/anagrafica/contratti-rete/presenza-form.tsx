@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 
 import { FormCheckboxField } from "@/components/form-checkbox-field";
 import { FormError } from "@/components/form-error";
@@ -10,8 +10,12 @@ import type { ContrattiRetePresenza } from "@/lib/types/anagrafica-iso9001";
 
 import { upsertPresenza, type FormState } from "./actions";
 
-export function PresenzaForm({ dati }: { dati: ContrattiRetePresenza | null }) {
+export function PresenzaForm({ dati, onSaved }: { dati: ContrattiRetePresenza | null; onSaved?: () => void }) {
   const [state, formAction] = useActionState<FormState, FormData>(upsertPresenza, {});
+
+  useEffect(() => {
+    if (state.success) onSaved?.();
+  }, [state.success, onSaved]);
 
   return (
     <Card>

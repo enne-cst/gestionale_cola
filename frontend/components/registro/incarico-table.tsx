@@ -620,37 +620,39 @@ export function IncaricoTable({
                         </div>
                       </TableCell>
                       <TableCell className="flex justify-end gap-1">
-                        <IncaricoFormDialog
-                          ruoli={ruoli}
-                          incarico={incarico}
-                          onSaved={carica}
-                          tipoTitolare={
-                            sindacoRevisoreEsterno || collegioSindacale?.revisoreEsterno
-                              ? incarico.persona_giuridica
-                                ? "GIURIDICA"
-                                : undefined
-                              : tipoTitolare === "GIURIDICA"
-                                ? "GIURIDICA"
-                                : undefined
-                          }
-                          trigger={
-                            <Button variant="ghost" size="icon" aria-label="Modifica">
-                              <PencilIcon className="size-4" />
+                        {/* § uniformazione (03/09/2026): Modifica/Elimina di
+                         * una riga reale compaiono solo col banner
+                         * "Modifica dati" attivo, per entrambe le card che
+                         * usano questa variante (Amministratori e Sindaci) —
+                         * prima Modifica era sempre visibile e Elimina lo
+                         * era solo per Sindaci (nessuna `capienzaAmministratori`),
+                         * incoerente con la variante "soci" qui sopra, che
+                         * gating già entrambe. */}
+                        {editingScheda && (
+                          <>
+                            <IncaricoFormDialog
+                              ruoli={ruoli}
+                              incarico={incarico}
+                              onSaved={carica}
+                              tipoTitolare={
+                                sindacoRevisoreEsterno || collegioSindacale?.revisoreEsterno
+                                  ? incarico.persona_giuridica
+                                    ? "GIURIDICA"
+                                    : undefined
+                                  : tipoTitolare === "GIURIDICA"
+                                    ? "GIURIDICA"
+                                    : undefined
+                              }
+                              trigger={
+                                <Button variant="ghost" size="icon" aria-label="Modifica">
+                                  <PencilIcon className="size-4" />
+                                </Button>
+                              }
+                            />
+                            <Button variant="ghost" size="icon" aria-label="Elimina" onClick={() => onElimina(incarico)}>
+                              <Trash2Icon className="size-4" />
                             </Button>
-                          }
-                        />
-                        {/* § richiesta esplicita (31/08/2026): eliminare una
-                         * riga cambia anche "Numero componenti" (vedi
-                         * `capienzaAmministratori`), quindi per questa card
-                         * il pulsante compare solo col banner "Modifica
-                         * dati" attivo — invariato (sempre visibile) per
-                         * ogni altra card (Soci con la propria gating già
-                         * esistente, Sindaci), dove eliminare una riga non
-                         * tocca alcun conteggio della sezione. */}
-                        {(!capienzaAmministratori || editingScheda) && (
-                          <Button variant="ghost" size="icon" aria-label="Elimina" onClick={() => onElimina(incarico)}>
-                            <Trash2Icon className="size-4" />
-                          </Button>
+                          </>
                         )}
                       </TableCell>
                     </TableRow>

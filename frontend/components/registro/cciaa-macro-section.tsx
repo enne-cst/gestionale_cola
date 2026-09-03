@@ -17,12 +17,19 @@ export function CciaaMacroSection({
   icon,
   title,
   badge,
+  actions,
   children,
 }: {
   id: string;
   icon: ReactNode;
   title: string;
   badge?: ReactNode;
+  // § Correzione 25: pulsanti di funzione del banner (es. "Visualizza
+  // sintesi") — a destra del badge, prima del comando di apertura/chiusura
+  // qui sotto, sempre visibili sia a elenco aperto sia compresso. Slot
+  // generico: questo componente non conosce "sintesi", solo il chiamante
+  // (l'unico oggi è la Home per "Dati CCIAA") decide cosa passare qui.
+  actions?: ReactNode;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(true);
@@ -58,17 +65,20 @@ export function CciaaMacroSection({
             )}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setOpen((value) => !value)}
-          aria-expanded={open}
-          aria-controls={`${id}-grid`}
-          aria-label={`${open ? "Comprimi" : "Espandi"} ${title}`}
-          title={open ? "Comprimi" : "Espandi"}
-          className="grid size-[38px] shrink-0 place-items-center rounded-[9px] border border-[#ccd9f1] bg-white text-[var(--az-blue)] hover:bg-[#f7faff]"
-        >
-          <ChevronDownIcon className={"size-[18px] transition-transform " + (open ? "" : "-rotate-90")} />
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {actions}
+          <button
+            type="button"
+            onClick={() => setOpen((value) => !value)}
+            aria-expanded={open}
+            aria-controls={`${id}-grid`}
+            aria-label={`${open ? "Comprimi" : "Espandi"} ${title}`}
+            title={open ? "Comprimi" : "Espandi"}
+            className="grid size-[38px] shrink-0 place-items-center rounded-[9px] border border-[#ccd9f1] bg-white text-[var(--az-blue)] hover:bg-[#f7faff]"
+          >
+            <ChevronDownIcon className={"size-[18px] transition-transform " + (open ? "" : "-rotate-90")} />
+          </button>
+        </div>
       </div>
       {open && (
         // Container query (non breakpoint di viewport, §6.3): griglia

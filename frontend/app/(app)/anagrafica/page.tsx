@@ -1,22 +1,22 @@
 import { ArrowRightIcon, Building2, CheckCircle2Icon } from "lucide-react";
 import Link from "next/link";
 
-import { CollapsibleSection } from "@/components/collapsible-section";
 import { CompletenessRing } from "@/components/completeness-ring";
 import { ExpandAllButton } from "@/components/expand-all-button";
-import { IconAvatar } from "@/components/icon-avatar";
 import { CciaaMacroSection } from "@/components/registro/cciaa-macro-section";
 import { CciaaSectionCard, type CciaaSectionCardStato } from "@/components/registro/cciaa-section-card";
 import { QualityCard } from "@/components/registro/quality-card";
 import { RecentChangesCard } from "@/components/registro/recent-changes-card";
+import { VisualizzaSintesiButton } from "@/components/registro/visualizza-sintesi-button";
 import { WorkspaceProvider } from "@/components/registro/workspace-provider";
 import { WorkspaceShell } from "@/components/registro/workspace-shell";
-import { SectionLinkCard } from "@/components/section-link-card";
+import { SectionPreviewGridCard } from "@/components/section-preview-grid-card";
 import { apiFetch } from "@/lib/api";
 import { getIncarichi } from "@/lib/actions/personale";
 import { getRegistroOverview, getRiepilogoSezioni } from "@/lib/actions/registro";
 import { CATEGORIA_ICONE, CCIAA_CARD_ICONE, SEZIONE_ICONE } from "@/lib/anagrafica-icons";
 import { categoriaSlug, categorieVisibili, SEZIONI_ANAGRAFICA, sezioniPerCategoriaVisibili } from "@/lib/anagrafica-sezioni";
+import { isElencoIso9001Key, type ElencoIso9001Key } from "@/lib/elenco-iso9001";
 import type { MeResponse } from "@/lib/types/auth";
 import type {
   AddettiComune,
@@ -33,6 +33,24 @@ import type {
   Sede,
   Soa,
 } from "@/lib/types/anagrafica";
+import type {
+  Assicurazione,
+  ComplianceTrasparenza,
+  ConVerificaRiga,
+  ContrattiRetePresenza,
+  ContrattoRete,
+  DatiGenerali,
+  FondoInterprofessionale,
+  FornitoreMateriali,
+  IndicatoreEconomico,
+  LavoratoreAutonomo,
+  Outsourcing,
+  ProcedimentoLegale,
+  RipartizioneOrganico,
+  Subappaltatore,
+  VariazioneOrganico,
+  VisitaEnteControllo,
+} from "@/lib/types/anagrafica-iso9001";
 
 const RUOLI_AMMINISTRATORI = new Set(["AMMINISTRATORE", "AMMINISTRATORE_DELEGATO", "COMPONENTE_CDA"]);
 const RUOLI_SINDACI = new Set(["SINDACO", "REVISORE_LEGALE"]);
@@ -110,10 +128,10 @@ export default async function AnagraficaOverviewPage() {
     "addetti-visura": addettiVisura.length > 0,
     "addetti-comune": addettiComune.length > 0,
   };
-  // La completezza traccia solo le sezioni base (sempre visibili): le
-  // sezioni ISO 9001 non hanno qui i dati caricati (vedi SectionLinkCard
-  // sotto, che non li richiede), quindi non possono contribuire a questo
-  // calcolo senza una fetch dedicata per ciascuna.
+  // La completezza del riquadro "Completamento scheda" traccia solo le
+  // sezioni base (sempre visibili, § comune a tutte le aziende): le sezioni
+  // ISO 9001 hanno il proprio conteggio "N di N sezioni completate" per
+  // macro sezione più sotto (`altreCategorieCards`), calcolato a parte.
   const sezioniBase = SEZIONI_ANAGRAFICA.filter((s) => s.codice === undefined);
   const sezioniCompilate = Object.values(stato).filter(Boolean).length;
   const percentuale = Math.round((sezioniCompilate / sezioniBase.length) * 100);
@@ -147,9 +165,13 @@ export default async function AnagraficaOverviewPage() {
   // ogni incarico porta comunque una verifica reale del consulente sulla
   // riga (vedi `app/core/incarichi.py`, non più la caratteristica A32 nel
   // form): i pallini qui sotto aggregano quel dato esistente, non ne
-  // inventano uno nuovo (§18).
-  function statoDaIncarichi(righe: typeof incarichi): CciaaSectionCardStato | null {
-    if (righe.length === 0) return null;
+  // inventano uno nuovo (§18). Restituisce sempre l'oggetto (mai `null`,
+  // anche a tabella vuota): stessa convenzione delle sezioni a registro
+  // campo-per-campo, dove una sezione mai compilata mostra comunque "0
+  // confermate/0 da verificare/0 da revisionare" invece di nascondere la
+  // riga dei pallini — coerenza tra i due meccanismi di verifica, § richiesta
+  // esplicita.
+  function statoDaIncarichi(righe: typeof incarichi): CciaaSectionCardStato {
     let confermate = 0;
     let daVerificare = 0;
     let daRevisionare = 0;
@@ -178,14 +200,6 @@ export default async function AnagraficaOverviewPage() {
     totale: number;
     stato: CciaaSectionCardStato | null;
   }[] = [
-    {
-      key: "sintesi",
-      sectionKey: "sintesi",
-      titolo: "Dati della sintesi",
-      presenti: Number(Boolean(identificazione?.stato_attivita)),
-      totale: 1,
-      stato: null,
-    },
     {
       key: "sede",
       sectionKey: "sede",
@@ -279,6 +293,110 @@ export default async function AnagraficaOverviewPage() {
   const cardCciaaCompletate = cciaaCards.filter((c) => c.totale > 0 && c.presenti >= c.totale).length;
   const DatiCciaaIcon = CATEGORIA_ICONE["Dati CCIAA"];
 
+  // --- Griglia delle macro sezioni Organizzazione/Trend/Assicurazioni/
+  // Altre informazioni: stessa visualizzazione di "Dati CCIAA" sopra
+  // (CciaaMacroSection + card con "N di N informazioni presenti" e la riga
+  // a tre pallini confermato/da verificare/da revisionare), invece della
+  // vecchia lista CollapsibleSection/SectionLinkCard senza alcun conteggio
+  // (§ "falle tutte"). "Contratto di lavoro", "Posizioni assicurative e
+  // previdenziali" e "Turni di lavoro" sono migrate al motore registro
+  // campo-per-campo (vedi backend/app/core/registro_campi.py): le loro card
+  // riusano `riepilogoSezioni` come le card CCIAA. Le altre 14 sezioni sono
+  // "a elenco" (più record per azienda): la verifica è per riga
+  // (`app.core.verifica_riga`, stesso motore di Soci/Amministratori/
+  // Sindaci) — qui aggregata esattamente come `statoDaIncarichi` sopra,
+  // sempre un oggetto (mai `null`, anche a tabella vuota: § richiesta
+  // esplicita di coerenza con le sezioni a registro campo-per-campo, dove
+  // "tutto vuoto" mostra comunque "0 confermate/0 da verificare/0 da
+  // revisionare" invece di nascondere la riga dei pallini).
+  const aggContrattoLavoro = sommaRegistro(["contratto-lavoro"]);
+  const aggPosizioniAssicurative = sommaRegistro(["posizioni-assicurative-previdenziali"]);
+  const aggTurniLavoro = sommaRegistro(["turni-lavoro"]);
+  const SEZIONI_REGISTRO_ABBONAMENTO: Record<string, ReturnType<typeof sommaRegistro>> = {
+    "contratto-lavoro": aggContrattoLavoro,
+    "posizioni-assicurative-previdenziali": aggPosizioniAssicurative,
+    "turni-lavoro": aggTurniLavoro,
+  };
+
+  function statoDaRighe(righe: { verificationStatus: string | null }[]): CciaaSectionCardStato {
+    let confermate = 0;
+    let daVerificare = 0;
+    let daRevisionare = 0;
+    for (const r of righe) {
+      if (r.verificationStatus === "VERIFIED") confermate += 1;
+      else if (r.verificationStatus === "REVISION_REQUIRED") daRevisionare += 1;
+      else daVerificare += 1;
+    }
+    return { confermate, daVerificare, daRevisionare };
+  }
+
+  const elencoIso9001Fetchers: Record<ElencoIso9001Key, () => Promise<ConVerificaRiga[]>> = {
+    "fondi-interprofessionali": () => apiFetch<FondoInterprofessionale[]>("/api/anagrafica/fondi-interprofessionali"),
+    "dati-generali": () => apiFetch<DatiGenerali[]>("/api/anagrafica/dati-generali"),
+    outsourcing: () => apiFetch<Outsourcing[]>("/api/anagrafica/outsourcing"),
+    subappaltatori: () => apiFetch<Subappaltatore[]>("/api/anagrafica/subappaltatori"),
+    "fornitori-materiali": () => apiFetch<FornitoreMateriali[]>("/api/anagrafica/fornitori-materiali"),
+    "lavoratori-autonomi": () => apiFetch<LavoratoreAutonomo[]>("/api/anagrafica/lavoratori-autonomi"),
+    "ripartizione-organico": () => apiFetch<RipartizioneOrganico[]>("/api/anagrafica/ripartizione-organico"),
+    "indicatori-economici": () => apiFetch<IndicatoreEconomico[]>("/api/anagrafica/indicatori-economici"),
+    "variazioni-organico": () => apiFetch<VariazioneOrganico[]>("/api/anagrafica/variazioni-organico"),
+    assicurazioni: () => apiFetch<Assicurazione[]>("/api/anagrafica/assicurazioni"),
+    // § "presenza" (singleton booleano) non porta una verifica per riga
+    // propria: solo l'elenco dei contratti la porta, presente/assente si
+    // combina comunque nel calcolo di `presenti` sotto.
+    "contratti-rete": () => apiFetch<ContrattoRete[]>("/api/anagrafica/contratti-rete"),
+    "compliance-trasparenza": () => apiFetch<ComplianceTrasparenza[]>("/api/anagrafica/compliance-trasparenza"),
+    "procedimenti-legali": () => apiFetch<ProcedimentoLegale[]>("/api/anagrafica/procedimenti-legali"),
+    "visite-enti-controllo": () => apiFetch<VisitaEnteControllo[]>("/api/anagrafica/visite-enti-controllo"),
+  };
+
+  const categorieAltre = categorieVisibili(sezioniAbilitateSet).filter((c) => c.nome !== "Dati CCIAA");
+  const sezioniAltrePerCategoria = new Map(
+    categorieAltre.map((c) => [c.nome, sezioniPerCategoriaVisibili(c.nome, sezioniAbilitateSet)] as const),
+  );
+  const sezioniElencoDaVerificare = [...sezioniAltrePerCategoria.values()]
+    .flat()
+    .filter((s): s is (typeof SEZIONI_ANAGRAFICA)[number] & { slug: ElencoIso9001Key } =>
+      isElencoIso9001Key(s.slug),
+    );
+  const [elencoAbbonamentoEntries, presenzaContrattiRete] = await Promise.all([
+    Promise.all(sezioniElencoDaVerificare.map(async (s) => [s.slug, await elencoIso9001Fetchers[s.slug]()] as const)),
+    sezioniElencoDaVerificare.some((s) => s.slug === "contratti-rete")
+      ? apiFetch<ContrattiRetePresenza | null>("/api/anagrafica/contratti-rete/presenza")
+      : Promise.resolve(null),
+  ]);
+  const elencoAbbonamento = new Map(elencoAbbonamentoEntries);
+
+  const altreCategorieCards = categorieAltre.map((categoria) => {
+    const sezioni = sezioniAltrePerCategoria.get(categoria.nome) ?? [];
+    const cards = sezioni.map((sezione) => {
+      const aggRegistro = SEZIONI_REGISTRO_ABBONAMENTO[sezione.slug];
+      if (aggRegistro) {
+        return {
+          key: sezione.slug,
+          titolo: sezione.titolo,
+          presenti: aggRegistro.verified + aggRegistro.pending + aggRegistro.revisionRequired,
+          totale: aggRegistro.totalApplicable,
+          drawer: { sectionKey: sezione.slug, stato: statoDaRegistro(aggRegistro) },
+        };
+      }
+      if (isElencoIso9001Key(sezione.slug)) {
+        const righe = elencoAbbonamento.get(sezione.slug) ?? [];
+        const presente =
+          righe.length > 0 || (sezione.slug === "contratti-rete" && Boolean(presenzaContrattiRete?.presenza));
+        return {
+          key: sezione.slug,
+          titolo: sezione.titolo,
+          presenti: Number(presente),
+          totale: 1,
+          drawer: { sectionKey: sezione.slug, stato: statoDaRighe(righe) },
+        };
+      }
+      return { key: sezione.slug, titolo: sezione.titolo, presenti: 0, totale: 1, drawer: null };
+    });
+    return { categoria, cards, completate: cards.filter((c) => c.totale > 0 && c.presenti >= c.totale).length };
+  });
+
   const contenuto = (
     <div className="flex flex-col gap-6">
       <header className="flex min-h-[76px] items-center gap-7">
@@ -343,6 +461,7 @@ export default async function AnagraficaOverviewPage() {
         icon={<DatiCciaaIcon className="size-[22px]" />}
         title="Dati CCIAA"
         badge={`${cardCciaaCompletate} di ${cciaaCards.length} sezioni completate`}
+        actions={<VisualizzaSintesiButton />}
       >
         {cciaaCards.map((card) => {
           const Icon = CCIAA_CARD_ICONE[card.key];
@@ -360,40 +479,42 @@ export default async function AnagraficaOverviewPage() {
         })}
       </CciaaMacroSection>
 
-      {categorieVisibili(sezioniAbilitateSet)
-        .filter((categoria) => categoria.nome !== "Dati CCIAA")
-        .map((categoria) => {
-          const sezioni = sezioniPerCategoriaVisibili(categoria.nome, sezioniAbilitateSet);
-          // Le sezioni ISO 9001 non hanno un dato "compilata/da compilare"
-          // qui (vedi nota sopra): il sottotitolo mostra il conteggio solo
-          // se almeno una sezione della categoria è effettivamente tracciata.
-          const sezioniTracciate = sezioni.filter((s) => s.slug in stato);
-          const subtitle =
-            sezioniTracciate.length > 0
-              ? `${sezioni.filter((s) => stato[s.slug]).length} di ${sezioni.length} sezioni compilate`
-              : `${sezioni.length} sezioni`;
-
-          return (
-            <CollapsibleSection
-              key={categoria.slug}
-              id={categoriaSlug(categoria.nome)}
-              icon={<IconAvatar icon={CATEGORIA_ICONE[categoria.nome]} size="sm" />}
-              title={categoria.nome}
-              subtitle={subtitle}
-            >
-              {sezioni.map((sezione) => (
-                <div key={sezione.slug}>
-                  <SectionLinkCard
-                    icon={SEZIONE_ICONE[sezione.slug]}
-                    title={sezione.titolo}
-                    subtitle="Vai alla sezione"
-                    href={`/anagrafica/${sezione.slug}`}
-                  />
-                </div>
-              ))}
-            </CollapsibleSection>
-          );
-        })}
+      {altreCategorieCards.map(({ categoria, cards, completate }) => {
+        const CategoriaIcon = CATEGORIA_ICONE[categoria.nome];
+        return (
+          <CciaaMacroSection
+            key={categoria.slug}
+            id={categoriaSlug(categoria.nome)}
+            icon={<CategoriaIcon className="size-[22px]" />}
+            title={categoria.nome}
+            badge={`${completate} di ${cards.length} sezioni completate`}
+          >
+            {cards.map((card) => {
+              const Icon = SEZIONE_ICONE[card.key];
+              return card.drawer ? (
+                <CciaaSectionCard
+                  key={card.key}
+                  icon={<Icon className="size-[18px]" />}
+                  title={card.titolo}
+                  presenti={card.presenti}
+                  totale={card.totale}
+                  stato={card.drawer.stato}
+                  sectionKey={card.drawer.sectionKey}
+                />
+              ) : (
+                <SectionPreviewGridCard
+                  key={card.key}
+                  icon={<Icon className="size-[18px]" />}
+                  title={card.titolo}
+                  presenti={card.presenti}
+                  totale={card.totale}
+                  href={`/anagrafica/${card.key}`}
+                />
+              );
+            })}
+          </CciaaMacroSection>
+        );
+      })}
     </div>
   );
 

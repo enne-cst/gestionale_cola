@@ -127,7 +127,19 @@ function GruppoCard({
  * sezione" compare solo quando la sezione è in modalità modifica, mai un
  * toggle locale — stessa convenzione delle tabelle a registro altrove nel
  * progetto. */
-export function RiepilogoPersonaleOccupazione({ editing }: { editing: boolean }) {
+export function RiepilogoPersonaleOccupazione({
+  editing,
+  stackedMode = false,
+}: {
+  editing: boolean;
+  // § Correzione 27/28 ("Dati camerali completi" > elimina le righe di
+  // separazione interne, tranne le 9 che separano le card impilate): vero
+  // solo quando questa card è impilata lì (passato da
+  // `PersonaleOccupazionePanel` come lo stesso `hideBanner` che riceve da
+  // `CciaaSectionPanel`) — elimina il border-b di questa sezione, altrimenti
+  // visibile subito sopra "Storico rilevazioni" sotto.
+  stackedMode?: boolean;
+}) {
   const { ruolo } = useWorkspace();
   const consulente = ruolo === "CONSULENTE";
   const [stato, setStato] = useState<Stato>({ fase: "loading" });
@@ -153,7 +165,7 @@ export function RiepilogoPersonaleOccupazione({ editing }: { editing: boolean })
 
   if (stato.fase === "loading") {
     return (
-      <section className="border-b border-[var(--az-border)] py-6">
+      <section className={cn("py-6", !stackedMode && "border-b border-[var(--az-border)]")}>
         <div className="flex flex-col gap-2" role="status" aria-live="polite" aria-busy="true">
           {[0, 1, 2].map((i) => (
             <span key={i} className="az-skeleton h-9 w-full" />
@@ -165,7 +177,7 @@ export function RiepilogoPersonaleOccupazione({ editing }: { editing: boolean })
 
   if (stato.fase === "error") {
     return (
-      <section className="border-b border-[var(--az-border)] py-6">
+      <section className={cn("py-6", !stackedMode && "border-b border-[var(--az-border)]")}>
         <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
           <span>Impossibile caricare il riepilogo della rilevazione più recente.</span>
           <button type="button" onClick={carica} className="font-semibold underline">
@@ -180,7 +192,7 @@ export function RiepilogoPersonaleOccupazione({ editing }: { editing: boolean })
 
   if (!riepilogo.rilevazione_id) {
     return (
-      <section className="border-b border-[var(--az-border)] py-6">
+      <section className={cn("py-6", !stackedMode && "border-b border-[var(--az-border)]")}>
         <div className="mb-2 flex items-center justify-between gap-3">
           <h3 className="text-[15px] font-bold text-[var(--az-ink)]">Rilevazione più recente</h3>
           {consulente && (
@@ -214,7 +226,7 @@ export function RiepilogoPersonaleOccupazione({ editing }: { editing: boolean })
   const haTerritorio = riepilogo.territorio.comune !== null;
 
   return (
-    <section className="border-b border-[var(--az-border)] py-6">
+    <section className={cn("py-6", !stackedMode && "border-b border-[var(--az-border)]")}>
       {/* § nessun indicatore di stato in questa vista: né accanto al
           titolo né sulle card grafiche (§ "leva gli indicatori di stato
           dalle card dei grafici") — le card sono puramente presentazionali.

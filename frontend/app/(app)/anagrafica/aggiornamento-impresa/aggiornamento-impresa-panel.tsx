@@ -6,6 +6,7 @@ import { useState } from "react";
 import { VerificationLegend } from "@/components/registro/field-verification-popover";
 import { useWorkspace } from "@/components/registro/workspace-provider";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 import { CronologiaAggiornamentoTable } from "./cronologia-aggiornamento-table";
 import { IndicatoriAggiornamentoImpresaRow } from "./indicatori-aggiornamento-impresa";
@@ -25,23 +26,48 @@ import { IndicatoriAggiornamentoImpresaRow } from "./indicatori-aggiornamento-im
  * riga creabile, il click sulla riga della cronologia apre sempre il
  * dettaglio di sola lettura, la verifica per riga è sempre disponibile),
  * ma "Annulla"/"Salva modifiche" hanno lo stesso effetto di uscita dalla
- * modalità, coerente con come le altre card presentano quel pulsante. */
-export function AggiornamentoImpresaPanel() {
+ * modalità, coerente con come le altre card presentano quel pulsante.
+ *
+ * § Correzione 27: `editing`/`onEditingChange`/`hideBanner` opzionali,
+ * stesso meccanismo e stesso motivo di `PersonaleOccupazionePanel`. */
+export function AggiornamentoImpresaPanel({
+  editing: editingControllata,
+  onEditingChange,
+  hideBanner = false,
+}: {
+  editing?: boolean;
+  onEditingChange?: (value: boolean) => void;
+  hideBanner?: boolean;
+} = {}) {
   const { ruolo } = useWorkspace();
   const consulente = ruolo === "CONSULENTE";
-  const [editing, setEditing] = useState(false);
+  const [editingPropria, setEditingPropria] = useState(false);
+  const editing = editingControllata ?? editingPropria;
+  const setEditing = onEditingChange ?? setEditingPropria;
 
   return (
     <>
-      <section className="border-b border-[var(--az-border)] py-6">
+      {/* § Correzione 27/28 seguito ("Dati camerali completi" > elimina le
+          righe di separazione interne, tranne le 9 che separano le card
+          impilate): quando impilata (`hideBanner` vero solo in quel
+          contesto, § commento sopra) nessuno dei due border-b qui sotto va
+          mostrato — nemmeno quello dopo "Cronologia", che senza `hideBanner`
+          resterebbe visibile ogni volta che il banner "Modifica dati" è a
+          sua volta visibile (in modifica) subito sotto. */}
+      <section className={cn("py-6", !hideBanner && "border-b border-[var(--az-border)]")}>
         <h3 className="mb-4 text-[15px] font-bold text-[var(--az-ink)]">Indicatori riepilogativi</h3>
         <IndicatoriAggiornamentoImpresaRow />
       </section>
 
-      <section className="border-b border-[var(--az-border)] py-6 last:border-b-0">
+      <section className={cn("py-6", !hideBanner && "border-b border-[var(--az-border)] last:border-b-0")}>
         <CronologiaAggiornamentoTable />
       </section>
 
+      {/* § richiesta esplicita ("Dati camerali completi" > Annulla/Salva
+          restano dove stava "Modifica"): impilata (`hideBanner` vero),
+          questo banner non va mai montato, nemmeno in modifica — quei due
+          pulsanti vivono ora nell'header di `CciaaSectionPanel`. */}
+      {!hideBanner && (
       <div className="mt-4 border-t border-[var(--az-border)]">
         {editing ? (
           <div className="flex min-h-[72px] items-center justify-end gap-3">
@@ -79,6 +105,7 @@ export function AggiornamentoImpresaPanel() {
           </div>
         )}
       </div>
+      )}
     </>
   );
 }

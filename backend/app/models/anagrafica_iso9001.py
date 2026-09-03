@@ -91,9 +91,16 @@ class AnaContrattoLavoro(Base):
     id: Mapped[uuid.UUID] = _id_col()
     azienda_id: Mapped[uuid.UUID] = _azienda_fk()
 
-    ccnl_applicato: Mapped[str] = mapped_column(String(250))
-    settore_ccnl: Mapped[str] = mapped_column(String(200))
-    data_applicazione: Mapped[date]
+    # Nullable dalla migrazione 0094 (§ pilota registro campo-per-campo,
+    # `app.core.registro_campi.SEZIONE_CONTRATTO_LAVORO`): erano NOT NULL
+    # quando questa tabella era scritta solo dal vecchio form atomico
+    # (`register_singleton_crud`, ancora attivo e che continua a validarli
+    # come obbligatori a livello di schema Pydantic), ma il registro
+    # campo-per-campo compila un campo alla volta e deve poter creare la
+    # riga con qualunque sottoinsieme valorizzato.
+    ccnl_applicato: Mapped[str | None] = mapped_column(String(250))
+    settore_ccnl: Mapped[str | None] = mapped_column(String(200))
+    data_applicazione: Mapped[date | None]
     ccnl_precedente: Mapped[str | None] = mapped_column(String(250))
     note: Mapped[str | None] = mapped_column(Text)
 
@@ -111,10 +118,13 @@ class AnaPosizioniAssicurativePrevidenziali(Base):
     id: Mapped[uuid.UUID] = _id_col()
     azienda_id: Mapped[uuid.UUID] = _azienda_fk()
 
-    numero_posizione_inps: Mapped[str] = mapped_column(String(50))
-    sede_territoriale_inps: Mapped[str] = mapped_column(String(200))
-    numero_posizione_inail: Mapped[str] = mapped_column(String(50))
-    sede_territoriale_inail: Mapped[str] = mapped_column(String(200))
+    # Nullable dalla migrazione 0095 (§ registro campo-per-campo,
+    # `app.core.registro_campi.SEZIONE_POSIZIONI_ASSICURATIVE_PREVIDENZIALI`)
+    # — vedi il commento analogo su AnaContrattoLavoro.
+    numero_posizione_inps: Mapped[str | None] = mapped_column(String(50))
+    sede_territoriale_inps: Mapped[str | None] = mapped_column(String(200))
+    numero_posizione_inail: Mapped[str | None] = mapped_column(String(50))
+    sede_territoriale_inail: Mapped[str | None] = mapped_column(String(200))
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -252,14 +262,17 @@ class AnaTurniLavoro(Base):
     id: Mapped[uuid.UUID] = _id_col()
     azienda_id: Mapped[uuid.UUID] = _azienda_fk()
 
-    presenza_turnazioni: Mapped[bool] = mapped_column(Boolean)
+    # Nullable dalla migrazione 0096 (§ registro campo-per-campo,
+    # `app.core.registro_campi.SEZIONE_TURNI_LAVORO`) — vedi il commento
+    # analogo su AnaContrattoLavoro.
+    presenza_turnazioni: Mapped[bool | None] = mapped_column(Boolean)
     tipologia_turno: Mapped[str | None] = mapped_column(String(200))
     numero_turni: Mapped[int | None] = mapped_column(SmallInteger)
     fasce_orarie: Mapped[str | None] = mapped_column(Text)
     rotazione_turni: Mapped[str | None] = mapped_column(Text)
-    lavoro_notturno: Mapped[bool] = mapped_column(Boolean)
-    lavoro_festivo: Mapped[bool] = mapped_column(Boolean)
-    lavoro_ciclo_continuo: Mapped[bool] = mapped_column(Boolean)
+    lavoro_notturno: Mapped[bool | None] = mapped_column(Boolean)
+    lavoro_festivo: Mapped[bool | None] = mapped_column(Boolean)
+    lavoro_ciclo_continuo: Mapped[bool | None] = mapped_column(Boolean)
     note: Mapped[str | None] = mapped_column(Text)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

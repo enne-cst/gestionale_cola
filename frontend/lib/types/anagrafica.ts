@@ -528,6 +528,7 @@ export interface IndicatoriAggiornamentoImpresa {
   trasferimenti_quote: number;
   trasferimenti_sede: number;
   partecipazioni: number;
+  ultimo_protocollo: string | null;
 }
 
 /** Riga della tabella "Cronologia aggiornamenti e protocolli" (§6). */

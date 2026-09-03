@@ -54,7 +54,7 @@ export function CompanyCard({
   onAction?: () => void;
 }) {
   const azioneClassName =
-    "mt-auto inline-flex items-center gap-3.5 self-start pt-2 text-[12.5px] font-bold text-[var(--az-blue)] hover:text-[var(--az-blue-dark)]";
+    "mt-auto inline-flex cursor-pointer items-center gap-3.5 self-start pt-2 text-[12.5px] font-bold text-[var(--az-blue)] hover:text-[var(--az-blue-dark)]";
   const azione = (
     <>
       <span>{actionLabel}</span>

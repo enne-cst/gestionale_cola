@@ -4,6 +4,8 @@ import { PencilIcon, TruckIcon } from "lucide-react";
 
 import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { DeleteButton } from "@/components/delete-button";
+import { RigaIso9001VerificationPopover } from "@/components/registro/riga-iso9001-verification-popover";
+import { useWorkspace } from "@/components/registro/workspace-provider";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { catalogoLabel } from "@/lib/catalogo-helpers";
@@ -12,12 +14,25 @@ import type { CatalogoVoce, FornitoreMateriali } from "@/lib/types/anagrafica-is
 import { deleteFornitore } from "./actions";
 import { FornitoreDialog } from "./fornitore-dialog";
 
-export function FornitoriTable({ dati, stati }: { dati: FornitoreMateriali[]; stati: CatalogoVoce[] }) {
+const RESOURCE_PATH = "fornitori-materiali";
+
+export function FornitoriTable({
+  dati,
+  stati,
+  onChanged,
+}: {
+  dati: FornitoreMateriali[];
+  stati: CatalogoVoce[];
+  onChanged?: () => void;
+}) {
+  const { ruolo } = useWorkspace();
+  const consulente = ruolo === "CONSULENTE";
+
   return (
     <DataTableCard
       title="Fornitori di materiali"
       count={dati.length}
-      addTrigger={<FornitoreDialog stati={stati} trigger={<AddRowButton icon={TruckIcon} />} />}
+      addTrigger={<FornitoreDialog stati={stati} onSaved={onChanged} trigger={<AddRowButton icon={TruckIcon} />} />}
     >
       {dati.length === 0 ? (
         <EmptyTableMessage>Nessun fornitore registrato.</EmptyTableMessage>
@@ -29,6 +44,7 @@ export function FornitoriTable({ dati, stati }: { dati: FornitoreMateriali[]; st
               <TableHead>Categoria merceologica</TableHead>
               <TableHead>Stato</TableHead>
               <TableHead>Referente</TableHead>
+              <TableHead className="w-16">Verifica</TableHead>
               <TableHead className="w-24" />
             </TableRow>
           </TableHeader>
@@ -39,10 +55,20 @@ export function FornitoriTable({ dati, stati }: { dati: FornitoreMateriali[]; st
                 <TableCell>{riga.categoria_merceologica}</TableCell>
                 <TableCell>{catalogoLabel(stati, riga.stato_id)}</TableCell>
                 <TableCell>{riga.referente}</TableCell>
+                <TableCell>
+                  <RigaIso9001VerificationPopover
+                    resourcePath={RESOURCE_PATH}
+                    riga={riga}
+                    nomeRiga={riga.ragione_sociale}
+                    consulente={consulente}
+                    onDecided={() => onChanged?.()}
+                  />
+                </TableCell>
                 <TableCell className="flex justify-end gap-1">
                   <FornitoreDialog
                     dati={riga}
                     stati={stati}
+                    onSaved={onChanged}
                     trigger={
                       <Button variant="ghost" size="icon" aria-label="Modifica">
                         <PencilIcon className="size-4" />
@@ -52,6 +78,7 @@ export function FornitoriTable({ dati, stati }: { dati: FornitoreMateriali[]; st
                   <DeleteButton
                     action={deleteFornitore.bind(null, riga.id)}
                     confirmMessage={`Eliminare il fornitore "${riga.ragione_sociale}"?`}
+                    onDeleted={onChanged}
                   />
                 </TableCell>
               </TableRow>

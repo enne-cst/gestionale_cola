@@ -4,6 +4,8 @@ import { GaugeIcon, PencilIcon } from "lucide-react";
 
 import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { DeleteButton } from "@/components/delete-button";
+import { RigaIso9001VerificationPopover } from "@/components/registro/riga-iso9001-verification-popover";
+import { useWorkspace } from "@/components/registro/workspace-provider";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { RipartizioneOrganico } from "@/lib/types/anagrafica-iso9001";
@@ -11,12 +13,17 @@ import type { RipartizioneOrganico } from "@/lib/types/anagrafica-iso9001";
 import { deleteRipartizioneOrganico } from "./actions";
 import { RipartizioneOrganicoDialog } from "./ripartizione-organico-dialog";
 
-export function RipartizioneOrganicoTable({ dati }: { dati: RipartizioneOrganico[] }) {
+const RESOURCE_PATH = "ripartizione-organico";
+
+export function RipartizioneOrganicoTable({ dati, onChanged }: { dati: RipartizioneOrganico[]; onChanged?: () => void }) {
+  const { ruolo } = useWorkspace();
+  const consulente = ruolo === "CONSULENTE";
+
   return (
     <DataTableCard
       title="Ripartizione organico"
       count={dati.length}
-      addTrigger={<RipartizioneOrganicoDialog trigger={<AddRowButton icon={GaugeIcon} />} />}
+      addTrigger={<RipartizioneOrganicoDialog onSaved={onChanged} trigger={<AddRowButton icon={GaugeIcon} />} />}
     >
       {dati.length === 0 ? (
         <EmptyTableMessage>
@@ -31,6 +38,7 @@ export function RipartizioneOrganicoTable({ dati }: { dati: RipartizioneOrganico
               <TableHead>Uomini / Donne</TableHead>
               <TableHead>Italiani / Stranieri</TableHead>
               <TableHead>Laureati / Diplomati</TableHead>
+              <TableHead className="w-16">Verifica</TableHead>
               <TableHead className="w-24" />
             </TableRow>
           </TableHeader>
@@ -50,9 +58,19 @@ export function RipartizioneOrganicoTable({ dati }: { dati: RipartizioneOrganico
                   {riga.numero_laureati} ({riga.percentuale_laureati ?? "—"}%) / {riga.numero_diplomati} (
                   {riga.percentuale_diplomati ?? "—"}%)
                 </TableCell>
+                <TableCell>
+                  <RigaIso9001VerificationPopover
+                    resourcePath={RESOURCE_PATH}
+                    riga={riga}
+                    nomeRiga={`Ripartizione ${riga.anno_riferimento}`}
+                    consulente={consulente}
+                    onDecided={() => onChanged?.()}
+                  />
+                </TableCell>
                 <TableCell className="flex justify-end gap-1">
                   <RipartizioneOrganicoDialog
                     dati={riga}
+                    onSaved={onChanged}
                     trigger={
                       <Button variant="ghost" size="icon" aria-label="Modifica">
                         <PencilIcon className="size-4" />
@@ -62,6 +80,7 @@ export function RipartizioneOrganicoTable({ dati }: { dati: RipartizioneOrganico
                   <DeleteButton
                     action={deleteRipartizioneOrganico.bind(null, riga.id)}
                     confirmMessage={`Eliminare la ripartizione dell'anno ${riga.anno_riferimento}?`}
+                    onDeleted={onChanged}
                   />
                 </TableCell>
               </TableRow>

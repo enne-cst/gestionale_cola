@@ -15,19 +15,24 @@ export function AssicurazioneDialog({
   dati,
   stati,
   frequenze,
+  onSaved,
 }: {
   trigger: ReactNode;
   dati?: Assicurazione;
   stati: CatalogoVoce[];
   frequenze: CatalogoVoce[];
+  onSaved?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const action = dati ? updateAssicurazione.bind(null, dati.id) : createAssicurazione;
   const [state, formAction] = useActionState<FormState, FormData>(action, {});
 
   useEffect(() => {
-    if (state.success) setOpen(false);
-  }, [state.success]);
+    if (state.success) {
+      setOpen(false);
+      onSaved?.();
+    }
+  }, [state.success, onSaved]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
