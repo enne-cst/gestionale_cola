@@ -14,6 +14,7 @@ import type {
 } from "@/lib/types/personale-hr";
 import type { RuoloSummary } from "@/lib/types/personale";
 
+import { MonitoraggioPersonale } from "./monitoraggio-personale";
 import { PeopleList } from "./people-list";
 import { PersonDetail } from "./person-detail";
 
@@ -112,7 +113,13 @@ export function PersonaleShell({
         />
       )}
 
-      {view !== "people" && (
+      {view === "control" && (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <MonitoraggioPersonale mansioni={mansioni} reparti={reparti} />
+        </div>
+      )}
+
+      {view !== "people" && view !== "control" && (
         <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
           Vista non ancora disponibile in questa fase.
         </div>

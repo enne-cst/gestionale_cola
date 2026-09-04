@@ -16,9 +16,10 @@ import { PersonaleShell } from "./personale-shell";
 
 // Fase 1 — Fondazioni (SPECIFICA_IMPLEMENTAZIONE_MODULO_PERSONALE §8.1,
 // §9-§12): la vista Persone, la shell della scheda persona e il tab
-// Persona e rapporto sono funzionanti. Monitoraggio/Scadenziario/Analisi
-// e i tab Ruoli/Formazione/Idoneità/Competenze/Note restano segnaposto —
-// richiedono endpoint dedicati non ancora costruiti (Fasi 2-5).
+// Persona e rapporto sono funzionanti. La scheda "Monitoraggio personale"
+// (vista "control") è un cruscotto a sola lettura calcolato da
+// app/core/personale_monitoraggio.py — nessun dato proprio. Scadenziario e
+// Analisi formazione restano segnaposto.
 
 type SearchParams = Record<string, string | string[] | undefined>;
 

@@ -52,6 +52,7 @@ export function PersonaRapportoTab({
   tipiRapporto,
   tipiDocumento,
   documentiPersona,
+  evidenziaDocumenti = false,
 }: {
   persona: PersonaProfilo;
   mansioni: CatalogoVoce[];
@@ -59,11 +60,22 @@ export function PersonaRapportoTab({
   tipiRapporto: CatalogoVoce[];
   tipiDocumento: CatalogoVoce[];
   documentiPersona: DocumentoPersonale[];
+  /** Apertura automatica del Dossier con scroll su "Documenti personali"
+   * (§15 Monitoraggio personale): usata solo dal clic sulla cella
+   * "Documenti" della matrice, mai da uno stato salvato qui. */
+  evidenziaDocumenti?: boolean;
 }) {
   const router = useRouter();
   const { setDirty, registerSave } = useDirtyGuard();
   const [editing, setEditing] = useState(false);
-  const [dossierAperto, setDossierAperto] = useState(false);
+  const [dossierAperto, setDossierAperto] = useState(evidenziaDocumenti);
+
+  useEffect(() => {
+    if (!evidenziaDocumenti) return;
+    const nodo = document.getElementById("documenti-personali");
+    nodo?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [evidenziaDocumenti, persona.id]);
 
   const [nome, setNome] = useState(persona.nome);
   const [cognome, setCognome] = useState(persona.cognome);
@@ -444,6 +456,7 @@ export function PersonaRapportoTab({
           </DossierSezione>
 
           <DossierSezione
+            id="documenti-personali"
             titolo={`Documenti personali (${documentiPersona.length})`}
             azione={
               <DocumentoPersonaleDialog
@@ -606,9 +619,19 @@ export function PersonaRapportoTab({
   );
 }
 
-function DossierSezione({ titolo, azione, children }: { titolo: string; azione?: ReactNode; children: ReactNode }) {
+function DossierSezione({
+  titolo,
+  azione,
+  children,
+  id,
+}: {
+  titolo: string;
+  azione?: ReactNode;
+  children: ReactNode;
+  id?: string;
+}) {
   return (
-    <div className="rounded-md border border-border/60 p-3">
+    <div id={id} className="rounded-md border border-border/60 p-3">
       <div className="mb-3 flex items-center justify-between">
         <h5 className="text-sm font-semibold text-foreground">{titolo}</h5>
         {azione}

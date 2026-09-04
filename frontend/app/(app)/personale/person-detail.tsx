@@ -13,8 +13,10 @@ import type { RuoloSummary } from "@/lib/types/personale";
 import type { CatalogoVoce, DocumentoPersonale, PersonaListRow, PersonaProfilo, PersonaRuolo } from "@/lib/types/personale-hr";
 
 import { PersonAvatar } from "./person-avatar";
+import { CompetenzeTab } from "./tabs/competenze-tab";
 import { FormazioneAbilitazioniTab } from "./tabs/formazione-abilitazioni-tab";
 import { IdoneitaSanitariaTab } from "./tabs/idoneita-sanitaria-tab";
+import { NoteTab } from "./tabs/note-tab";
 import { PersonaRapportoTab } from "./tabs/persona-rapporto-tab";
 import { PlaceholderTab } from "./tabs/placeholder-tab";
 import { PanoramicaTab } from "./tabs/panoramica-tab";
@@ -220,16 +222,21 @@ export function PersonDetail({
                 tipiRapporto={tipiRapporto}
                 tipiDocumento={tipiDocumento}
                 documentiPersona={documentiPersona}
+                evidenziaDocumenti={searchParams.get("focus") === "documenti"}
               />
             )}
             {tab === "roles" && <RuoliTab persona={persona} ruoli={ruoli} ruoliPersona={ruoliPersona} />}
             {tab === "training" && <FormazioneAbilitazioniTab personaId={persona.id} />}
             {tab === "health" && <IdoneitaSanitariaTab personaId={persona.id} />}
+            {tab === "skills" && <CompetenzeTab personaId={persona.id} />}
+            {tab === "notes" && <NoteTab personaId={persona.id} />}
             {tab !== "overview" &&
               tab !== "profile" &&
               tab !== "roles" &&
               tab !== "training" &&
-              tab !== "health" && <PlaceholderTab />}
+              tab !== "health" &&
+              tab !== "skills" &&
+              tab !== "notes" && <PlaceholderTab />}
           </div>
         </div>
       </div>
