@@ -14,6 +14,7 @@ import type { CatalogoVoce, DocumentoPersonale, PersonaListRow, PersonaProfilo, 
 
 import { PersonAvatar } from "./person-avatar";
 import { FormazioneAbilitazioniTab } from "./tabs/formazione-abilitazioni-tab";
+import { IdoneitaSanitariaTab } from "./tabs/idoneita-sanitaria-tab";
 import { PersonaRapportoTab } from "./tabs/persona-rapporto-tab";
 import { PlaceholderTab } from "./tabs/placeholder-tab";
 import { PanoramicaTab } from "./tabs/panoramica-tab";
@@ -223,7 +224,12 @@ export function PersonDetail({
             )}
             {tab === "roles" && <RuoliTab persona={persona} ruoli={ruoli} ruoliPersona={ruoliPersona} />}
             {tab === "training" && <FormazioneAbilitazioniTab personaId={persona.id} />}
-            {tab !== "overview" && tab !== "profile" && tab !== "roles" && tab !== "training" && <PlaceholderTab />}
+            {tab === "health" && <IdoneitaSanitariaTab personaId={persona.id} />}
+            {tab !== "overview" &&
+              tab !== "profile" &&
+              tab !== "roles" &&
+              tab !== "training" &&
+              tab !== "health" && <PlaceholderTab />}
           </div>
         </div>
       </div>

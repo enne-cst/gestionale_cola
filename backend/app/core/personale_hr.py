@@ -5,6 +5,7 @@ Funzioni pure con `Session` esplicita come primo parametro, stesso stile di
 Service, mai usate altrove nel repository.
 """
 
+import calendar
 import re
 import uuid
 from datetime import date, timedelta
@@ -24,16 +25,22 @@ from app.models.personale import (
     CatRuolo,
     CatTipoDocumentoIdentita,
     CatTipoRapporto,
+    CatTipoVisita,
     CatVoceValutazionePersonale,
     CfgRuoloAzienda,
     PerAbilitazione,
+    PerAttivita,
     PerDocumentoPersonale,
     PerFormazione,
+    PerGiudizioIdoneita,
     PerIncarico,
     PerRapportoAzienda,
     RelRuoloVoceValutazione,
 )
 from app.schemas.personale_hr import (
+    AppuntamentoVisitaCreate,
+    AppuntamentoVisitaRead,
+    AppuntamentoVisitaUpdate,
     CatalogoAbilitazioneRead,
     CatalogoCorsoCreate,
     CatalogoCorsoRead,
@@ -45,6 +52,11 @@ from app.schemas.personale_hr import (
     DocumentoPersonaleCreate,
     DocumentoPersonaleRead,
     DocumentoPersonaleUpdate,
+    GiudizioIdoneitaCreate,
+    GiudizioIdoneitaRead,
+    GiudizioIdoneitaUpdate,
+    IdoneitaSanitariaRead,
+    IndicatoriIdoneitaRead,
     NuovaPersonaRequest,
     PersonaDossierRead,
     PersonaDossierUpdate,
@@ -52,6 +64,8 @@ from app.schemas.personale_hr import (
     PersonaProfiloRead,
     PersonaProfiloUpdate,
     PersonaRuoloRead,
+    PromemoriaVisitaCreate,
+    PromemoriaVisitaRead,
     RapportoAziendaCreate,
     RapportoAziendaRead,
     RapportoCorrenteSummary,
@@ -59,6 +73,7 @@ from app.schemas.personale_hr import (
     RegistrazioneFormativaCreate,
     RegistrazioneFormativaRead,
     RegistrazioneFormativaUpdate,
+    TipoVisitaRead,
 )
 
 _DOSSIER_CAMPI_DIRETTI = (
@@ -905,3 +920,310 @@ def aggiorna_registrazione_formativa(
     db.commit()
     db.refresh(riga)
     return _riga_da_abilitazione(riga, abilitazione)
+
+
+# ---------------------------------------------------------------------------
+# Idoneità sanitaria (precisazione "Struttura di 'Idoneità sanitaria'") —
+# riusa per_giudizi_idoneita (§15.1, migrazione 014/0101, mai popolata) per
+# le visite completate e per_attivita (Scadenziario, migrazione 015/0102,
+# mai popolata né usata altrove) per l'appuntamento pianificato e il
+# promemoria. Nessuno stato "vigente"/"sostituita" viene salvato: è sempre
+# ricalcolato in lettura dall'ordinamento per data_visita (§10 — la visita
+# con data_visita più recente è l'unica "vigente", tutte le altre sono
+# SOSTITUITA), così una modifica successiva a una visita non richiede mai
+# di aggiornare le righe vicine.
+# ---------------------------------------------------------------------------
+
+_TIPO_ATTIVITA_VISITA = "VISITA_MEDICA"
+_TIPO_ATTIVITA_PROMEMORIA = "PROMEMORIA_VISITA"
+_CATEGORIA_SORVEGLIANZA = "SORVEGLIANZA_SANITARIA"
+
+
+def lista_tipi_visita(db: Session) -> list[CatTipoVisita]:
+    # Catalogo globale di sistema (come cat_abilitazioni): sola lettura da
+    # questo modulo.
+    stmt = select(CatTipoVisita).where(CatTipoVisita.attivo.is_(True)).order_by(CatTipoVisita.ordine_visualizzazione)
+    return list(db.scalars(stmt).all())
+
+
+def _aggiungi_mesi(base: date, mesi: int) -> date:
+    """Somma mesi di calendario a una data, riducendo il giorno al massimo
+    valido del mese di arrivo (es. 31/01 + 1 mese = 28 o 29/02): nessuna
+    dipendenza da python-dateutil, non presente in requirements.txt."""
+
+    mese_totale = base.month - 1 + mesi
+    anno = base.year + mese_totale // 12
+    mese = mese_totale % 12 + 1
+    giorno = min(base.day, calendar.monthrange(anno, mese)[1])
+    return date(anno, mese, giorno)
+
+
+def _stato_giudizio(data_scadenza: date | None, *, e_vigente: bool, oggi: date | None = None) -> str:
+    if not e_vigente:
+        # Una visita completata precedente resta sempre "Sostituita" quando
+        # ne esiste una più recente (§10): non alimenta più lo stato
+        # corrente, indipendentemente dalla propria scadenza originaria.
+        return "SOSTITUITA"
+    if data_scadenza is None:
+        return "VALIDA"
+    oggi = oggi or date.today()
+    if data_scadenza < oggi:
+        return "SCADUTA"
+    # Nessuna soglia di sistema centralizzata in piattaforma: stesso
+    # fallback già in uso per Formazione/Abilitazioni (_stato_registrazione_
+    # formativa sopra), non esiste un catalogo con soglia propria per le
+    # tipologie di visita.
+    if data_scadenza <= oggi + timedelta(days=_SOGLIA_PREAVVISO_DEFAULT_GIORNI):
+        return "IN_SCADENZA"
+    return "VALIDA"
+
+
+def _giudizio_a_read(giudizio: PerGiudizioIdoneita, tipo_visita: CatTipoVisita, *, e_vigente: bool) -> GiudizioIdoneitaRead:
+    testo_prescrizioni = (giudizio.prescrizioni_minime or "").strip()
+    return GiudizioIdoneitaRead(
+        id=giudizio.id,
+        tipo_visita=tipo_visita,
+        data_visita=giudizio.data_visita,
+        giudizio=giudizio.giudizio,
+        periodicita_mesi=giudizio.periodicita_mesi,
+        data_scadenza=giudizio.data_scadenza,
+        medico_competente=giudizio.medico_competente,
+        prescrizioni_presenti=bool(testo_prescrizioni),
+        prescrizioni_minime=giudizio.prescrizioni_minime,
+        documento_presente=giudizio.documento_id is not None,
+        stato=_stato_giudizio(giudizio.data_scadenza, e_vigente=e_vigente),
+    )
+
+
+def _storico_giudizi_idoneita(db: Session, azienda_id: uuid.UUID, persona_id: uuid.UUID) -> list[GiudizioIdoneitaRead]:
+    stmt = (
+        select(PerGiudizioIdoneita, CatTipoVisita)
+        .join(CatTipoVisita, CatTipoVisita.id == PerGiudizioIdoneita.tipo_visita_id)
+        .where(PerGiudizioIdoneita.azienda_id == azienda_id, PerGiudizioIdoneita.persona_id == persona_id)
+        .order_by(PerGiudizioIdoneita.data_visita.desc(), PerGiudizioIdoneita.created_at.desc())
+    )
+    righe = db.execute(stmt).all()
+    return [_giudizio_a_read(giudizio, tipo_visita, e_vigente=(indice == 0)) for indice, (giudizio, tipo_visita) in enumerate(righe)]
+
+
+def _indicatori_idoneita(storico: list[GiudizioIdoneitaRead]) -> IndicatoriIdoneitaRead:
+    # Il giudizio vigente è sempre il primo dello storico (ordinato per
+    # data_visita decrescente): "Ultimo giudizio"/"Valido fino al" non
+    # devono mai leggere una visita solo pianificata (§3), che infatti non
+    # vive in questa tabella ma nello Scadenziario (per_attivita).
+    if not storico:
+        return IndicatoriIdoneitaRead()
+    vigente = storico[0]
+    return IndicatoriIdoneitaRead(
+        ultimo_giudizio=vigente.giudizio,
+        valido_fino_al=vigente.data_scadenza,
+        limitazioni_segnalate=vigente.prescrizioni_presenti,
+    )
+
+
+def _prossimo_appuntamento_visita(db: Session, azienda_id: uuid.UUID, persona_id: uuid.UUID) -> PerAttivita | None:
+    stmt = (
+        select(PerAttivita)
+        .where(
+            PerAttivita.azienda_id == azienda_id,
+            PerAttivita.persona_id == persona_id,
+            PerAttivita.tipo == _TIPO_ATTIVITA_VISITA,
+            PerAttivita.stato == "PIANIFICATA",
+            PerAttivita.data_scadenza >= date.today(),
+        )
+        .order_by(PerAttivita.data_scadenza, PerAttivita.ora)
+        .limit(1)
+    )
+    return db.scalars(stmt).first()
+
+
+def _appuntamento_a_read(appuntamento: PerAttivita) -> AppuntamentoVisitaRead:
+    return AppuntamentoVisitaRead(
+        id=appuntamento.id,
+        titolo=appuntamento.titolo,
+        data=appuntamento.data_scadenza,
+        ora=appuntamento.ora,
+        medico_competente=appuntamento.medico_competente,
+        luogo=appuntamento.luogo,
+        note=appuntamento.note,
+        stato=appuntamento.stato,
+    )
+
+
+def idoneita_sanitaria_persona(db: Session, azienda_id: uuid.UUID, persona_id: uuid.UUID) -> IdoneitaSanitariaRead:
+    storico = _storico_giudizi_idoneita(db, azienda_id, persona_id)
+    appuntamento = _prossimo_appuntamento_visita(db, azienda_id, persona_id)
+    return IdoneitaSanitariaRead(
+        indicatori=_indicatori_idoneita(storico),
+        storico=storico,
+        prossimo_appuntamento=_appuntamento_a_read(appuntamento) if appuntamento is not None else None,
+        # Il modulo Sicurezza non esiste ancora in piattaforma (§16): stato
+        # vuoto sempre, mai esposizioni dimostrative.
+        esposizioni=[],
+    )
+
+
+def crea_giudizio_idoneita(
+    db: Session, azienda_id: uuid.UUID, persona_id: uuid.UUID, payload: GiudizioIdoneitaCreate
+) -> GiudizioIdoneitaRead:
+    persona = db.get(AnaPersone, persona_id)
+    if persona is None or persona.azienda_id != azienda_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Persona non trovata.")
+    tipo_visita = db.get(CatTipoVisita, payload.tipo_visita_id)
+    if tipo_visita is None or not tipo_visita.attivo:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Tipo di visita non trovato.")
+
+    # La scadenza è proposta dal frontend come data_visita + periodicità
+    # (§5) e resta sempre modificabile; se il chiamante non la invia
+    # affatto ma la periodicità è presente, il backend la calcola comunque
+    # (difesa in profondità: "ogni regola che conta viene ri-verificata
+    # dalle API", CLAUDE.md).
+    data_scadenza = payload.data_scadenza
+    if data_scadenza is None and payload.periodicita_mesi is not None:
+        data_scadenza = _aggiungi_mesi(payload.data_visita, payload.periodicita_mesi)
+
+    giudizio = PerGiudizioIdoneita(
+        azienda_id=azienda_id,
+        persona_id=persona_id,
+        tipo_visita_id=tipo_visita.id,
+        data_visita=payload.data_visita,
+        giudizio=payload.giudizio,
+        periodicita_mesi=payload.periodicita_mesi,
+        data_scadenza=data_scadenza,
+        medico_competente=payload.medico_competente,
+        prescrizioni_minime=payload.prescrizioni_minime if payload.prescrizioni_presenti else None,
+    )
+    db.add(giudizio)
+    db.commit()
+    db.refresh(giudizio)
+    e_vigente = giudizio.id == _storico_giudizi_idoneita(db, azienda_id, persona_id)[0].id
+    return _giudizio_a_read(giudizio, tipo_visita, e_vigente=e_vigente)
+
+
+def _giudizio_owned_or_none(db: Session, azienda_id: uuid.UUID, visita_id: uuid.UUID) -> PerGiudizioIdoneita | None:
+    giudizio = db.get(PerGiudizioIdoneita, visita_id)
+    if giudizio is None or giudizio.azienda_id != azienda_id:
+        return None
+    return giudizio
+
+
+def aggiorna_giudizio_idoneita(
+    db: Session, azienda_id: uuid.UUID, visita_id: uuid.UUID, payload: GiudizioIdoneitaUpdate
+) -> GiudizioIdoneitaRead | None:
+    giudizio = _giudizio_owned_or_none(db, azienda_id, visita_id)
+    if giudizio is None:
+        return None
+    tipo_visita = db.get(CatTipoVisita, payload.tipo_visita_id)
+    if tipo_visita is None or not tipo_visita.attivo:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Tipo di visita non trovato.")
+
+    data_scadenza = payload.data_scadenza
+    if data_scadenza is None and payload.periodicita_mesi is not None:
+        data_scadenza = _aggiungi_mesi(payload.data_visita, payload.periodicita_mesi)
+
+    giudizio.tipo_visita_id = tipo_visita.id
+    giudizio.data_visita = payload.data_visita
+    giudizio.giudizio = payload.giudizio
+    giudizio.periodicita_mesi = payload.periodicita_mesi
+    giudizio.data_scadenza = data_scadenza
+    giudizio.medico_competente = payload.medico_competente
+    giudizio.prescrizioni_minime = payload.prescrizioni_minime if payload.prescrizioni_presenti else None
+    db.commit()
+    db.refresh(giudizio)
+    e_vigente = giudizio.id == _storico_giudizi_idoneita(db, azienda_id, giudizio.persona_id)[0].id
+    return _giudizio_a_read(giudizio, tipo_visita, e_vigente=e_vigente)
+
+
+def crea_appuntamento_visita(
+    db: Session, azienda_id: uuid.UUID, persona_id: uuid.UUID, payload: AppuntamentoVisitaCreate
+) -> AppuntamentoVisitaRead:
+    persona = db.get(AnaPersone, persona_id)
+    if persona is None or persona.azienda_id != azienda_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Persona non trovata.")
+    tipo_visita = db.get(CatTipoVisita, payload.tipo_visita_id)
+    if tipo_visita is None or not tipo_visita.attivo:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Tipo di visita non trovato.")
+
+    appuntamento = PerAttivita(
+        azienda_id=azienda_id,
+        persona_id=persona_id,
+        tipo=_TIPO_ATTIVITA_VISITA,
+        categoria=_CATEGORIA_SORVEGLIANZA,
+        titolo=f"Visita {tipo_visita.denominazione.lower()}",
+        data_scadenza=payload.data,
+        ora=payload.ora,
+        stato="PIANIFICATA",
+        medico_competente=payload.medico_competente,
+        luogo=payload.luogo,
+        note=payload.note,
+    )
+    db.add(appuntamento)
+    db.commit()
+    db.refresh(appuntamento)
+    return _appuntamento_a_read(appuntamento)
+
+
+def _appuntamento_owned_or_none(db: Session, azienda_id: uuid.UUID, appuntamento_id: uuid.UUID) -> PerAttivita | None:
+    appuntamento = db.get(PerAttivita, appuntamento_id)
+    if appuntamento is None or appuntamento.azienda_id != azienda_id or appuntamento.tipo != _TIPO_ATTIVITA_VISITA:
+        return None
+    return appuntamento
+
+
+def aggiorna_appuntamento_visita(
+    db: Session, azienda_id: uuid.UUID, appuntamento_id: uuid.UUID, payload: AppuntamentoVisitaUpdate
+) -> AppuntamentoVisitaRead | None:
+    # La modifica aggiorna sempre l'appuntamento esistente, incluso
+    # l'annullamento (stato ANNULLATA): non crea mai un secondo record
+    # (§13 — "non continua a mostrare il pulsante come se mancasse
+    # l'appuntamento").
+    appuntamento = _appuntamento_owned_or_none(db, azienda_id, appuntamento_id)
+    if appuntamento is None:
+        return None
+    appuntamento.data_scadenza = payload.data
+    appuntamento.ora = payload.ora
+    appuntamento.medico_competente = payload.medico_competente
+    appuntamento.luogo = payload.luogo
+    appuntamento.note = payload.note
+    appuntamento.stato = payload.stato
+    db.commit()
+    db.refresh(appuntamento)
+    return _appuntamento_a_read(appuntamento)
+
+
+def crea_promemoria_visita(
+    db: Session, azienda_id: uuid.UUID, persona_id: uuid.UUID, payload: PromemoriaVisitaCreate
+) -> PromemoriaVisitaRead:
+    # Il promemoria non crea né modifica alcun appuntamento o giudizio
+    # (§15): un record indipendente in per_attivita, che non alimenta
+    # l'indicatore "Prossima visita" (letto solo da _TIPO_ATTIVITA_VISITA).
+    persona = db.get(AnaPersone, persona_id)
+    if persona is None or persona.azienda_id != azienda_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Persona non trovata.")
+
+    nota = payload.nota or ""
+    if payload.destinatari:
+        prefisso = f"Destinatari: {payload.destinatari}"
+        nota = f"{prefisso}\n\n{nota}".strip() if nota else prefisso
+
+    promemoria = PerAttivita(
+        azienda_id=azienda_id,
+        persona_id=persona_id,
+        tipo=_TIPO_ATTIVITA_PROMEMORIA,
+        categoria=_CATEGORIA_SORVEGLIANZA,
+        titolo=payload.oggetto.strip(),
+        data_scadenza=payload.data,
+        ora=payload.ora,
+        stato="PIANIFICATA",
+        note=nota or None,
+    )
+    db.add(promemoria)
+    db.commit()
+    db.refresh(promemoria)
+    return PromemoriaVisitaRead(
+        id=promemoria.id,
+        oggetto=promemoria.titolo,
+        data=promemoria.data_scadenza,
+        ora=promemoria.ora,
+        nota=promemoria.note,
+    )

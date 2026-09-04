@@ -24,18 +24,24 @@ from app.core.deps import AziendaContext, get_current_azienda
 from app.core.moduli import require_modulo
 from app.core.pagination import Page, PageParams
 from app.core.personale_hr import (
+    aggiorna_appuntamento_visita,
     aggiorna_competenza_ruolo,
     aggiorna_documento_persona,
+    aggiorna_giudizio_idoneita,
     aggiorna_profilo_persona,
     aggiorna_registrazione_formativa,
     aggiungi_competenza_ruolo,
+    crea_appuntamento_visita,
     crea_corso_formazione,
     crea_documento_persona,
+    crea_giudizio_idoneita,
     crea_mansione,
     crea_persona_con_rapporto,
+    crea_promemoria_visita,
     crea_registrazione_formativa,
     crea_reparto,
     elimina_documento_persona,
+    idoneita_sanitaria_persona,
     lista_abilitazioni_catalogo,
     lista_corsi_formazione,
     lista_documenti_persona,
@@ -44,6 +50,7 @@ from app.core.personale_hr import (
     lista_reparti,
     lista_tipi_documento,
     lista_tipi_rapporto,
+    lista_tipi_visita,
     mansionario_ruolo,
     profilo_persona,
     rapporto_a_read,
@@ -54,6 +61,9 @@ from app.core.personale_hr import (
 from app.database import get_db
 from app.models.personale import CatRuolo, PerRapportoAzienda
 from app.schemas.personale_hr import (
+    AppuntamentoVisitaCreate,
+    AppuntamentoVisitaRead,
+    AppuntamentoVisitaUpdate,
     CatalogoAbilitazioneRead,
     CatalogoCorsoCreate,
     CatalogoCorsoRead,
@@ -65,16 +75,23 @@ from app.schemas.personale_hr import (
     DocumentoPersonaleCreate,
     DocumentoPersonaleRead,
     DocumentoPersonaleUpdate,
+    GiudizioIdoneitaCreate,
+    GiudizioIdoneitaRead,
+    GiudizioIdoneitaUpdate,
+    IdoneitaSanitariaRead,
     NuovaPersonaRequest,
     PersonaListRow,
     PersonaProfiloRead,
     PersonaProfiloUpdate,
     PersonaRuoloRead,
+    PromemoriaVisitaCreate,
+    PromemoriaVisitaRead,
     RapportoAziendaRead,
     RegistrazioneFormativaCreate,
     RegistrazioneFormativaRead,
     RegistrazioneFormativaUpdate,
     TipoRegistrazioneFormativa,
+    TipoVisitaRead,
 )
 
 MODULO = "Personale"
@@ -446,3 +463,108 @@ def put_formazione_abilitazioni(
     if registrazione is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Registrazione non trovata")
     return registrazione
+
+
+# ---------------------------------------------------------------------------
+# Idoneità sanitaria — nessun controllo di profilo aggiuntivo oltre
+# require_modulo/get_current_azienda già in vigore su tutto il router
+# (decisione utente esplicita: non esiste ancora un sistema di permessi
+# granulari in piattaforma).
+# ---------------------------------------------------------------------------
+
+
+@router.get("/tipi-visita", response_model=list[TipoVisitaRead], tags=TAGS)
+def get_tipi_visita(
+    db: Session = Depends(get_db),
+    _ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    return lista_tipi_visita(db)
+
+
+@router.get("/persone/{persona_id}/idoneita", response_model=IdoneitaSanitariaRead, tags=TAGS)
+def get_idoneita_persona(
+    persona_id: UUID,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    if profilo_persona(db, ctx.azienda_id, persona_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona non trovata")
+    return idoneita_sanitaria_persona(db, ctx.azienda_id, persona_id)
+
+
+@router.post(
+    "/persone/{persona_id}/visite",
+    response_model=GiudizioIdoneitaRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=TAGS,
+)
+def post_visita_idoneita(
+    persona_id: UUID,
+    payload: GiudizioIdoneitaCreate,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    return crea_giudizio_idoneita(db, ctx.azienda_id, persona_id, payload)
+
+
+@router.put("/visite/{visita_id}", response_model=GiudizioIdoneitaRead, tags=TAGS)
+def put_visita_idoneita(
+    visita_id: UUID,
+    payload: GiudizioIdoneitaUpdate,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    giudizio = aggiorna_giudizio_idoneita(db, ctx.azienda_id, visita_id, payload)
+    if giudizio is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Visita non trovata")
+    return giudizio
+
+
+@router.post(
+    "/persone/{persona_id}/appuntamenti-visita",
+    response_model=AppuntamentoVisitaRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=TAGS,
+)
+def post_appuntamento_visita(
+    persona_id: UUID,
+    payload: AppuntamentoVisitaCreate,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    return crea_appuntamento_visita(db, ctx.azienda_id, persona_id, payload)
+
+
+@router.put("/appuntamenti-visita/{appuntamento_id}", response_model=AppuntamentoVisitaRead, tags=TAGS)
+def put_appuntamento_visita(
+    appuntamento_id: UUID,
+    payload: AppuntamentoVisitaUpdate,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    appuntamento = aggiorna_appuntamento_visita(db, ctx.azienda_id, appuntamento_id, payload)
+    if appuntamento is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Appuntamento non trovato")
+    return appuntamento
+
+
+@router.post(
+    "/persone/{persona_id}/promemoria-visita",
+    response_model=PromemoriaVisitaRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=TAGS,
+)
+def post_promemoria_visita(
+    persona_id: UUID,
+    payload: PromemoriaVisitaCreate,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    return crea_promemoria_visita(db, ctx.azienda_id, persona_id, payload)

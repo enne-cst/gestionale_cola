@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache";
 
 import { deleteApiResource, patchApiResource, postApiResource, putApiResourceResult } from "@/lib/actions/api-resource";
 import type {
+  AppuntamentoVisita,
+  AppuntamentoVisitaCreatePayload,
+  AppuntamentoVisitaUpdatePayload,
   CatalogoCorso,
   CatalogoCorsoPayload,
   CatalogoCreatePayload,
@@ -12,9 +15,13 @@ import type {
   CompetenzaRuoloPayload,
   DocumentoPersonale,
   DocumentoPersonalePayload,
+  GiudizioIdoneita,
+  GiudizioIdoneitaPayload,
   NuovaPersonaPayload,
   PersonaProfilo,
   PersonaProfiloUpdatePayload,
+  PromemoriaVisita,
+  PromemoriaVisitaPayload,
   RegistrazioneFormativa,
   RegistrazioneFormativaPayload,
 } from "@/lib/types/personale-hr";
@@ -89,4 +96,24 @@ export async function aggiornaRegistrazioneFormativa(
     `/api/personale/formazione-abilitazioni/${payload.tipo}/${registrazioneId}`,
     payload,
   );
+}
+
+export async function creaVisitaIdoneita(personaId: string, payload: GiudizioIdoneitaPayload) {
+  return postApiResource<GiudizioIdoneita>(`/api/personale/persone/${personaId}/visite`, payload);
+}
+
+export async function aggiornaVisitaIdoneita(visitaId: string, payload: GiudizioIdoneitaPayload) {
+  return putApiResourceResult<GiudizioIdoneita>(`/api/personale/visite/${visitaId}`, payload);
+}
+
+export async function creaAppuntamentoVisita(personaId: string, payload: AppuntamentoVisitaCreatePayload) {
+  return postApiResource<AppuntamentoVisita>(`/api/personale/persone/${personaId}/appuntamenti-visita`, payload);
+}
+
+export async function aggiornaAppuntamentoVisita(appuntamentoId: string, payload: AppuntamentoVisitaUpdatePayload) {
+  return putApiResourceResult<AppuntamentoVisita>(`/api/personale/appuntamenti-visita/${appuntamentoId}`, payload);
+}
+
+export async function creaPromemoriaVisita(personaId: string, payload: PromemoriaVisitaPayload) {
+  return postApiResource<PromemoriaVisita>(`/api/personale/persone/${personaId}/promemoria-visita`, payload);
 }

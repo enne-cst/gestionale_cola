@@ -268,3 +268,108 @@ export interface RegistrazioneFormativaPayload {
   durata_ore: string;
   ente_formatore?: string | null;
 }
+
+// ---------------------------------------------------------------------------
+// Idoneità sanitaria — riusa per_giudizi_idoneita (visite completate) e
+// per_attivita/Scadenziario (appuntamento pianificato, promemoria). Nessuno
+// stato "vigente"/"sostituita" è salvato: è sempre ricalcolato dal backend
+// in lettura. "documento_presente" segue lo stesso pattern di Formazione/
+// Abilitazioni/Documenti personali: nessun upload/apertura file reale.
+// ---------------------------------------------------------------------------
+
+export type GiudizioIdoneitaValore = "IDONEO" | "IDONEO_CON_PRESCRIZIONI" | "NON_IDONEO" | "IDONEO_TEMPORANEAMENTE";
+export type StatoGiudizioIdoneita = "VALIDA" | "IN_SCADENZA" | "SCADUTA" | "SOSTITUITA";
+export type StatoAppuntamentoVisita = "PIANIFICATA" | "ANNULLATA";
+
+export interface TipoVisita {
+  id: string;
+  codice: string;
+  denominazione: string;
+}
+
+export interface GiudizioIdoneita {
+  id: string;
+  tipo_visita: TipoVisita;
+  data_visita: string;
+  giudizio: GiudizioIdoneitaValore;
+  periodicita_mesi: number | null;
+  data_scadenza: string | null;
+  medico_competente: string | null;
+  prescrizioni_presenti: boolean;
+  prescrizioni_minime: string | null;
+  documento_presente: boolean;
+  stato: StatoGiudizioIdoneita;
+}
+
+export interface GiudizioIdoneitaPayload {
+  tipo_visita_id: string;
+  data_visita: string;
+  giudizio: GiudizioIdoneitaValore;
+  periodicita_mesi?: number | null;
+  data_scadenza?: string | null;
+  medico_competente?: string | null;
+  prescrizioni_presenti: boolean;
+  prescrizioni_minime?: string | null;
+}
+
+export interface IndicatoriIdoneita {
+  ultimo_giudizio: GiudizioIdoneitaValore | null;
+  valido_fino_al: string | null;
+  limitazioni_segnalate: boolean;
+}
+
+export interface AppuntamentoVisita {
+  id: string;
+  titolo: string;
+  data: string;
+  ora: string | null;
+  medico_competente: string | null;
+  luogo: string | null;
+  note: string | null;
+  stato: StatoAppuntamentoVisita;
+}
+
+export interface AppuntamentoVisitaCreatePayload {
+  tipo_visita_id: string;
+  data: string;
+  ora?: string | null;
+  medico_competente?: string | null;
+  luogo?: string | null;
+  note?: string | null;
+}
+
+export interface AppuntamentoVisitaUpdatePayload {
+  data: string;
+  ora?: string | null;
+  medico_competente?: string | null;
+  luogo?: string | null;
+  note?: string | null;
+  stato: StatoAppuntamentoVisita;
+}
+
+export interface PromemoriaVisitaPayload {
+  oggetto: string;
+  data: string;
+  ora?: string | null;
+  destinatari?: string | null;
+  nota?: string | null;
+}
+
+export interface PromemoriaVisita {
+  id: string;
+  oggetto: string;
+  data: string;
+  ora: string | null;
+  nota: string | null;
+}
+
+export interface EsposizioneAssociata {
+  denominazione: string;
+}
+
+export interface IdoneitaSanitaria {
+  indicatori: IndicatoriIdoneita;
+  storico: GiudizioIdoneita[];
+  prossimo_appuntamento: AppuntamentoVisita | null;
+  esposizioni: EsposizioneAssociata[];
+}

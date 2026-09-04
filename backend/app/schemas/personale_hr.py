@@ -8,7 +8,7 @@ dossier, distinto anche nel contratto da `AnaPersoneRead`.
 """
 
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Literal
 
@@ -445,3 +445,163 @@ class RegistrazioneFormativaCreate(_OrmModel):
 
 class RegistrazioneFormativaUpdate(RegistrazioneFormativaCreate):
     pass
+
+
+# ---------------------------------------------------------------------------
+# Idoneità sanitaria (precisazione "Struttura di 'Idoneità sanitaria'") —
+# riusa per_giudizi_idoneita (§15.1, migrazione 014/0101, mai popolata) per
+# le visite completate e per_attivita (Scadenziario, migrazione 015/0102,
+# mai popolata né usata da alcun servizio) per l'appuntamento pianificato e
+# il promemoria: nessuna tabella nuova per questi due concetti. Nessun
+# controllo di profilo aggiuntivo oltre l'isolamento per azienda già in
+# vigore altrove nel modulo (decisione utente esplicita via
+# AskUserQuestion: non esiste ancora un sistema di permessi granulari in
+# piattaforma — ampliarlo autonomamente non è nello scope di questa
+# sessione). "documento_presente" segue lo stesso pattern già in uso per
+# Formazione/Abilitazioni/Documenti personali: nessun upload/apertura file
+# reale, solo presenza/assenza di `documento_id` (doc_documenti è ancora un
+# placeholder, CLAUDE.md).
+# ---------------------------------------------------------------------------
+
+GiudizioIdoneitaValore = Literal["IDONEO", "IDONEO_CON_PRESCRIZIONI", "NON_IDONEO", "IDONEO_TEMPORANEAMENTE"]
+StatoGiudizioIdoneita = Literal["VALIDA", "IN_SCADENZA", "SCADUTA", "SOSTITUITA"]
+StatoAppuntamentoVisita = Literal["PIANIFICATA", "ANNULLATA"]
+
+
+class TipoVisitaRead(_OrmModel):
+    id: uuid.UUID
+    codice: str
+    denominazione: str
+
+
+class GiudizioIdoneitaRead(_OrmModel):
+    id: uuid.UUID
+    tipo_visita: TipoVisitaRead
+    data_visita: date
+    giudizio: GiudizioIdoneitaValore
+    periodicita_mesi: int | None = None
+    data_scadenza: date | None = None
+    medico_competente: str | None = None
+    # Derivato dalla presenza di testo in prescrizioni_minime (§8): nessuna
+    # colonna booleona separata, stesso principio di documento_presente.
+    prescrizioni_presenti: bool
+    prescrizioni_minime: str | None = None
+    documento_presente: bool
+    # VALIDA/IN_SCADENZA/SCADUTA solo per il giudizio vigente (la visita
+    # completata più recente); ogni visita precedente è sempre SOSTITUITA
+    # (§10), indipendentemente dalla propria scadenza originaria.
+    stato: StatoGiudizioIdoneita
+
+
+class GiudizioIdoneitaCreate(_OrmModel):
+    tipo_visita_id: uuid.UUID
+    data_visita: date
+    giudizio: GiudizioIdoneitaValore
+    periodicita_mesi: int | None = None
+    # Proposta automaticamente dal frontend come data_visita + periodicità
+    # (§5), ma sempre modificabile: se assente e la periodicità è presente,
+    # il backend la calcola comunque (difesa in profondità, CLAUDE.md "ogni
+    # regola che conta viene ri-verificata dalle API").
+    data_scadenza: date | None = None
+    medico_competente: str | None = None
+    prescrizioni_presenti: bool = False
+    prescrizioni_minime: str | None = None
+
+    @model_validator(mode="after")
+    def _validazioni(self) -> "GiudizioIdoneitaCreate":
+        if self.data_visita > date.today():
+            raise ValueError("La data della visita non può essere futura.")
+        if self.periodicita_mesi is not None and self.periodicita_mesi <= 0:
+            raise ValueError("La periodicità deve essere maggiore di zero.")
+        if self.data_scadenza is not None and self.data_scadenza < self.data_visita:
+            raise ValueError("La scadenza non può precedere la data della visita.")
+        testo_prescrizioni = (self.prescrizioni_minime or "").strip()
+        if self.prescrizioni_presenti and not testo_prescrizioni:
+            raise ValueError(
+                "Il testo delle prescrizioni è obbligatorio quando sono presenti limitazioni o prescrizioni."
+            )
+        if not self.prescrizioni_presenti and testo_prescrizioni:
+            raise ValueError("Il testo delle prescrizioni è ammesso solo se sono segnalate limitazioni o prescrizioni.")
+        if self.giudizio == "IDONEO_CON_PRESCRIZIONI" and not self.prescrizioni_presenti:
+            raise ValueError("Il giudizio 'Idoneo con prescrizioni' richiede di segnalare le prescrizioni presenti.")
+        return self
+
+
+class GiudizioIdoneitaUpdate(GiudizioIdoneitaCreate):
+    pass
+
+
+class IndicatoriIdoneitaRead(_OrmModel):
+    ultimo_giudizio: GiudizioIdoneitaValore | None = None
+    valido_fino_al: date | None = None
+    limitazioni_segnalate: bool = False
+
+
+class AppuntamentoVisitaRead(_OrmModel):
+    id: uuid.UUID
+    titolo: str
+    data: date
+    ora: time | None = None
+    medico_competente: str | None = None
+    luogo: str | None = None
+    note: str | None = None
+    stato: StatoAppuntamentoVisita
+
+
+class AppuntamentoVisitaCreate(_OrmModel):
+    tipo_visita_id: uuid.UUID
+    data: date
+    ora: time | None = None
+    medico_competente: str | None = None
+    luogo: str | None = None
+    note: str | None = None
+
+    @model_validator(mode="after")
+    def _data_non_passata(self) -> "AppuntamentoVisitaCreate":
+        if self.data < date.today():
+            raise ValueError("La data dell'appuntamento non può essere nel passato.")
+        return self
+
+
+class AppuntamentoVisitaUpdate(_OrmModel):
+    data: date
+    ora: time | None = None
+    medico_competente: str | None = None
+    luogo: str | None = None
+    note: str | None = None
+    stato: StatoAppuntamentoVisita = "PIANIFICATA"
+
+
+class PromemoriaVisitaCreate(_OrmModel):
+    oggetto: str
+    data: date
+    ora: time | None = None
+    destinatari: str | None = None
+    nota: str | None = None
+
+    @model_validator(mode="after")
+    def _oggetto_non_vuoto(self) -> "PromemoriaVisitaCreate":
+        if not self.oggetto.strip():
+            raise ValueError("L'oggetto del promemoria è obbligatorio.")
+        return self
+
+
+class PromemoriaVisitaRead(_OrmModel):
+    id: uuid.UUID
+    oggetto: str
+    data: date
+    ora: time | None = None
+    nota: str | None = None
+
+
+class EsposizioneAssociataRead(_OrmModel):
+    denominazione: str
+
+
+class IdoneitaSanitariaRead(_OrmModel):
+    indicatori: IndicatoriIdoneitaRead
+    storico: list[GiudizioIdoneitaRead]
+    prossimo_appuntamento: AppuntamentoVisitaRead | None = None
+    # Sempre vuoto finché il modulo Sicurezza non esiste (§16): stato vuoto,
+    # mai esposizioni dimostrative.
+    esposizioni: list[EsposizioneAssociataRead] = []

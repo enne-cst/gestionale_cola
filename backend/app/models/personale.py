@@ -725,6 +725,27 @@ class PerAbilitazione(Base):
     )
 
 
+class CatTipoVisita(Base):
+    """Catalogo globale di sistema delle tipologie di visita di
+    sorveglianza sanitaria (estensione "Idoneità sanitaria"): terminologia
+    standard di medicina del lavoro, condivisa tra tutte le aziende —
+    sostituisce la colonna testuale libera decisa dalla migrazione 014,
+    quando nessun catalogo esisteva ancora."""
+
+    __tablename__ = "cat_tipi_visita"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(80))
+    denominazione: Mapped[str] = mapped_column(String(300))
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger, default=1)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class PerGiudizioIdoneita(Base):
     """Giudizio di idoneità sanitaria (§15.1): principio di
     minimizzazione, nessuna diagnosi o referto clinico completo."""
@@ -735,7 +756,7 @@ class PerGiudizioIdoneita(Base):
     azienda_id: Mapped[uuid.UUID] = _azienda_fk()
     persona_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_persone.id", ondelete="CASCADE"))
 
-    tipo_visita: Mapped[str] = mapped_column(String(200))
+    tipo_visita_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("cat_tipi_visita.id"))
     data_visita: Mapped[date]
     giudizio: Mapped[str] = mapped_column(String(30))
     periodicita_mesi: Mapped[int | None]
@@ -853,6 +874,8 @@ class PerAttivita(Base):
     source_type: Mapped[str | None] = mapped_column(String(50))
     source_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
     note: Mapped[str | None] = mapped_column(Text)
+    medico_competente: Mapped[str | None] = mapped_column(String(300))
+    luogo: Mapped[str | None] = mapped_column(String(300))
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
