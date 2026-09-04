@@ -645,6 +645,7 @@ class CatCorsoFormazione(Base):
     durata_standard_ore: Mapped[Decimal | None] = mapped_column(Numeric(6, 2))
     validita_mesi: Mapped[int | None]
     soglia_preavviso_giorni: Mapped[int | None]
+    obbligatorio: Mapped[bool] = mapped_column(Boolean, default=False)
     attivo: Mapped[bool] = mapped_column(Boolean, default=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -691,6 +692,8 @@ class CatAbilitazione(Base):
     denominazione: Mapped[str] = mapped_column(String(300))
     descrizione: Mapped[str | None] = mapped_column(Text)
     ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger, default=1)
+    soglia_preavviso_giorni: Mapped[int | None]
+    obbligatorio: Mapped[bool] = mapped_column(Boolean, default=False)
     attivo: Mapped[bool] = mapped_column(Boolean, default=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -712,6 +715,7 @@ class PerAbilitazione(Base):
     livello_tipologia: Mapped[str | None] = mapped_column(String(200))
     data_conseguimento: Mapped[date]
     data_scadenza: Mapped[date | None]
+    durata_ore: Mapped[Decimal] = mapped_column(Numeric(6, 2))
     documento_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
     note: Mapped[str | None] = mapped_column(Text)
 

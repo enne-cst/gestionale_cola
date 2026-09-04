@@ -9,6 +9,8 @@ dossier, distinto anche nel contratto da `AnaPersoneRead`.
 
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
@@ -362,4 +364,84 @@ class CompetenzaRuoloCreate(_OrmModel):
 
 
 class CompetenzaRuoloUpdate(CompetenzaRuoloCreate):
+    pass
+
+
+# ---------------------------------------------------------------------------
+# Formazione e abilitazioni (correzione "Struttura di 'Formazione e
+# abilitazioni'") — F e A restano due tabelle distinte lato backend
+# (per_formazione+cat_corsi_formazione, per_abilitazioni+cat_abilitazioni,
+# già esistenti dalla migrazione 014/0101 e mai usate finora), unificate qui
+# in un'unica forma di lettura per il frontend (§19). "catalogo_id" è
+# corso_id o abilitazione_catalogo_id a seconda di `tipo`; "id" è l'id della
+# riga nella tabella di dominio (non ambiguo: la modifica specifica anche il
+# tipo nell'URL, §17 — il tipo non è mai modificabile dopo la creazione
+# perché F e A vivono in tabelle diverse).
+# ---------------------------------------------------------------------------
+
+TipoRegistrazioneFormativa = Literal["FORMAZIONE", "ABILITAZIONE"]
+StatoRegistrazioneFormativa = Literal["VALIDA", "IN_SCADENZA", "SCADUTA"]
+
+
+class CatalogoCorsoRead(_OrmModel):
+    id: uuid.UUID
+    codice: str
+    denominazione: str
+    obbligatorio: bool
+    attivo: bool
+
+
+class CatalogoCorsoCreate(_OrmModel):
+    codice: str
+    denominazione: str
+
+    @model_validator(mode="after")
+    def _denominazione_non_vuota(self) -> "CatalogoCorsoCreate":
+        if not self.denominazione.strip():
+            raise ValueError("La denominazione del corso è obbligatoria.")
+        return self
+
+
+class CatalogoAbilitazioneRead(_OrmModel):
+    id: uuid.UUID
+    codice: str
+    denominazione: str
+    obbligatorio: bool
+    attivo: bool
+
+
+class RegistrazioneFormativaRead(_OrmModel):
+    id: uuid.UUID
+    tipo: TipoRegistrazioneFormativa
+    catalogo_id: uuid.UUID
+    denominazione: str
+    ente_formatore: str | None = None
+    data_conseguimento: date
+    data_scadenza: date
+    durata_ore: Decimal
+    documento_presente: bool
+    obbligatorio: bool
+    stato: StatoRegistrazioneFormativa
+
+
+class RegistrazioneFormativaCreate(_OrmModel):
+    tipo: TipoRegistrazioneFormativa
+    catalogo_id: uuid.UUID
+    data_conseguimento: date
+    data_scadenza: date
+    durata_ore: Decimal
+    ente_formatore: str | None = None
+
+    @model_validator(mode="after")
+    def _validazioni(self) -> "RegistrazioneFormativaCreate":
+        if self.data_conseguimento > self.data_scadenza:
+            raise ValueError("La data di conseguimento non può essere successiva alla data di scadenza.")
+        if self.durata_ore <= 0:
+            raise ValueError("La durata deve essere maggiore di zero.")
+        if self.tipo == "FORMAZIONE" and not (self.ente_formatore or "").strip():
+            raise ValueError("L'ente formatore è obbligatorio per la Formazione.")
+        return self
+
+
+class RegistrazioneFormativaUpdate(RegistrazioneFormativaCreate):
     pass

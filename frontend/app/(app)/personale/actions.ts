@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 
 import { deleteApiResource, patchApiResource, postApiResource, putApiResourceResult } from "@/lib/actions/api-resource";
 import type {
+  CatalogoCorso,
+  CatalogoCorsoPayload,
   CatalogoCreatePayload,
   CatalogoVoce,
   CompetenzaRuolo,
@@ -13,6 +15,8 @@ import type {
   NuovaPersonaPayload,
   PersonaProfilo,
   PersonaProfiloUpdatePayload,
+  RegistrazioneFormativa,
+  RegistrazioneFormativaPayload,
 } from "@/lib/types/personale-hr";
 
 export async function creaPersona(payload: NuovaPersonaPayload) {
@@ -67,4 +71,22 @@ export async function aggiornaCompetenzaRuolo(relazioneId: string, payload: Comp
 
 export async function eliminaCompetenzaRuolo(relazioneId: string) {
   return deleteApiResource(`/api/personale/mansionario/competenze/${relazioneId}`);
+}
+
+export async function creaCorsoFormazione(payload: CatalogoCorsoPayload) {
+  return postApiResource<CatalogoCorso>("/api/personale/corsi-formazione", payload);
+}
+
+export async function creaRegistrazioneFormativa(personaId: string, payload: RegistrazioneFormativaPayload) {
+  return postApiResource<RegistrazioneFormativa>(`/api/personale/persone/${personaId}/formazione-abilitazioni`, payload);
+}
+
+export async function aggiornaRegistrazioneFormativa(
+  registrazioneId: string,
+  payload: RegistrazioneFormativaPayload,
+) {
+  return putApiResourceResult<RegistrazioneFormativa>(
+    `/api/personale/formazione-abilitazioni/${payload.tipo}/${registrazioneId}`,
+    payload,
+  );
 }

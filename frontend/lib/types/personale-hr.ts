@@ -213,3 +213,58 @@ export interface CompetenzaRuoloPayload {
   nome: string;
   descrizione?: string | null;
 }
+
+// ---------------------------------------------------------------------------
+// Formazione e abilitazioni — F e A restano due tabelle distinte lato
+// backend (catalogo corsi per azienda / catalogo abilitazioni di sistema),
+// unificate in un'unica lista di registrazioni per la vista "Registrazioni
+// acquisite". "catalogo_id" è l'id del corso o dell'abilitazione a seconda
+// di `tipo`; il tipo non è mai modificabile dopo la creazione.
+// ---------------------------------------------------------------------------
+
+export type TipoRegistrazioneFormativa = "FORMAZIONE" | "ABILITAZIONE";
+export type StatoRegistrazioneFormativa = "VALIDA" | "IN_SCADENZA" | "SCADUTA";
+
+export interface CatalogoCorso {
+  id: string;
+  codice: string;
+  denominazione: string;
+  obbligatorio: boolean;
+  attivo: boolean;
+}
+
+export interface CatalogoCorsoPayload {
+  codice: string;
+  denominazione: string;
+}
+
+export interface CatalogoAbilitazione {
+  id: string;
+  codice: string;
+  denominazione: string;
+  obbligatorio: boolean;
+  attivo: boolean;
+}
+
+export interface RegistrazioneFormativa {
+  id: string;
+  tipo: TipoRegistrazioneFormativa;
+  catalogo_id: string;
+  denominazione: string;
+  ente_formatore: string | null;
+  data_conseguimento: string;
+  data_scadenza: string;
+  durata_ore: string;
+  documento_presente: boolean;
+  obbligatorio: boolean;
+  stato: StatoRegistrazioneFormativa;
+}
+
+export interface RegistrazioneFormativaPayload {
+  tipo: TipoRegistrazioneFormativa;
+  catalogo_id: string;
+  data_conseguimento: string;
+  data_scadenza: string;
+  durata_ore: string;
+  ente_formatore?: string | null;
+}

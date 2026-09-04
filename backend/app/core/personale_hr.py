@@ -7,7 +7,7 @@ Service, mai usate altrove nel repository.
 
 import re
 import uuid
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -17,6 +17,8 @@ from app.core.incarichi import configurazione_ruolo, leggi_valori
 from app.core.pagination import Page, PageParams, paginate
 from app.models.personale import (
     AnaPersone,
+    CatAbilitazione,
+    CatCorsoFormazione,
     CatMansione,
     CatReparto,
     CatRuolo,
@@ -24,12 +26,17 @@ from app.models.personale import (
     CatTipoRapporto,
     CatVoceValutazionePersonale,
     CfgRuoloAzienda,
+    PerAbilitazione,
     PerDocumentoPersonale,
+    PerFormazione,
     PerIncarico,
     PerRapportoAzienda,
     RelRuoloVoceValutazione,
 )
 from app.schemas.personale_hr import (
+    CatalogoAbilitazioneRead,
+    CatalogoCorsoCreate,
+    CatalogoCorsoRead,
     CatalogoCreate,
     CatalogoRead,
     CompetenzaRuoloCreate,
@@ -49,6 +56,9 @@ from app.schemas.personale_hr import (
     RapportoAziendaRead,
     RapportoCorrenteSummary,
     RapportoDettagliUpdate,
+    RegistrazioneFormativaCreate,
+    RegistrazioneFormativaRead,
+    RegistrazioneFormativaUpdate,
 )
 
 _DOSSIER_CAMPI_DIRETTI = (
@@ -698,3 +708,200 @@ def rimuovi_competenza_ruolo(db: Session, azienda_id: uuid.UUID, relazione_id: u
     relazione.attiva = False
     db.commit()
     return True
+
+
+# ---------------------------------------------------------------------------
+# Formazione e abilitazioni (correzione "Struttura di 'Formazione e
+# abilitazioni'") — riusa cat_corsi_formazione/per_formazione e
+# cat_abilitazioni/per_abilitazioni, già esistenti dalla migrazione
+# 014/0101 e mai popolati. F e A restano due tabelle distinte lato
+# dominio (cataloghi e vincoli diversi: corsi per azienda, abilitazioni
+# di sistema); il servizio le unifica in un'unica lista/form per il
+# frontend (§19), senza mai permettere di cambiare tipo dopo la
+# creazione (§17: cambiare tabella non è un aggiornamento in place).
+# ---------------------------------------------------------------------------
+
+_SOGLIA_PREAVVISO_DEFAULT_GIORNI = 30
+"""Usata solo quando il singolo corso/abilitazione non ha una soglia
+configurata (colonna nullable): non esiste una soglia di sistema
+centralizzata in piattaforma (§15 della correzione), quindi un corso o
+un'abilitazione senza soglia propria ricade su questo valore finché
+qualcuno non ne configura una specifica."""
+
+
+def _stato_registrazione_formativa(data_scadenza: date, soglia_giorni: int | None, oggi: date | None = None) -> str:
+    oggi = oggi or date.today()
+    if data_scadenza < oggi:
+        return "SCADUTA"
+    soglia = soglia_giorni if soglia_giorni is not None else _SOGLIA_PREAVVISO_DEFAULT_GIORNI
+    if data_scadenza <= oggi + timedelta(days=soglia):
+        return "IN_SCADENZA"
+    return "VALIDA"
+
+
+def lista_corsi_formazione(db: Session, azienda_id: uuid.UUID) -> list[CatCorsoFormazione]:
+    stmt = (
+        select(CatCorsoFormazione)
+        .where(CatCorsoFormazione.azienda_id == azienda_id, CatCorsoFormazione.attivo.is_(True))
+        .order_by(CatCorsoFormazione.denominazione)
+    )
+    return list(db.scalars(stmt).all())
+
+
+def crea_corso_formazione(db: Session, azienda_id: uuid.UUID, payload: CatalogoCorsoCreate) -> CatCorsoFormazione:
+    corso = CatCorsoFormazione(azienda_id=azienda_id, codice=payload.codice, denominazione=payload.denominazione.strip())
+    db.add(corso)
+    db.commit()
+    db.refresh(corso)
+    return corso
+
+
+def lista_abilitazioni_catalogo(db: Session) -> list[CatAbilitazione]:
+    # Catalogo globale di sistema (come cat_ruoli): sola lettura da questo
+    # modulo, nessun endpoint di creazione — l'elenco iniziale va proposto
+    # e approvato a parte (commento esplicito della migrazione 014).
+    stmt = (
+        select(CatAbilitazione)
+        .where(CatAbilitazione.attivo.is_(True))
+        .order_by(CatAbilitazione.ordine_visualizzazione, CatAbilitazione.denominazione)
+    )
+    return list(db.scalars(stmt).all())
+
+
+def _riga_da_formazione(riga: PerFormazione, corso: CatCorsoFormazione) -> RegistrazioneFormativaRead:
+    return RegistrazioneFormativaRead(
+        id=riga.id,
+        tipo="FORMAZIONE",
+        catalogo_id=corso.id,
+        denominazione=corso.denominazione,
+        ente_formatore=riga.ente_formatore,
+        data_conseguimento=riga.data_completamento,
+        data_scadenza=riga.scadenza_esplicita,
+        durata_ore=riga.ore_riconosciute,
+        documento_presente=riga.documento_id is not None,
+        obbligatorio=corso.obbligatorio,
+        stato=_stato_registrazione_formativa(riga.scadenza_esplicita, corso.soglia_preavviso_giorni),
+    )
+
+
+def _riga_da_abilitazione(riga: PerAbilitazione, abilitazione: CatAbilitazione) -> RegistrazioneFormativaRead:
+    return RegistrazioneFormativaRead(
+        id=riga.id,
+        tipo="ABILITAZIONE",
+        catalogo_id=abilitazione.id,
+        denominazione=abilitazione.denominazione,
+        ente_formatore=None,
+        data_conseguimento=riga.data_conseguimento,
+        data_scadenza=riga.data_scadenza,
+        durata_ore=riga.durata_ore,
+        documento_presente=riga.documento_id is not None,
+        obbligatorio=abilitazione.obbligatorio,
+        stato=_stato_registrazione_formativa(riga.data_scadenza, abilitazione.soglia_preavviso_giorni),
+    )
+
+
+def registrazioni_formative_persona(
+    db: Session, azienda_id: uuid.UUID, persona_id: uuid.UUID
+) -> list[RegistrazioneFormativaRead]:
+    stmt_f = (
+        select(PerFormazione, CatCorsoFormazione)
+        .join(CatCorsoFormazione, CatCorsoFormazione.id == PerFormazione.corso_id)
+        .where(PerFormazione.azienda_id == azienda_id, PerFormazione.persona_id == persona_id)
+    )
+    righe = [_riga_da_formazione(riga, corso) for riga, corso in db.execute(stmt_f).all()]
+
+    stmt_a = (
+        select(PerAbilitazione, CatAbilitazione)
+        .join(CatAbilitazione, CatAbilitazione.id == PerAbilitazione.abilitazione_catalogo_id)
+        .where(PerAbilitazione.azienda_id == azienda_id, PerAbilitazione.persona_id == persona_id)
+    )
+    righe += [_riga_da_abilitazione(riga, abilitazione) for riga, abilitazione in db.execute(stmt_a).all()]
+
+    righe.sort(key=lambda r: r.data_conseguimento, reverse=True)
+    return righe
+
+
+def crea_registrazione_formativa(
+    db: Session, azienda_id: uuid.UUID, persona_id: uuid.UUID, payload: RegistrazioneFormativaCreate
+) -> RegistrazioneFormativaRead:
+    persona = db.get(AnaPersone, persona_id)
+    if persona is None or persona.azienda_id != azienda_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Persona non trovata.")
+
+    if payload.tipo == "FORMAZIONE":
+        corso = db.get(CatCorsoFormazione, payload.catalogo_id)
+        if corso is None or corso.azienda_id != azienda_id:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Corso di formazione non trovato.")
+        riga = PerFormazione(
+            azienda_id=azienda_id,
+            persona_id=persona_id,
+            corso_id=corso.id,
+            data_completamento=payload.data_conseguimento,
+            ore_riconosciute=payload.durata_ore,
+            ente_formatore=(payload.ente_formatore or "").strip(),
+            scadenza_esplicita=payload.data_scadenza,
+        )
+        db.add(riga)
+        db.commit()
+        db.refresh(riga)
+        return _riga_da_formazione(riga, corso)
+
+    abilitazione = db.get(CatAbilitazione, payload.catalogo_id)
+    if abilitazione is None or not abilitazione.attivo:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Abilitazione non trovata.")
+    riga = PerAbilitazione(
+        azienda_id=azienda_id,
+        persona_id=persona_id,
+        abilitazione_catalogo_id=abilitazione.id,
+        data_conseguimento=payload.data_conseguimento,
+        data_scadenza=payload.data_scadenza,
+        durata_ore=payload.durata_ore,
+    )
+    db.add(riga)
+    db.commit()
+    db.refresh(riga)
+    return _riga_da_abilitazione(riga, abilitazione)
+
+
+def aggiorna_registrazione_formativa(
+    db: Session,
+    azienda_id: uuid.UUID,
+    tipo: str,
+    registrazione_id: uuid.UUID,
+    payload: RegistrazioneFormativaUpdate,
+) -> RegistrazioneFormativaRead | None:
+    if payload.tipo != tipo:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Il tipo di una registrazione non può essere cambiato dopo la creazione.",
+        )
+
+    if tipo == "FORMAZIONE":
+        riga = db.get(PerFormazione, registrazione_id)
+        if riga is None or riga.azienda_id != azienda_id:
+            return None
+        corso = db.get(CatCorsoFormazione, payload.catalogo_id)
+        if corso is None or corso.azienda_id != azienda_id:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Corso di formazione non trovato.")
+        riga.corso_id = corso.id
+        riga.data_completamento = payload.data_conseguimento
+        riga.scadenza_esplicita = payload.data_scadenza
+        riga.ore_riconosciute = payload.durata_ore
+        riga.ente_formatore = (payload.ente_formatore or "").strip()
+        db.commit()
+        db.refresh(riga)
+        return _riga_da_formazione(riga, corso)
+
+    riga = db.get(PerAbilitazione, registrazione_id)
+    if riga is None or riga.azienda_id != azienda_id:
+        return None
+    abilitazione = db.get(CatAbilitazione, payload.catalogo_id)
+    if abilitazione is None or not abilitazione.attivo:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Abilitazione non trovata.")
+    riga.abilitazione_catalogo_id = abilitazione.id
+    riga.data_conseguimento = payload.data_conseguimento
+    riga.data_scadenza = payload.data_scadenza
+    riga.durata_ore = payload.durata_ore
+    db.commit()
+    db.refresh(riga)
+    return _riga_da_abilitazione(riga, abilitazione)

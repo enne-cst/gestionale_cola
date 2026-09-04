@@ -27,12 +27,17 @@ from app.core.personale_hr import (
     aggiorna_competenza_ruolo,
     aggiorna_documento_persona,
     aggiorna_profilo_persona,
+    aggiorna_registrazione_formativa,
     aggiungi_competenza_ruolo,
+    crea_corso_formazione,
     crea_documento_persona,
     crea_mansione,
     crea_persona_con_rapporto,
+    crea_registrazione_formativa,
     crea_reparto,
     elimina_documento_persona,
+    lista_abilitazioni_catalogo,
+    lista_corsi_formazione,
     lista_documenti_persona,
     lista_mansioni,
     lista_persone,
@@ -42,12 +47,16 @@ from app.core.personale_hr import (
     mansionario_ruolo,
     profilo_persona,
     rapporto_a_read,
+    registrazioni_formative_persona,
     rimuovi_competenza_ruolo,
     ruoli_persona,
 )
 from app.database import get_db
 from app.models.personale import CatRuolo, PerRapportoAzienda
 from app.schemas.personale_hr import (
+    CatalogoAbilitazioneRead,
+    CatalogoCorsoCreate,
+    CatalogoCorsoRead,
     CatalogoCreate,
     CatalogoRead,
     CompetenzaRuoloCreate,
@@ -62,6 +71,10 @@ from app.schemas.personale_hr import (
     PersonaProfiloUpdate,
     PersonaRuoloRead,
     RapportoAziendaRead,
+    RegistrazioneFormativaCreate,
+    RegistrazioneFormativaRead,
+    RegistrazioneFormativaUpdate,
+    TipoRegistrazioneFormativa,
 )
 
 MODULO = "Personale"
@@ -347,3 +360,89 @@ def delete_competenza_ruolo(
 ):
     if not rimuovi_competenza_ruolo(db, ctx.azienda_id, relazione_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Competenza non trovata")
+
+
+# ---------------------------------------------------------------------------
+# Formazione e abilitazioni — F e A restano due tabelle distinte lato
+# dominio (§19 della correzione), unificate qui in un'unica lista/form: il
+# frontend mostra sempre "+ Aggiungi attestato" e una sola tabella.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/corsi-formazione", response_model=list[CatalogoCorsoRead], tags=TAGS)
+def get_corsi_formazione(
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    return lista_corsi_formazione(db, ctx.azienda_id)
+
+
+@router.post("/corsi-formazione", response_model=CatalogoCorsoRead, status_code=status.HTTP_201_CREATED, tags=TAGS)
+def post_corso_formazione(
+    payload: CatalogoCorsoCreate,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    return crea_corso_formazione(db, ctx.azienda_id, payload)
+
+
+@router.get("/abilitazioni-catalogo", response_model=list[CatalogoAbilitazioneRead], tags=TAGS)
+def get_abilitazioni_catalogo(
+    db: Session = Depends(get_db),
+    _ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    return lista_abilitazioni_catalogo(db)
+
+
+@router.get(
+    "/persone/{persona_id}/formazione-abilitazioni",
+    response_model=list[RegistrazioneFormativaRead],
+    tags=TAGS,
+)
+def get_formazione_abilitazioni_persona(
+    persona_id: UUID,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    if profilo_persona(db, ctx.azienda_id, persona_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona non trovata")
+    return registrazioni_formative_persona(db, ctx.azienda_id, persona_id)
+
+
+@router.post(
+    "/persone/{persona_id}/formazione-abilitazioni",
+    response_model=RegistrazioneFormativaRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=TAGS,
+)
+def post_formazione_abilitazioni_persona(
+    persona_id: UUID,
+    payload: RegistrazioneFormativaCreate,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    return crea_registrazione_formativa(db, ctx.azienda_id, persona_id, payload)
+
+
+@router.put(
+    "/formazione-abilitazioni/{tipo}/{registrazione_id}",
+    response_model=RegistrazioneFormativaRead,
+    tags=TAGS,
+)
+def put_formazione_abilitazioni(
+    tipo: TipoRegistrazioneFormativa,
+    registrazione_id: UUID,
+    payload: RegistrazioneFormativaUpdate,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    registrazione = aggiorna_registrazione_formativa(db, ctx.azienda_id, tipo, registrazione_id, payload)
+    if registrazione is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Registrazione non trovata")
+    return registrazione

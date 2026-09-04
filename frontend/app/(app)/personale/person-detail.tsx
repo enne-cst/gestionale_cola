@@ -13,6 +13,7 @@ import type { RuoloSummary } from "@/lib/types/personale";
 import type { CatalogoVoce, DocumentoPersonale, PersonaListRow, PersonaProfilo, PersonaRuolo } from "@/lib/types/personale-hr";
 
 import { PersonAvatar } from "./person-avatar";
+import { FormazioneAbilitazioniTab } from "./tabs/formazione-abilitazioni-tab";
 import { PersonaRapportoTab } from "./tabs/persona-rapporto-tab";
 import { PlaceholderTab } from "./tabs/placeholder-tab";
 import { PanoramicaTab } from "./tabs/panoramica-tab";
@@ -221,7 +222,8 @@ export function PersonDetail({
               />
             )}
             {tab === "roles" && <RuoliTab persona={persona} ruoli={ruoli} ruoliPersona={ruoliPersona} />}
-            {tab !== "overview" && tab !== "profile" && tab !== "roles" && <PlaceholderTab />}
+            {tab === "training" && <FormazioneAbilitazioniTab personaId={persona.id} />}
+            {tab !== "overview" && tab !== "profile" && tab !== "roles" && tab !== "training" && <PlaceholderTab />}
           </div>
         </div>
       </div>
