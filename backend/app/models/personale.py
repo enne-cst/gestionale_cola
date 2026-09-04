@@ -91,6 +91,9 @@ class AnaPersone(Base):
     supporto_linguistico_necessario: Mapped[bool] = mapped_column(Boolean, default=False)
     altre_lingue: Mapped[str | None] = mapped_column(Text)
 
+    # Superate dalla migrazione 019 (per_documenti_personali, sotto):
+    # consentivano un solo documento per persona. Mantenute per lo storico,
+    # non più lette né scritte da alcuno schema applicativo.
     tipo_documento_identita: Mapped[str | None] = mapped_column(String(100))
     numero_documento_identita: Mapped[str | None] = mapped_column(String(100))
     scadenza_documento_identita: Mapped[date | None]
@@ -846,6 +849,54 @@ class PerAttivita(Base):
     source_type: Mapped[str | None] = mapped_column(String(50))
     source_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
     note: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatTipoDocumentoIdentita(Base):
+    """Catalogo di sistema delle tipologie di documento personale (Dossier
+    personale > Documenti personali, migrazione 019). Include il permesso
+    di soggiorno come tipologia tra le altre (§5.4 della correzione), non
+    più uno stato a parte su AnaPersone."""
+
+    __tablename__ = "cat_tipi_documento_identita"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class PerDocumentoPersonale(Base):
+    """Documento personale di una persona (Dossier personale > Documenti
+    personali, migrazione 019): un numero non limitato di righe per
+    persona, anche di tipologie ripetute. Sostituisce le colonne singole
+    aggiunte ad AnaPersone dalla migrazione 018. Nessun collegamento ad
+    allegati reali finché il modulo Documenti non sarà costruito
+    (decisione utente esplicita: solo il conteggio, sempre 0 per ora)."""
+
+    __tablename__ = "per_documenti_personali"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+    persona_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_persone.id", ondelete="CASCADE"))
+    tipo_documento_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_tipi_documento_identita.id")
+    )
+
+    numero: Mapped[str | None] = mapped_column(String(100))
+    data_rilascio: Mapped[date | None]
+    data_scadenza: Mapped[date | None]
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

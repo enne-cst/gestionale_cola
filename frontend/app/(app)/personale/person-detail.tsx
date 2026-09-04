@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { RuoloSummary } from "@/lib/types/personale";
-import type { CatalogoVoce, PersonaListRow, PersonaProfilo, PersonaRuolo } from "@/lib/types/personale-hr";
+import type { CatalogoVoce, DocumentoPersonale, PersonaListRow, PersonaProfilo, PersonaRuolo } from "@/lib/types/personale-hr";
 
 import { PersonAvatar } from "./person-avatar";
 import { PersonaRapportoTab } from "./tabs/persona-rapporto-tab";
@@ -57,6 +57,8 @@ export function PersonDetail({
   tipiRapporto,
   ruoli,
   ruoliPersona,
+  tipiDocumento,
+  documentiPersona,
 }: {
   persona: PersonaProfilo;
   personeRail: PersonaListRow[];
@@ -67,6 +69,8 @@ export function PersonDetail({
   tipiRapporto: CatalogoVoce[];
   ruoli: RuoloSummary[];
   ruoliPersona: PersonaRuolo[];
+  tipiDocumento: CatalogoVoce[];
+  documentiPersona: DocumentoPersonale[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -207,7 +211,14 @@ export function PersonDetail({
           <div className="min-h-0 flex-1 overflow-y-auto">
             {tab === "overview" && <PanoramicaTab persona={persona} />}
             {tab === "profile" && (
-              <PersonaRapportoTab persona={persona} mansioni={mansioni} reparti={reparti} tipiRapporto={tipiRapporto} />
+              <PersonaRapportoTab
+                persona={persona}
+                mansioni={mansioni}
+                reparti={reparti}
+                tipiRapporto={tipiRapporto}
+                tipiDocumento={tipiDocumento}
+                documentiPersona={documentiPersona}
+              />
             )}
             {tab === "roles" && <RuoliTab persona={persona} ruoli={ruoli} ruoliPersona={ruoliPersona} />}
             {tab !== "overview" && tab !== "profile" && tab !== "roles" && <PlaceholderTab />}

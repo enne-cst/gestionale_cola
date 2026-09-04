@@ -1,0 +1,1730 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Prototipo interattivo del modulo Personale" />
+  <title>Personale — Prototipo interattivo</title>
+  <style>
+    :root {
+      --ink: #0f194e;
+      --ink-2: #23346f;
+      --muted: #6575a0;
+      --blue: #075eff;
+      --blue-dark: #0048d8;
+      --blue-soft: #eef4ff;
+      --green: #00a47b;
+      --green-soft: #eaf8f3;
+      --orange: #ef7a00;
+      --orange-soft: #fff3e3;
+      --red: #e82d3a;
+      --red-soft: #fff0f1;
+      --purple: #7653d6;
+      --purple-soft: #f3efff;
+      --border: #dfe6f2;
+      --border-strong: #cbd7eb;
+      --surface: #fff;
+      --page: #f7f9fd;
+      --shadow: 0 7px 20px rgba(18, 42, 92, .07), 0 2px 6px rgba(18, 42, 92, .035);
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--page); }
+    body {
+      margin: 0;
+      min-width: 320px;
+      color: var(--ink);
+      background: linear-gradient(180deg, #fbfdff 0%, #f6f8fc 100%);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input, select, textarea { font: inherit; }
+    button { color: inherit; }
+    button, [role="button"] { -webkit-tap-highlight-color: transparent; }
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+      outline: 3px solid rgba(7, 94, 255, .20);
+      outline-offset: 2px;
+    }
+    h1, h2, h3, h4, p { margin-top: 0; }
+    .hidden { display: none !important; }
+
+    .app-shell {
+      width: min(100%, 1500px);
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: 18px 22px 26px;
+    }
+
+    .app-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 10px;
+    }
+    .app-title h1 {
+      margin: 0 0 4px;
+      font-size: clamp(25px, 2.1vw, 31px);
+      line-height: 1.1;
+      letter-spacing: -.035em;
+      font-weight: 780;
+    }
+    .app-title p { margin: 0; color: var(--ink-2); font-size: 14px; }
+
+    .main-tabs, .detail-tabs {
+      display: flex;
+      align-items: stretch;
+      gap: 6px;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .main-tabs::-webkit-scrollbar, .detail-tabs::-webkit-scrollbar { display: none; }
+    .main-tab, .detail-tab {
+      position: relative;
+      flex: 0 0 auto;
+      min-height: 46px;
+      padding: 0 15px;
+      border: 0;
+      background: transparent;
+      color: #22325f;
+      cursor: pointer;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .main-tab::after, .detail-tab::after {
+      content: "";
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      bottom: -1px;
+      height: 2px;
+      border-radius: 999px;
+      background: transparent;
+    }
+    .main-tab:hover, .detail-tab:hover { background: #f5f8ff; }
+    .main-tab.active, .detail-tab.active { color: var(--blue); }
+    .main-tab.active::after, .detail-tab.active::after { background: var(--blue); }
+
+    .view-root { padding-top: 12px; }
+    .card {
+      background: rgba(255,255,255,.94);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .section-card { padding: 15px 16px; }
+    .section-card + .section-card { margin-top: 12px; }
+    .card-title-row, .section-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+    .card-title-row h2, .section-title-row h3 {
+      margin: 0;
+      letter-spacing: -.018em;
+      font-weight: 760;
+    }
+    .card-title-row h2 { font-size: 21px; }
+    .section-title-row h3 { font-size: 16px; }
+    .subtle { color: var(--muted); }
+    .count-inline { color: var(--muted); margin-left: 10px; font-size: 13px; font-weight: 500; }
+
+    .btn {
+      min-height: 38px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--blue);
+      padding: 0 13px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 13px;
+      transition: .16s ease;
+      white-space: nowrap;
+    }
+    .btn:hover { background: #f5f8ff; border-color: #a9bfeb; transform: translateY(-1px); }
+    .btn.primary { color: #fff; border-color: var(--blue); background: var(--blue); box-shadow: 0 5px 12px rgba(7,94,255,.18); }
+    .btn.primary:hover { background: var(--blue-dark); }
+    .btn.ghost { border-color: transparent; background: transparent; }
+    .btn.danger { color: var(--red); border-color: #f3a7ad; }
+    .btn.icon-only { width: 38px; padding: 0; }
+    .link-btn {
+      padding: 0;
+      border: 0;
+      background: none;
+      color: var(--blue);
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .icon { width: 18px; height: 18px; display: inline-block; vertical-align: middle; }
+    .icon.small { width: 15px; height: 15px; }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(250px, 1.5fr) repeat(3, minmax(150px, .8fr)) auto;
+      gap: 10px;
+      margin: 16px 0 12px;
+    }
+    .toolbar.compact { grid-template-columns: minmax(220px, 1.35fr) repeat(3, minmax(135px, .8fr)) auto; }
+    .control {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      padding: 0 12px;
+      font-size: 13px;
+    }
+    .control::placeholder { color: #8390ae; }
+    .search-wrap { position: relative; }
+    .search-wrap .control { padding-left: 37px; }
+    .search-wrap .icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      color: #7180a4;
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+
+    .table-wrap { position: relative; overflow-x: auto; scrollbar-width: thin; }
+    .table-wrap::after {
+      content: "";
+      position: sticky;
+      right: 0;
+      float: right;
+      width: 14px;
+      height: 1px;
+      box-shadow: 10px 0 18px 9px rgba(20,42,88,.08);
+      pointer-events: none;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      background: #fff;
+      padding: 11px 10px;
+      color: #1d2a59;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 760;
+      white-space: nowrap;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 10px;
+      border-bottom: 1px solid #e7edf6;
+      color: #24366c;
+      font-size: 12.5px;
+      vertical-align: middle;
+    }
+    tbody tr:last-child td { border-bottom: 0; }
+    .click-row { cursor: pointer; transition: background .14s ease; }
+    .click-row:hover { background: #f7faff; }
+    .name-cell { display: flex; align-items: center; gap: 10px; min-width: 150px; }
+    .name-cell strong { color: var(--blue); }
+    .meta-stack { display: flex; flex-direction: column; gap: 3px; }
+    .meta-stack small { color: var(--muted); font-size: 11px; }
+    .avatar {
+      width: 36px;
+      height: 36px;
+      flex: 0 0 36px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(145deg, #edf4ff, #d7e6ff);
+      border: 1px solid #cddcf4;
+      color: #194695;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .avatar.large { width: 56px; height: 56px; flex-basis: 56px; font-size: 17px; }
+    .avatar.green { background: linear-gradient(145deg,#eefaf5,#d5f0e7); color:#08775c; border-color:#bfe4d6; }
+    .avatar.orange { background: linear-gradient(145deg,#fff8ed,#ffe6c3); color:#a95500; border-color:#f4d4a8; }
+    .avatar.purple { background: linear-gradient(145deg,#f6f1ff,#e6dcff); color:#6543b0; border-color:#d9cdf5; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 8px;
+      border-radius: 6px;
+      border: 1px solid #d2dff5;
+      background: var(--blue-soft);
+      color: #1552c7;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .badge.green { background: var(--green-soft); border-color: #caebdf; color: #07805f; }
+    .badge.orange { background: var(--orange-soft); border-color: #f7d7b1; color: #c45c00; }
+    .badge.red { background: var(--red-soft); border-color: #f5c6ca; color: #ce2733; }
+    .badge.gray { background: #f2f4f8; border-color: #e0e5ee; color: #69758f; }
+    .badge.purple { background: var(--purple-soft); border-color: #dfd5fa; color: #6845bf; }
+    .badge-group { display: flex; flex-wrap: wrap; gap: 5px; }
+    .status-counts { display: flex; align-items: center; gap: 11px; white-space: nowrap; }
+    .status-count { display: inline-flex; align-items: center; gap: 5px; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: 0 0 9px; }
+    .dot.green { background: var(--green); }
+    .dot.orange { background: var(--orange); }
+    .dot.red { background: var(--red); }
+    .dot.blue { background: var(--blue); }
+    .dot.gray { background: #a9b3c6; }
+    .dot.purple { background: var(--purple); }
+    .dot.cyan { background: #16a7b6; }
+
+    .view-meta {
+      min-height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+      padding: 7px 11px;
+      border: 1px solid #dbe5f4;
+      border-radius: 8px;
+      background: #f9fbff;
+      color: var(--muted);
+      font-size: 11.5px;
+    }
+    .view-meta strong { color: var(--ink-2); }
+    .view-meta .status-legend { margin-left: auto; }
+    .status-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; color: var(--ink-2); font-size: 11.5px; }
+    .status-legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+
+    .people-full { padding: 16px 18px 13px; }
+    .people-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 13px; color: var(--muted); font-size: 12px; }
+    .pagination { display: flex; gap: 6px; align-items: center; }
+    .page-btn { width: 33px; height: 33px; border: 1px solid var(--border); background: #fff; border-radius: 7px; cursor: pointer; color: #324477; }
+    .page-btn.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+
+    .people-table { min-width: 1000px; }
+    .people-table th:first-child, .people-table td:first-child {
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      background: #fff;
+      box-shadow: 8px 0 14px -13px rgba(19,42,91,.55);
+    }
+    .people-table th:first-child { z-index: 5; }
+    .people-table .click-row:hover td:first-child { background: #f7faff; }
+    .people-table .roles-column { max-width: 310px; }
+    .people-table .relationship-column { min-width: 118px; }
+    .people-table .requirements-column { min-width: 138px; }
+
+    .detail-layout { display: grid; grid-template-columns: 212px minmax(0,1fr); gap: 12px; min-height: calc(100vh - 142px); }
+    .detail-layout.full { grid-template-columns: minmax(0,1fr); }
+    .people-rail { position: sticky; top: 10px; align-self: start; max-height: calc(100vh - 20px); overflow-y: auto; padding: 12px 8px; min-width: 0; }
+    .rail-head { padding: 5px 5px 10px; }
+    .rail-head h2 { margin: 0 0 13px; font-size: 18px; }
+    .rail-search { margin: 3px 5px 11px; }
+    .rail-person {
+      width: 100%;
+      min-height: 52px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--blue);
+      padding: 7px 8px;
+      cursor: pointer;
+      text-align: left;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .rail-person:hover { background: #f3f7ff; }
+    .rail-person.active { background: #eaf2ff; box-shadow: inset 3px 0 0 var(--blue); }
+    .rail-person .avatar { width: 32px; height: 32px; flex-basis: 32px; }
+    .detail-panel { min-width: 0; overflow: visible; }
+    .detail-sticky {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      padding-top: 1px;
+      background: rgba(255,255,255,.97);
+      border-radius: var(--radius) var(--radius) 0 0;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 7px 13px -14px rgba(15,34,82,.8);
+    }
+    .detail-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 11px 16px 4px;
+    }
+    .profile-head { display: flex; align-items: center; gap: 13px; min-width: 0; }
+    .profile-name-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 3px; }
+    .profile-copy h2 { margin: 0; font-size: 21px; line-height: 1.1; letter-spacing: -.025em; }
+    .profile-copy p { margin: 0; color: var(--ink-2); font-size: 12.5px; }
+    .profile-actions { display: flex; gap: 8px; flex: none; }
+    .detail-tabs { margin: 0 16px; box-shadow: inset -18px 0 18px -23px rgba(17,42,92,.85); }
+    .detail-tab { min-height: 44px; padding-inline: 11px; font-size: 13px; }
+    .detail-content { padding: 13px 16px 16px; }
+    .detail-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+    .detail-heading h3 { margin: 0 0 4px; font-size: 18px; letter-spacing: -.02em; }
+    .detail-heading p { margin: 0; color: var(--ink-2); font-size: 13px; }
+    .section-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+
+    .kpi-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; margin-bottom: 12px; }
+    .kpi-grid.six { grid-template-columns: repeat(6,minmax(0,1fr)); }
+    .kpi-grid.five { grid-template-columns: repeat(5,minmax(0,1fr)); }
+    .kpi {
+      min-height: 78px;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 12px 13px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .kpi-icon {
+      width: 39px;
+      height: 39px;
+      flex: 0 0 39px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: var(--blue);
+      background: var(--blue-soft);
+      border: 1px solid #d7e3f8;
+    }
+    .kpi-icon.green { color: var(--green); background: var(--green-soft); border-color: #caeadf; }
+    .kpi-icon.orange { color: var(--orange); background: var(--orange-soft); border-color: #f6daba; }
+    .kpi-icon.red { color: var(--red); background: var(--red-soft); border-color: #f5cbd0; }
+    .kpi strong { display: block; font-size: 20px; line-height: 1.05; margin-bottom: 4px; }
+    .kpi span { color: var(--ink-2); font-size: 11.5px; line-height: 1.25; }
+    button.kpi { width: 100%; color: var(--ink); text-align: left; font: inherit; cursor: pointer; }
+    .kpi.actionable { transition: .16s ease; }
+    .kpi.actionable:hover { border-color: #aac1ec; background: #f9fbff; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(18,42,92,.07); }
+
+    .person-status-banner { display: grid; grid-template-columns: minmax(360px,1.7fr) repeat(3,minmax(145px,1fr)); gap: 12px; margin-bottom: 12px; }
+    .status-overview-main { min-width: 0; min-height: 106px; display: flex; align-items: center; gap: 18px; padding: 16px 18px; border: 1px solid #cde8de; border-radius: 10px; background: linear-gradient(135deg,#fff 15%,#f1fbf7 100%); box-shadow: var(--shadow); color: var(--ink); text-align: left; font: inherit; cursor: pointer; transition: .16s ease; }
+    .status-overview-main:hover { border-color: #9fd6c4; background: linear-gradient(135deg,#fbfffd 15%,#eaf8f3 100%); transform: translateY(-1px); }
+    .compliance-ring { width: 82px; height: 82px; flex: 0 0 82px; display: grid; place-items: center; position: relative; border-radius: 50%; background: conic-gradient(var(--green) 0 71%,#e5ebf3 71% 100%); }
+    .compliance-ring::after { content: ""; position: absolute; width: 61px; height: 61px; border-radius: 50%; background: #fff; }
+    .compliance-ring strong { position: relative; z-index: 1; font-size: 22px; }
+    .compliance-copy h3 { margin: 0 0 4px; font-size: 16px; }
+    .compliance-copy p { margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.4; }
+    .status-overview-metric { min-width: 0; min-height: 106px; display: flex; align-items: center; justify-content: center; gap: 11px; padding: 16px 18px; border: 1px solid var(--border); border-radius: 10px; background: #fff; box-shadow: var(--shadow); color: var(--ink); text-align: left; font: inherit; cursor: pointer; transition: .16s ease; }
+    .status-overview-metric:hover { border-color: #aac1ec; background: #f8fbff; transform: translateY(-1px); }
+    .status-overview-metric .metric-copy { min-width: 0; }
+    .status-overview-metric strong { display: block; font-size: 21px; line-height: 1; }
+    .status-overview-metric small { display: block; margin-top: 5px; color: var(--ink-2); font-size: 11.5px; line-height: 1.25; }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .two-col.asym { grid-template-columns: 1.12fr .88fr; }
+    .three-col { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; }
+    .mini-list { margin-top: 9px; }
+    .mini-row {
+      min-height: 45px;
+      display: grid;
+      grid-template-columns: minmax(0,1fr) auto auto;
+      gap: 12px;
+      align-items: center;
+      border-bottom: 1px solid #e7edf6;
+      color: #263870;
+      font-size: 12.5px;
+    }
+    .mini-row:last-child { border-bottom: 0; }
+    .mini-row small { color: var(--muted); display: block; margin-top: 3px; }
+    button.mini-row { width: 100%; border: 0; border-bottom: 1px solid #e7edf6; background: transparent; text-align: left; cursor: pointer; }
+    button.mini-row:hover { background: #f8fbff; }
+    .progress-list { margin-top: 8px; }
+    .progress-item { display: grid; grid-template-columns: 1fr 125px 42px; gap: 11px; align-items: center; min-height: 40px; border-bottom: 1px solid #edf1f7; font-size: 12px; }
+    .progress-item:last-child { border-bottom: 0; }
+    button.progress-item { width: 100%; border: 0; border-bottom: 1px solid #edf1f7; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+    button.progress-item:hover { background: #f8fbff; }
+    .progress-track { height: 7px; border-radius: 999px; background: #e8edf5; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: inherit; background: var(--blue); }
+    .progress-fill.green { background: var(--green); }
+    .progress-fill.orange { background: var(--orange); }
+    .progress-fill.red { background: var(--red); }
+
+    .field-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 11px 13px; margin-top: 12px; }
+    .field {
+      min-width: 0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fbfdff;
+      padding: 10px 11px;
+    }
+    .field.span-2 { grid-column: span 2; }
+    .field label { display: block; color: var(--muted); font-size: 11px; margin-bottom: 5px; font-weight: 650; }
+    .field-value { color: var(--ink); min-height: 20px; overflow-wrap: anywhere; font-weight: 600; font-size: 13px; }
+    .field input, .field select {
+      width: 100%;
+      height: 34px;
+      border: 1px solid #b9c9e4;
+      border-radius: 6px;
+      background: #fff;
+      padding: 0 9px;
+      color: var(--ink);
+    }
+    .field-section + .field-section { margin-top: 12px; }
+    details.optional-data { margin-top: 12px; }
+    details.optional-data > summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 750; }
+    details.optional-data > summary::-webkit-details-marker { display: none; }
+    details.optional-data > summary::after { content: "⌄"; color: var(--blue); font-size: 17px; transition: transform .18s ease; }
+    details.optional-data[open] > summary::after { transform: rotate(180deg); }
+    details.embedded-details { margin-top: 15px; padding-top: 13px; border-top: 1px solid var(--border); }
+    details.embedded-details > summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--ink); font-size: 13px; font-weight: 760; }
+    details.embedded-details > summary::-webkit-details-marker { display: none; }
+    details.embedded-details > summary::after { content: "⌄"; color: var(--blue); font-size: 17px; transition: transform .18s ease; }
+    details.embedded-details[open] > summary::after { transform: rotate(180deg); }
+    .record-kind { display: inline-flex; min-width: 80px; align-items: center; gap: 6px; color: var(--ink-2); font-size: 11px; font-weight: 720; }
+    button.level-card { width: 100%; display: flex; align-items: center; gap: 12px; color: var(--ink); text-align: left; font: inherit; cursor: pointer; transition: .16s ease; }
+    button.level-card:hover { border-color: #a7bde7; background: #f9fbff; transform: translateY(-1px); box-shadow: 0 7px 18px rgba(18,42,92,.08); }
+    button.level-card.selected { border-color: var(--blue); background: #f7faff; box-shadow: 0 0 0 2px rgba(9,94,244,.12), 0 8px 20px rgba(18,42,92,.09); transform: translateY(-1px); }
+    .macro-value-copy { min-width: 0; flex: 1; }
+    .macro-value-copy > strong { display: block; font-size: 15px; margin-bottom: 5px; }
+    .macro-value-level { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 5px; color: var(--ink-2); font-size: 12px; }
+    .competency-detail-wrap { --pointer-x: 16.666%; position: relative; margin-top: 17px; }
+    .competency-detail-wrap::before { content: ""; position: absolute; z-index: 3; top: -8px; left: calc(var(--pointer-x) - 9px); width: 16px; height: 16px; border-top: 1px solid var(--blue); border-left: 1px solid var(--blue); background: #fff; transform: rotate(45deg); }
+    .competency-inline-card { position: relative; border-color: #9db9ed; box-shadow: 0 8px 22px rgba(18,42,92,.08); }
+    .competency-inline-card .table-wrap { margin-top: 11px; }
+    .competency-profile-note { display: flex; align-items: flex-start; gap: 9px; margin-top: 11px; padding: 9px 11px; border: 1px solid #dbe6f7; border-radius: 8px; background: #f7faff; color: var(--ink-2); font-size: 11.5px; line-height: 1.45; }
+    .competency-profile-note .icon { flex: 0 0 auto; color: var(--blue); }
+    .competency-detail-table { min-width: 940px; }
+    .competency-name-cell strong { display: block; }
+    .competency-name-cell small { display: block; max-width: 290px; margin-top: 4px; color: var(--muted); line-height: 1.35; }
+    .source-list { display: flex; flex-wrap: wrap; gap: 5px; max-width: 245px; }
+    .source-chip { display: inline-flex; align-items: center; min-height: 22px; padding: 2px 7px; border: 1px solid #d6e2f7; border-radius: 999px; background: #f6f9ff; color: #31528d; font-size: 9.5px; font-weight: 720; line-height: 1.2; }
+    .source-chip.personal { border-color: #cde8de; background: var(--green-soft); color: #087353; }
+    .competency-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 5px; white-space: nowrap; }
+    .competency-row-actions .btn { min-height: 31px; padding-inline: 9px; font-size: 10.5px; }
+    .competency-editor { margin-top: 12px; padding: 13px; border: 1px solid #b8ccec; border-radius: 9px; background: #f9fbff; }
+    .competency-editor-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 11px; }
+    .competency-editor-head h4 { margin: 0 0 4px; font-size: 13px; }
+    .competency-editor-grid { display: grid; grid-template-columns: minmax(190px,.8fr) minmax(280px,1.4fr) minmax(150px,.55fr); gap: 10px; }
+    .competency-editor-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 11px; }
+    .competency-evaluation-meta { display: grid; grid-template-columns: 170px minmax(190px,.7fr) minmax(260px,1.3fr); gap: 10px; margin: 12px 0 2px; padding: 11px; border: 1px solid #dbe6f7; border-radius: 8px; background: #f7faff; }
+    .competency-evaluation-table { min-width: 980px; }
+    .competency-evaluation-table select { min-width: 132px; }
+    .competency-evaluation-table input { min-width: 210px; }
+    details.competency-hidden { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+    details.competency-hidden > summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--ink-2); font-size: 11.5px; font-weight: 750; }
+    details.competency-hidden > summary::-webkit-details-marker { display: none; }
+    details.competency-hidden > summary::after { content: "⌄"; color: var(--blue); font-size: 16px; transition: transform .18s ease; }
+    details.competency-hidden[open] > summary::after { transform: rotate(180deg); }
+    .hidden-competency-list { margin-top: 8px; border: 1px solid #e2e9f3; border-radius: 8px; overflow: hidden; }
+    .hidden-competency-row { display: grid; grid-template-columns: minmax(0,1fr) minmax(180px,.65fr) auto; gap: 12px; align-items: center; min-height: 50px; padding: 8px 10px; border-bottom: 1px solid #e8edf5; background: #fbfcfe; color: var(--ink-2); font-size: 11.5px; }
+    .hidden-competency-row:last-child { border-bottom: 0; }
+    .base-profile-modal { width: min(920px,100%); }
+    .base-profile-intro { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; padding: 11px 12px; border: 1px solid #cfe0fa; border-radius: 9px; background: #f6f9ff; color: var(--ink-2); font-size: 11.5px; line-height: 1.45; }
+    .base-profile-intro .icon { flex: 0 0 auto; color: var(--blue); }
+    .base-source-tabs { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }
+    .base-source-tab { min-height: 34px; padding: 6px 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: #fff; color: var(--ink-2); font: inherit; font-size: 11px; font-weight: 720; cursor: pointer; }
+    .base-source-tab.active { border-color: var(--blue); background: var(--blue-soft); color: var(--blue); box-shadow: inset 0 0 0 1px rgba(9,94,244,.08); }
+    .base-profile-list { margin-top: 12px; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+    .base-profile-row { display: grid; grid-template-columns: minmax(220px,1.2fr) minmax(230px,1.3fr) 120px auto; gap: 12px; align-items: center; min-height: 58px; padding: 9px 11px; border-bottom: 1px solid var(--border); font-size: 11.5px; }
+    .base-profile-row:last-child { border-bottom: 0; }
+    .base-profile-row.inactive { background: #f7f8fb; color: var(--muted); }
+    .base-profile-row .btn { min-height: 32px; font-size: 10.5px; }
+    .base-profile-empty { padding: 22px; color: var(--muted); text-align: center; font-size: 12px; }
+    .base-profile-form { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+    .base-profile-form-grid { display: grid; grid-template-columns: minmax(190px,.8fr) minmax(250px,1.2fr) auto; gap: 10px; align-items: end; }
+    .role-name-button { padding: 0; border: 0; background: none; color: var(--blue); cursor: pointer; font-weight: 760; text-align: left; }
+    .role-name-button:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .role-row-selected { background: #f7faff; }
+    .role-row-selected td:first-child { box-shadow: inset 3px 0 0 var(--blue); }
+    .role-workspace { margin-top: 14px; padding: 0; overflow: hidden; border-color: #a9c0eb; }
+    .role-workspace-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 15px 16px 12px; background: linear-gradient(135deg,#fbfdff,#f4f8ff); border-bottom: 1px solid var(--border); }
+    .role-workspace-title { display: flex; align-items: flex-start; gap: 11px; min-width: 0; }
+    .role-workspace-title h3 { margin: 0 0 5px; font-size: 17px; }
+    .role-workspace-title p { margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.4; }
+    .role-workspace-tabs { display: flex; align-items: center; gap: 5px; padding: 0 16px; border-bottom: 1px solid var(--border); background: #fff; }
+    .role-workspace-tab { position: relative; min-height: 43px; padding: 0 12px; border: 0; background: transparent; color: var(--ink-2); cursor: pointer; font-weight: 720; font-size: 12px; }
+    .role-workspace-tab::after { content: ""; position: absolute; left: 9px; right: 9px; bottom: -1px; height: 2px; border-radius: 999px; background: transparent; }
+    .role-workspace-tab.active { color: var(--blue); }
+    .role-workspace-tab.active::after { background: var(--blue); }
+    .role-workspace-body { padding: 15px 16px 16px; }
+    .role-shared-note { display: flex; align-items: flex-start; gap: 9px; margin-bottom: 13px; padding: 9px 11px; border: 1px solid #d5e3f8; border-radius: 8px; background: #f7faff; color: var(--ink-2); font-size: 11.5px; line-height: 1.45; }
+    .role-shared-note .icon { flex: 0 0 auto; color: var(--blue); }
+    .role-purpose { padding: 13px 14px; border: 1px solid var(--border); border-radius: 9px; background: #fbfdff; }
+    .role-purpose h4, .role-duty-block h4 { margin: 0 0 7px; font-size: 12px; color: var(--ink); }
+    .role-purpose p { margin: 0; color: var(--ink-2); font-size: 12px; line-height: 1.55; }
+    .role-duty-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin-top: 10px; }
+    .role-duty-block { min-width: 0; padding: 12px 13px; border: 1px solid var(--border); border-radius: 9px; background: #fff; }
+    .role-duty-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .role-duty-list li { position: relative; padding-left: 16px; color: var(--ink-2); font-size: 11.5px; line-height: 1.42; }
+    .role-duty-list li::before { content: ""; position: absolute; left: 1px; top: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--blue); }
+    .role-relations { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .role-relation { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: #fbfdff; }
+    .role-relation small { display: block; margin-bottom: 4px; color: var(--muted); font-size: 10.5px; }
+    .role-relation strong { color: var(--ink-2); font-size: 12px; }
+    .role-editor { padding: 13px; border: 1px solid #b7caeb; border-radius: 9px; background: #f9fbff; }
+    .role-editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+    .role-editor-grid .full { grid-column: 1/-1; }
+    .role-editor .textarea { min-height: 112px; }
+    .role-editor-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+    .role-skill-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+    .role-skill-panel { min-width: 0; padding: 12px 13px; border: 1px solid var(--border); border-radius: 9px; background: #fff; }
+    .role-skill-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+    .role-skill-panel-head h4 { margin: 0; font-size: 12.5px; }
+    .role-skill-list { display: flex; flex-direction: column; gap: 7px; }
+    .role-skill-row { padding: 8px 9px; border-radius: 7px; background: #f7f9fd; color: var(--ink-2); font-size: 11px; line-height: 1.35; }
+    .role-skill-row strong { display: block; margin-bottom: 3px; color: var(--ink); font-size: 11.5px; }
+    .role-skill-empty { min-height: 56px; display: grid; place-items: center; color: var(--muted); font-size: 11px; text-align: center; }
+    .role-skill-form { margin-top: 12px; padding: 12px; border: 1px solid #b7caeb; border-radius: 9px; background: #f9fbff; }
+    .role-skill-form-grid { display: grid; grid-template-columns: 180px minmax(190px,.8fr) minmax(260px,1.2fr); gap: 10px; }
+    .study-table { min-width: 760px; }
+    .dossier-block { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+    .dossier-block:first-of-type { margin-top: 12px; padding-top: 0; border-top: 0; }
+    .dossier-block h4 { margin: 0; color: var(--ink); font-size: 13px; }
+    .dossier-block > p { margin: 4px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+    .edit-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 12px; }
+    .edit-status-bar { min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 11px; padding: 8px 12px; border: 1px solid #f1d4a9; border-radius: 8px; background: #fffaf1; color: #8b520c; font-size: 12px; }
+
+    .donut-layout { display: grid; grid-template-columns: 155px 1fr 1fr; gap: 16px; align-items: center; min-height: 208px; }
+    .donut {
+      width: 145px;
+      height: 145px;
+      border-radius: 50%;
+      background: conic-gradient(var(--green) 0 72%, var(--orange) 72% 86%, var(--red) 86% 94%, #b4bdcc 94% 100%);
+      display: grid;
+      place-items: center;
+      position: relative;
+      margin: auto;
+    }
+    .donut::after { content: ""; width: 91px; height: 91px; background: #fff; border-radius: 50%; position: absolute; }
+    .donut strong { position: relative; z-index: 1; font-size: 27px; text-align: center; line-height: 1; }
+    .donut strong small { display: block; font-size: 11px; margin-top: 7px; }
+    .legend-list { display: flex; flex-direction: column; gap: 11px; }
+    .legend-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 11.5px; }
+    .legend-label { display: flex; align-items: center; gap: 7px; }
+    .workforce-compliance { display: grid; grid-template-columns: 138px minmax(260px,1.25fr) minmax(245px,.85fr); gap: 20px; align-items: center; margin-top: 12px; padding: 15px 18px; }
+    .workforce-compliance .donut { width: 116px; height: 116px; margin: 0 auto; }
+    .workforce-compliance .donut::after { width: 75px; height: 75px; }
+    .workforce-compliance .donut strong { font-size: 24px; }
+    .workforce-compliance-copy h3 { margin: 0 0 6px; font-size: 15px; }
+    .workforce-compliance-copy p { margin: 0; color: var(--ink-2); font-size: 12px; line-height: 1.5; }
+    .workforce-compliance-copy small { display: block; margin-top: 8px; color: var(--muted); font-size: 10.5px; line-height: 1.45; }
+    .workforce-compliance .legend-list { padding-left: 20px; border-left: 1px solid var(--border); }
+
+    .matrix-card { margin-top: 12px; }
+    .matrix-toolbar { display: grid; grid-template-columns: minmax(220px,1.3fr) repeat(3,minmax(120px,.7fr)) auto auto; gap: 8px; margin: 11px 0 9px; }
+    .state-cell { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .critical-filter-on tr.conform-row { display: none; }
+    .matrix-table { min-width: 1050px; }
+    .matrix-table th:first-child, .matrix-table td:first-child { position: sticky; left: 0; z-index: 4; background: #fff; min-width: 170px; }
+    .matrix-table th:nth-child(2), .matrix-table td:nth-child(2) { position: sticky; left: 170px; z-index: 4; background: #fff; min-width: 152px; box-shadow: 10px 0 15px -14px rgba(18,42,92,.9); }
+    .matrix-table th:first-child, .matrix-table th:nth-child(2) { z-index: 7; }
+    .matrix-table tr:hover td:first-child, .matrix-table tr:hover td:nth-child(2) { background: #f7faff; }
+    .matrix-status { min-width: 88px; min-height: 28px; display: inline-flex; align-items: center; justify-content: flex-start; gap: 6px; padding: 0 8px; border: 1px solid var(--border); border-radius: 999px; background: #fff; color: var(--ink-2); cursor: pointer; font-size: 10.5px; font-weight: 700; }
+    .matrix-status:hover { border-color: #9db9ed; background: #f7faff; }
+    .matrix-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 13px; margin: 9px 0 0; padding-top: 9px; border-top: 1px solid #e8edf5; font-size: 11px; color: var(--ink-2); }
+
+    .modal.matrix-detail-modal { width: calc(100vw - 32px); height: calc(100vh - 32px); max-height: none; padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+    .matrix-detail-modal .modal-head { flex: 0 0 auto; margin: 0; padding: 15px 18px; border-bottom: 1px solid var(--border); }
+    .matrix-detail-modal .modal-head p { margin: 5px 0 0; }
+    .matrix-detail-body { min-height: 0; flex: 1 1 auto; display: flex; flex-direction: column; padding: 14px 18px 16px; overflow: hidden; }
+    .matrix-detail-summary { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; margin-bottom: 12px; }
+    .matrix-summary-item { min-height: 54px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: #fbfdff; color: var(--ink-2); font-size: 11.5px; }
+    .matrix-summary-item strong { color: var(--ink); font-size: 18px; }
+    .matrix-detail-toolbar { display: grid; grid-template-columns: minmax(260px,1.4fr) minmax(155px,.65fr) minmax(155px,.65fr) auto; gap: 9px; margin-bottom: 11px; }
+    .matrix-detail-scroll { min-height: 0; flex: 1 1 auto; overflow: auto; border: 1px solid var(--border); border-radius: 9px; }
+    .matrix-detail-table { min-width: 1260px; }
+    .matrix-detail-table th { top: 0; background: #f9fbff; }
+    .matrix-detail-table th:first-child, .matrix-detail-table td:first-child { position: sticky; left: 0; z-index: 4; min-width: 184px; background: #fff; }
+    .matrix-detail-table th:nth-child(2), .matrix-detail-table td:nth-child(2) { position: sticky; left: 184px; z-index: 4; min-width: 160px; background: #fff; box-shadow: 10px 0 15px -14px rgba(18,42,92,.9); }
+    .matrix-detail-table th:first-child, .matrix-detail-table th:nth-child(2) { z-index: 7; background: #f9fbff; }
+    .matrix-detail-table tr:hover td { background: #f8fbff; }
+    .matrix-detail-table tr:hover td:first-child, .matrix-detail-table tr:hover td:nth-child(2) { background: #f8fbff; }
+    .matrix-person-link { display: flex; align-items: center; gap: 9px; width: 100%; padding: 0; border: 0; background: transparent; color: var(--blue); text-align: left; font: inherit; cursor: pointer; }
+    .matrix-detail-cell { min-width: 132px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 6px 8px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--ink-2); text-align: left; font: inherit; cursor: pointer; }
+    .matrix-detail-cell:hover { border-color: #c8d8f2; background: #fff; }
+    .matrix-detail-cell small { color: var(--muted); font-size: 10px; line-height: 1.25; }
+    .matrix-detail-cell .state-cell { font-size: 11px; font-weight: 750; }
+    .matrix-overall { min-width: 112px; }
+    .matrix-detail-footer { flex: 0 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 11px; color: var(--muted); font-size: 11.5px; }
+    .matrix-detail-footer strong { color: var(--ink-2); }
+
+    .switch-wrap { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; font-size: 12px; }
+    .switch { width: 38px; height: 21px; border-radius: 999px; background: #dbe2ee; border: 0; padding: 2px; cursor: pointer; transition: .16s; }
+    .switch::before { content: ""; display: block; width: 17px; height: 17px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px #52617a55; transition: .16s; }
+    .switch.on { background: var(--blue); }
+    .switch.on::before { transform: translateX(17px); }
+
+    .schedule-toolbar { display: grid; grid-template-columns: 210px auto auto minmax(180px,1fr) auto; gap: 8px; align-items: center; margin-bottom: 10px; }
+    .schedule-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+    .segmented { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 8px; overflow: hidden; justify-self: end; }
+    .segment { height: 38px; padding: 0 14px; border: 0; border-right: 1px solid var(--border-strong); background: #fff; color: var(--ink-2); cursor: pointer; font-weight: 650; font-size: 12px; }
+    .segment:last-child { border-right: 0; }
+    .segment.active { color: var(--blue); background: var(--blue-soft); }
+    .schedule-grid { display: grid; grid-template-columns: minmax(0,1fr); gap: 12px; }
+    .schedule-grid.with-aside { grid-template-columns: minmax(0,1fr) 282px; }
+    .schedule-support-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin-top: 12px; }
+    .calendar-view-grid { display: grid; grid-template-columns: minmax(0,1fr) 310px; gap: 12px; }
+    .calendar.large span { min-height: 66px; align-content: start; padding-top: 9px; border: 1px solid #edf1f7; border-radius: 8px; font-size: 12px; }
+    .calendar.large .day-head { min-height: 27px; padding-top: 5px; border: 0; }
+    .group-row td { background: #fbfcff; color: var(--ink); font-weight: 760; padding-block: 7px; }
+    .calendar { display: grid; grid-template-columns: repeat(7,1fr); gap: 5px; margin-top: 12px; text-align: center; }
+    .calendar span { min-height: 29px; display: grid; place-items: center; border-radius: 50%; font-size: 11px; position: relative; }
+    .calendar .day-head { color: var(--muted); font-weight: 700; min-height: 20px; }
+    .calendar .muted { color: #aeb7c8; }
+    .calendar .today { color: var(--blue); border: 1px solid var(--blue); font-weight: 800; }
+    .calendar .event-orange::after, .calendar .event-red::after, .calendar .event-green::after {
+      content: ""; width: 5px; height: 5px; border-radius: 50%; position: absolute; bottom: 1px;
+    }
+    .calendar .event-orange::after { background: var(--orange); }
+    .calendar .event-red::after { background: var(--red); }
+    .calendar .event-green::after { background: var(--green); }
+    .organize-row { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 9px; min-height: 58px; border-bottom: 1px solid #e8edf5; font-size: 12px; }
+    .organize-row:last-child { border-bottom: 0; }
+
+    .chart-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 12px; margin-bottom: 12px; }
+    .bar-chart { height: 190px; display: flex; align-items: flex-end; gap: 13px; padding: 20px 9px 0; border-bottom: 1px solid var(--border); position: relative; }
+    .bar-chart::before { content: ""; position: absolute; left: 0; right: 0; top: 72px; border-top: 1px dashed #6fa0ff; }
+    .month-bar { flex: 1; min-width: 12px; height: var(--h); background: linear-gradient(180deg,#126aff,#0756e9); border-radius: 4px 4px 0 0; position: relative; }
+    .month-bar.future { background: #a9c9ff; }
+    .month-bar span { position: absolute; left: 50%; bottom: -23px; transform: translateX(-50%); color: var(--muted); font-size: 10px; }
+    .category-donut { background: conic-gradient(#075eff 0 35%,#29ae79 35% 62%,#7653d6 62% 83%,#16a7b6 83% 94%,#ef7a00 94% 100%); }
+    .hbar-row { display: grid; grid-template-columns: 120px 1fr 55px; gap: 10px; align-items: center; min-height: 31px; font-size: 11.5px; }
+    .analytics-kpi-groups { display: grid; grid-template-columns: 1.45fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .metric-group { padding: 12px; }
+    .metric-group-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 9px; font-size: 12px; color: var(--ink-2); }
+    .metric-group .kpi-grid { margin: 0; }
+    .metric-group.history .kpi-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+    .metric-group.future .kpi-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+
+    .level-card { display: grid; grid-template-columns: 45px 1fr; gap: 10px; align-items: center; min-height: 92px; padding: 12px; }
+    .level-bars { display: flex; gap: 4px; margin-top: 7px; }
+    .level-bars i { height: 6px; flex: 1; max-width: 65px; border-radius: 999px; background: #dce3ee; }
+    .level-bars i.on { background: var(--blue); }
+    .level-bars i.orange { background: var(--orange); }
+
+    .privacy-banner { min-height: 41px; display: flex; align-items: center; gap: 9px; margin: 0 0 11px; padding: 0 13px; border: 1px solid #d8e3f5; background: #f8fbff; border-radius: 8px; color: #31508e; font-size: 12px; }
+    .timeline { position: relative; margin-top: 10px; }
+    .timeline::before { content: ""; position: absolute; top: 20px; bottom: 20px; left: 19px; width: 1px; background: #cad7eb; }
+    .note-item { position: relative; display: grid; grid-template-columns: 40px 1fr; gap: 10px; margin-bottom: 9px; }
+    .note-icon { position: relative; z-index: 1; width: 40px; height: 40px; border-radius: 50%; background: var(--blue-soft); color: var(--blue); border: 1px solid #cadcf8; display: grid; place-items: center; }
+    .note-body { border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; background: #fff; }
+    .note-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    .note-body p { margin: 7px 0; color: #40558b; font-size: 12px; line-height: 1.45; }
+    .note-meta { display: flex; flex-wrap: wrap; gap: 10px; color: var(--muted); font-size: 10.5px; }
+    .notes-grid { display: grid; grid-template-columns: minmax(0,1.55fr) minmax(260px,.65fr); gap: 12px; }
+    .textarea { width: 100%; min-height: 86px; border: 1px solid var(--border-strong); border-radius: 8px; padding: 10px; resize: vertical; color: var(--ink); }
+
+    .role-tree { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-top: 22px; position: relative; }
+    .role-tree::before { content: ""; position: absolute; top: -11px; left: 17%; right: 17%; border-top: 1px solid #aebed8; }
+    .org-person { position: relative; border: 1px solid var(--border); border-radius: 8px; padding: 9px; text-align: center; background: #fff; font-size: 11px; }
+    .org-person::before { content: ""; position: absolute; top: -12px; left: 50%; height: 12px; border-left: 1px solid #aebed8; }
+
+    .modal-layer {
+      position: fixed;
+      z-index: 100;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: rgba(17, 31, 66, .62);
+      backdrop-filter: blur(2px);
+    }
+    .modal { width: min(520px,100%); max-height: calc(100vh - 36px); overflow-y: auto; padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 25px 70px rgba(5,19,52,.33); }
+    .modal.wide { width: min(760px,100%); }
+    .modal-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 16px; }
+    .modal-head h2 { margin: 0; font-size: 20px; }
+    .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+    .modal-grid.three { grid-template-columns: repeat(3,minmax(0,1fr)); }
+    .modal-field { display: flex; flex-direction: column; gap: 6px; color: var(--ink-2); font-size: 12px; font-weight: 650; }
+    .modal-field.full { grid-column: 1/-1; }
+    .modal-field .control { min-height: 42px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 17px; }
+    .modal-section { margin-top: 15px; padding-top: 14px; border-top: 1px solid var(--border); }
+    .modal-section:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+    .modal-section h3 { margin: 0 0 10px; font-size: 14px; }
+    .helper-panel { margin-top: 11px; padding: 10px 12px; border: 1px solid #dbe6f7; border-radius: 8px; background: #f7faff; color: var(--ink-2); font-size: 11.5px; line-height: 1.45; }
+    .file-drop { min-height: 70px; display: grid; place-items: center; grid-column: 1/-1; padding: 12px; border: 1px dashed #9fb8e4; border-radius: 8px; background: #fbfdff; color: var(--blue); text-align: center; font-size: 12px; }
+    .unsaved-modal { width: min(600px,100%); }
+    .unsaved-title { display: flex; align-items: center; gap: 10px; }
+    .unsaved-actions { display: grid; grid-template-columns: 1.15fr 1fr .9fr; gap: 9px; margin-top: 18px; }
+    .toast {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      z-index: 120;
+      max-width: min(390px,calc(100vw - 32px));
+      padding: 12px 15px;
+      border-radius: 9px;
+      background: #10215f;
+      color: #fff;
+      box-shadow: 0 14px 35px rgba(13,27,79,.27);
+      font-size: 13px;
+      font-weight: 650;
+      animation: toastIn .18s ease-out;
+    }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(7px); } }
+
+    @media (max-width: 1230px) {
+      .app-shell { padding-inline: 16px; }
+      .kpi-grid.six { grid-template-columns: repeat(3,minmax(0,1fr)); }
+      .kpi-grid.five { grid-template-columns: repeat(3,minmax(0,1fr)); }
+      .toolbar { grid-template-columns: minmax(220px,1.3fr) repeat(2,minmax(140px,.75fr)) auto; }
+      .toolbar select:nth-of-type(3) { display: none; }
+      .donut-layout { grid-template-columns: 140px 1fr; }
+      .donut-layout .legend-list:last-child { display: none; }
+      .matrix-toolbar { grid-template-columns: minmax(200px,1fr) repeat(2,minmax(115px,.6fr)) auto auto; }
+      .matrix-toolbar select:nth-of-type(3) { display: none; }
+      th, td { padding-inline: 7px; }
+      .detail-layout { grid-template-columns: 202px minmax(0,1fr); }
+      .detail-tabs { gap: 0; }
+      .detail-tab { padding-inline: 9px; }
+    }
+
+    @media (max-width: 980px) {
+      .detail-layout { grid-template-columns: 180px minmax(0,1fr); }
+      .rail-person { font-size: 12px; padding-inline: 6px; }
+      .kpi-grid, .kpi-grid.five { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .two-col, .two-col.asym, .chart-grid, .notes-grid { grid-template-columns: 1fr; }
+      .schedule-grid { grid-template-columns: 1fr; }
+      .schedule-grid.with-aside, .calendar-view-grid, .analytics-kpi-groups { grid-template-columns: 1fr; }
+      .schedule-aside { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .schedule-support-grid { grid-template-columns: 1fr; }
+      .field-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .field.span-2 { grid-column: span 1; }
+      .toolbar, .toolbar.compact { grid-template-columns: 1fr 1fr; }
+      .matrix-toolbar { grid-template-columns: 1fr 1fr; }
+      .schedule-toolbar { grid-template-columns: 1fr auto auto; }
+      .schedule-toolbar .segmented { grid-column: 1/3; justify-self: start; }
+      .schedule-toolbar .schedule-actions { grid-column: 1/-1; justify-content: flex-start; }
+      .person-status-banner { grid-template-columns: repeat(3,minmax(0,1fr)); }
+      .status-overview-main { grid-column: 1/-1; }
+      .workforce-compliance { grid-template-columns: 125px 1fr; }
+      .workforce-compliance .legend-list { grid-column: 1/-1; padding: 12px 0 0; border-left: 0; border-top: 1px solid var(--border); display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); }
+      .matrix-detail-summary { grid-template-columns: 1fr 1fr; }
+      .matrix-detail-toolbar { grid-template-columns: 1fr 1fr; }
+      .matrix-detail-toolbar .search-wrap { grid-column: 1/-1; }
+      .competency-editor-grid, .competency-evaluation-meta { grid-template-columns: 1fr 1fr; }
+      .competency-evaluation-meta .full-mobile { grid-column: 1/-1; }
+      .role-duty-grid, .role-skill-summary { grid-template-columns: 1fr; }
+      .role-skill-form-grid { grid-template-columns: 1fr 1fr; }
+      .role-skill-form-grid .full-mobile { grid-column: 1/-1; }
+    }
+
+    @media (max-width: 720px) {
+      body { font-size: 13px; }
+      .app-shell { padding: 12px 10px 20px; }
+      .app-title p { font-size: 12px; }
+      .main-tab { padding-inline: 10px; }
+      .detail-layout { grid-template-columns: 1fr; }
+      .people-rail { display: none; }
+      .detail-header { align-items: flex-start; }
+      .profile-copy h2 { font-size: 19px; }
+      .profile-actions .btn:not(.icon-only) span { display: none; }
+      .kpi-grid, .kpi-grid.six, .kpi-grid.five, .three-col { grid-template-columns: 1fr 1fr; }
+      .field-grid, .modal-grid, .modal-grid.three, .schedule-aside { grid-template-columns: 1fr; }
+      .person-status-banner { grid-template-columns: 1fr; }
+      .status-overview-main { grid-column: auto; }
+      .status-overview-metric { min-height: 72px; }
+      .competency-macro-grid { grid-template-columns: 1fr; }
+      .competency-detail-wrap::before { display: none; }
+      .competency-editor-grid, .competency-evaluation-meta { grid-template-columns: 1fr; }
+      .competency-evaluation-meta .full-mobile { grid-column: auto; }
+      .hidden-competency-row { grid-template-columns: 1fr; }
+      .base-profile-row, .base-profile-form-grid { grid-template-columns: 1fr; }
+      .role-workspace-head { align-items: flex-start; }
+      .role-editor-grid, .role-relations, .role-skill-form-grid { grid-template-columns: 1fr; }
+      .role-editor-grid .full, .role-skill-form-grid .full-mobile { grid-column: auto; }
+      .workforce-compliance { grid-template-columns: 1fr; text-align: center; }
+      .workforce-compliance .legend-list { grid-column: auto; grid-template-columns: 1fr 1fr; text-align: left; }
+      .modal-layer { padding: 8px; }
+      .modal.matrix-detail-modal { width: calc(100vw - 16px); height: calc(100vh - 16px); }
+      .matrix-detail-summary, .matrix-detail-toolbar { grid-template-columns: 1fr; }
+      .matrix-detail-toolbar .search-wrap { grid-column: auto; }
+      .matrix-detail-footer { align-items: flex-start; flex-direction: column; }
+      .toolbar, .toolbar.compact { grid-template-columns: 1fr; }
+      .schedule-toolbar { grid-template-columns: 1fr auto auto; }
+      .schedule-actions { flex-wrap: wrap; justify-content: stretch; }
+      .schedule-actions .btn { flex: 1 1 170px; }
+      .people-footer { align-items: flex-start; flex-direction: column; }
+      .unsaved-actions { grid-template-columns: 1fr; }
+      .view-meta { align-items: flex-start; flex-direction: column; }
+      .view-meta .status-legend { margin-left: 0; }
+      .hide-mobile { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="app-header">
+      <div class="app-title">
+        <h1>Personale</h1>
+        <p>Anagrafica, ruoli, formazione e idoneità del personale</p>
+      </div>
+      <button class="btn hidden" id="globalExport" type="button" data-toast="Report esportato correttamente"></button>
+    </header>
+    <nav class="main-tabs" role="tablist" aria-label="Sezioni del modulo Personale" id="mainTabs"></nav>
+    <section class="view-root" id="viewRoot" aria-live="polite"></section>
+  </main>
+  <div id="modalRoot"></div>
+  <div id="toastRoot" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      const people = [
+        { id: 1, name: 'Alessandro Cauduro', initials: 'AC', tone: '', job: 'Amministratore', dept: 'Direzione', roles: ['Legale Rappresentante','Datore di Lavoro'], hired: '01/01/2020', green: 8, orange: 2, red: 1 },
+        { id: 2, name: 'Mario Rossi', initials: 'MR', tone: 'green', job: 'Impiegato tecnico', dept: 'Ufficio tecnico', roles: ['RSPP','Resp. Qualità'], hired: '15/03/2021', green: 10, orange: 1, red: 0 },
+        { id: 3, name: 'Luca Bianchi', initials: 'LB', tone: 'orange', job: 'Capocantiere', dept: 'Produzione', roles: ['Preposto'], hired: '10/05/2021', green: 9, orange: 2, red: 1 },
+        { id: 4, name: 'Paolo Verdi', initials: 'PV', tone: 'purple', job: 'Operaio specializzato', dept: 'Produzione', roles: ['Add. Antincendio','Add. Primo Soccorso'], hired: '20/07/2021', green: 12, orange: 0, red: 0 },
+        { id: 5, name: 'Giulia Ferri', initials: 'GF', tone: 'green', job: 'Impiegata amministrativa', dept: 'Amministrazione', roles: ['Add. Privacy'], hired: '01/09/2021', green: 7, orange: 1, red: 0 },
+        { id: 6, name: 'Marco Neri', initials: 'MN', tone: 'orange', job: 'Tecnico di manutenzione', dept: 'Manutenzione', roles: ['Add. Manutenzione'], hired: '01/02/2022', green: 8, orange: 1, red: 1 },
+        { id: 7, name: 'Sara De Luca', initials: 'SD', tone: 'purple', job: 'Assistente alla direzione', dept: 'Direzione', roles: ['Add. Segreteria'], hired: '01/06/2022', green: 7, orange: 1, red: 0 },
+        { id: 8, name: 'Davide Neri', initials: 'DN', tone: '', job: 'Magazziniere', dept: 'Logistica', roles: ['Add. Logistica'], hired: '11/09/2022', green: 9, orange: 0, red: 0 }
+      ];
+
+      const matrixDetailData = [
+        { person: people[0], overall: ['orange','In attenzione','attention'], next: '15/08/2026', learning: ['orange','In scadenza','2 aggiornamenti · 5 abilitazioni valide','training'], health: ['orange','In scadenza','Scade il 15/08/2026','health'], roles: ['green','Validi','3 incarichi attivi','roles'], documents: ['green','Completi','6 documenti presenti','profile'] },
+        { person: people[1], overall: ['red','Da gestire','manage'], next: 'Scaduta', learning: ['red','Da gestire','Primo soccorso scaduto · 1 abilitazione in scadenza','training'], health: ['green','Valida','Fino al 20/08/2027','health'], roles: ['green','Validi','2 incarichi attivi','roles'], documents: ['green','Completi','7 documenti presenti','profile'] },
+        { person: people[2], overall: ['orange','In attenzione','attention'], next: '05/09/2026', learning: ['orange','In scadenza','2 aggiornamenti · 4 abilitazioni valide','training'], health: ['orange','In scadenza','Scade il 05/09/2026','health'], roles: ['green','Valido','1 incarico attivo','roles'], documents: ['gray','Nessun dato','Documento non registrato','profile'] },
+        { person: people[3], overall: ['green','Regolare','regular'], next: '14/11/2027', learning: ['green','Valide','6 corsi · 5 abilitazioni','training'], health: ['green','Valida','Fino al 14/11/2027','health'], roles: ['green','Validi','2 incarichi attivi','roles'], documents: ['green','Completi','8 documenti presenti','profile'] },
+        { person: people[4], overall: ['orange','In attenzione','attention'], next: '09/09/2026', learning: ['orange','In scadenza','1 aggiornamento · 2 abilitazioni valide','training'], health: ['green','Valida','Fino al 18/05/2027','health'], roles: ['green','Valido','1 incarico attivo','roles'], documents: ['orange','Da integrare','1 documento','profile'] },
+        { person: people[5], overall: ['red','Da gestire','manage'], next: 'Scaduta', learning: ['red','Da gestire','Patentino PLE scaduto · 5 corsi validi','training'], health: ['orange','In scadenza','Scade il 22/09/2026','health'], roles: ['green','Valido','1 incarico attivo','roles'], documents: ['orange','Da integrare','2 documenti','profile'] },
+        { person: people[6], overall: ['orange','In attenzione','attention'], next: '02/10/2026', learning: ['blue','Pianificata','Corso il 02/10/2026 · abilitazioni non registrate','training'], health: ['green','Valida','Fino al 30/06/2027','health'], roles: ['green','Valido','1 incarico attivo','roles'], documents: ['green','Completi','5 documenti presenti','profile'] },
+        { person: people[7], overall: ['green','Regolare','regular'], next: '18/03/2027', learning: ['green','Valide','4 corsi · 3 abilitazioni','training'], health: ['green','Valida','Fino al 18/03/2027','health'], roles: ['green','Valido','1 incarico attivo','roles'], documents: ['green','Completi','6 documenti presenti','profile'] }
+      ];
+
+      const competencyMacroData = {
+        knowledge: {
+          title: 'Conoscenza', updated: '20/06/2026',
+          description: 'Ciò che la persona conosce e sa richiamare nel proprio ambito di lavoro.',
+          rows: [
+            { id:'k-procedure', name:'Procedure aziendali', description:'Processi e istruzioni applicabili alla mansione', sources:['Profilo generale'], level:'Avanzato', levelNumber:3, updated:'15/01/2026', evaluator:'Responsabile diretto', personal:false, hidden:false },
+            { id:'k-normativa', name:'Obblighi normativi del Datore di Lavoro', description:'Requisiti essenziali collegati alla responsabilità ricoperta', sources:['Mansione: Amministratore','Ruolo: Datore di Lavoro'], level:'Intermedio', levelNumber:2, updated:'15/01/2026', evaluator:'Consulente', personal:false, hidden:false },
+            { id:'k-istruzioni', name:'Istruzioni operative della Direzione', description:'Sequenze, controlli e criteri di accettazione', sources:['Mansione: Amministratore'], level:'Avanzato', levelNumber:3, updated:'15/01/2026', evaluator:'Responsabile diretto', personal:false, hidden:false },
+            { id:'k-commesse', name:'Procedure per commesse pubbliche', description:'Conoscenze aggiuntive richieste alla persona', sources:['Voce personale'], level:'Avanzato', levelNumber:3, updated:'20/06/2026', evaluator:'Laura Conti', personal:true, hidden:false },
+            { id:'k-cantiere', name:'Gestione tecnico-operativa di cantiere', description:'Voce non applicabile all’attuale profilo individuale', sources:['Mansione: Capocantiere'], level:null, levelNumber:null, updated:'—', evaluator:'—', personal:false, hidden:true }
+          ]
+        },
+        competence: {
+          title: 'Competenza', updated: '15/01/2026',
+          description: 'Capacità dimostrata di applicare conoscenze e abilità nel contesto operativo.',
+          rows: [
+            { id:'c-applicazione', name:'Applicazione delle procedure', description:'Esecuzione corretta delle attività assegnate', sources:['Profilo generale','Mansione: Amministratore'], level:'Avanzato', levelNumber:3, updated:'15/01/2026', evaluator:'Responsabile diretto', personal:false, hidden:false },
+            { id:'c-autonomia', name:'Autonomia decisionale', description:'Gestione del lavoro entro il perimetro assegnato', sources:['Mansione: Amministratore'], level:'Intermedio', levelNumber:2, updated:'15/01/2026', evaluator:'Consulente', personal:false, hidden:false },
+            { id:'c-anomalie', name:'Gestione delle anomalie', description:'Riconoscimento, segnalazione e risposta organizzativa', sources:['Ruolo: Datore di Lavoro','Ruolo: Legale Rappresentante'], level:'Intermedio', levelNumber:2, updated:'15/01/2026', evaluator:'Responsabile diretto', personal:false, hidden:false },
+            { id:'c-mezzi', name:'Conduzione mezzi operativi', description:'Voce non necessaria per l’attuale persona', sources:['Mansione: Operatore'], level:null, levelNumber:null, updated:'—', evaluator:'—', personal:false, hidden:true }
+          ]
+        },
+        awareness: {
+          title: 'Consapevolezza', updated: '15/01/2026',
+          description: 'Comprensione del proprio contributo, degli obiettivi e delle conseguenze delle non conformità.',
+          rows: [
+            { id:'a-politica', name:'Politica aziendale', description:'Conoscenza dei principi e degli impegni aziendali', sources:['Profilo generale'], level:'Avanzato', levelNumber:3, updated:'15/01/2026', evaluator:'Consulente', personal:false, hidden:false },
+            { id:'a-impatto', name:'Impatto delle decisioni', description:'Effetti delle attività su qualità, sicurezza e ambiente', sources:['Mansione: Amministratore','Ruolo: Datore di Lavoro'], level:'Avanzato', levelNumber:3, updated:'15/01/2026', evaluator:'Consulente', personal:false, hidden:false },
+            { id:'a-obiettivi', name:'Obiettivi del sistema', description:'Contributo personale ai risultati pianificati', sources:['Profilo generale'], level:'Intermedio', levelNumber:2, updated:'15/01/2026', evaluator:'Responsabile diretto', personal:false, hidden:false }
+          ]
+        }
+      };
+
+      const roleDefinitions = {
+        'legal-representative': {
+          id: 'legal-representative',
+          title: 'Legale Rappresentante',
+          scope: 'Governance',
+          source: 'CCIAA',
+          purpose: 'Rappresentare legalmente l’organizzazione nei rapporti interni ed esterni, assicurando che gli atti societari e gli impegni assunti siano coerenti con i poteri conferiti.',
+          activities: [
+            'Sottoscrivere atti, contratti e comunicazioni rientranti nei poteri attribuiti.',
+            'Rappresentare l’azienda verso enti, clienti, fornitori e altre parti interessate.',
+            'Presidiare gli adempimenti societari con il supporto delle funzioni competenti.'
+          ],
+          responsibilities: [
+            'Corretta rappresentanza della società e rispetto dei limiti di firma.',
+            'Coerenza delle decisioni con statuto, procure e deliberazioni societarie.',
+            'Disponibilità delle informazioni necessarie agli organi societari.'
+          ],
+          authority: [
+            'Firma e rappresentanza entro i poteri risultanti dagli atti societari.',
+            'Richiesta di informazioni alle funzioni aziendali interessate.',
+            'Coinvolgimento di consulenti e professionisti autorizzati.'
+          ],
+          reportsTo: 'Assemblea dei soci / organo amministrativo',
+          collaboratesWith: 'Direzione, amministrazione e consulenti aziendali'
+        },
+        'employer': {
+          id: 'employer',
+          title: 'Datore di Lavoro',
+          scope: 'Sicurezza',
+          source: 'Azienda',
+          purpose: 'Definire e presidiare l’organizzazione della prevenzione, mettendo a disposizione risorse e poteri adeguati alla tutela della salute e sicurezza sul lavoro.',
+          activities: [
+            'Definire l’assetto organizzativo della sicurezza e assegnare i relativi incarichi.',
+            'Assicurare valutazione dei rischi, informazione, formazione e sorveglianza sanitaria.',
+            'Verificare periodicamente l’efficacia delle misure di prevenzione adottate.'
+          ],
+          responsibilities: [
+            'Adempimenti non delegabili e obblighi attribuiti dalla normativa applicabile.',
+            'Adeguatezza delle risorse economiche, tecniche e organizzative.',
+            'Vigilanza sul funzionamento complessivo del sistema di prevenzione.'
+          ],
+          authority: [
+            'Approvare risorse e interventi necessari alla sicurezza.',
+            'Nominare le figure previste e attribuire deleghe coerenti.',
+            'Sospendere attività in presenza di condizioni di rischio non accettabili.'
+          ],
+          reportsTo: 'Organo amministrativo, ove distinto',
+          collaboratesWith: 'RSPP, dirigenti, preposti, medico competente e consulenti'
+        },
+        'manager': {
+          id: 'manager',
+          title: 'Dirigente',
+          scope: 'Organizzazione',
+          source: 'Azienda',
+          purpose: 'Attuare le direttive aziendali organizzando le attività e vigilando sul loro corretto svolgimento nell’ambito dei poteri attribuiti.',
+          activities: [
+            'Tradurre gli obiettivi della direzione in programmi e disposizioni operative.',
+            'Coordinare persone, mezzi e attività dell’area affidata.',
+            'Verificare applicazione delle procedure e gestione delle anomalie.'
+          ],
+          responsibilities: [
+            'Risultati organizzativi e corretta applicazione delle direttive ricevute.',
+            'Adeguatezza del coordinamento e delle comunicazioni operative.',
+            'Segnalazione tempestiva di criticità, scostamenti e necessità di risorse.'
+          ],
+          authority: [
+            'Impartire disposizioni nell’area di competenza.',
+            'Organizzare le risorse assegnate entro budget e deleghe ricevute.',
+            'Richiedere azioni correttive e interrompere attività non conformi.'
+          ],
+          reportsTo: 'Datore di Lavoro / Direzione',
+          collaboratesWith: 'Preposti, responsabili di funzione e personale assegnato'
+        }
+      };
+
+      const state = {
+        mainView: 'people',
+        selectedId: null,
+        detailTab: 'overview',
+        detailFull: false,
+        editProfile: false,
+        profileDirty: false,
+        pendingAction: null,
+        criticalOnly: false,
+        scheduleMode: 'list',
+        scheduleCalendarOpen: false,
+        activeCompetencyMacro: null,
+        competencyAdding: false,
+        competencyEvaluationKey: null,
+        noteComposer: false,
+        baseProfileMacro: 'knowledge',
+        baseProfileSource: 'Profilo generale',
+        activeRoleDefinition: null,
+        roleDefinitionTab: 'mansionario',
+        roleMansionarioEditing: false,
+        roleCompetencyAdding: false,
+        peopleQuery: ''
+      };
+
+      const REFERENCE_DATE = '02/09/2026';
+      const baseProfileSources = ['Profilo generale','Mansione: Amministratore','Ruolo: Legale Rappresentante','Ruolo: Datore di Lavoro'];
+
+      const mainViews = [
+        ['people','Persone'],
+        ['control','Monitoraggio personale'],
+        ['schedule','Scadenziario'],
+        ['analytics','Analisi formazione']
+      ];
+      const detailTabs = [
+        ['overview','Panoramica'], ['profile','Persona e rapporto'], ['roles','Ruoli'], ['training','Formazione e abilitazioni'],
+        ['health','Idoneità sanitaria'], ['skills','Competenze'], ['notes','Note']
+      ];
+
+      function icon(name, cls='') {
+        const common = `class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"`;
+        const paths = {
+          search: '<circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path>',
+          plus: '<path d="M12 5v14M5 12h14"></path>',
+          back: '<path d="m15 18-6-6 6-6"></path><path d="M9 12h11"></path>',
+          close: '<path d="m6 6 12 12M18 6 6 18"></path>',
+          expand: '<path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"></path>',
+          check: '<path d="M20 6 9 17l-5-5"></path>',
+          clock: '<circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path>',
+          warning: '<path d="M10.3 3.7 2.4 18a2 2 0 0 0 1.8 3h15.6a2 2 0 0 0 1.8-3L13.7 3.7a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4M12 17h.01"></path>',
+          calendar: '<rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4M8 3v4M3 10h18"></path>',
+          document: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M8 13h8M8 17h8"></path>',
+          user: '<circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path>',
+          cap: '<path d="m2 10 10-5 10 5-10 5Z"></path><path d="M6 12v5c3 2 9 2 12 0v-5"></path>',
+          shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"></path><path d="m9 12 2 2 4-4"></path>',
+          pencil: '<path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"></path>',
+          eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path><circle cx="12" cy="12" r="2.5"></circle>',
+          eyeOff: '<path d="m3 3 18 18"></path><path d="M10.6 6.2A10 10 0 0 1 12 6c6.5 0 10 6 10 6a17 17 0 0 1-2.1 2.8M6.5 6.5C3.6 8.2 2 12 2 12s3.5 6 10 6a9.8 9.8 0 0 0 3.5-.6"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path>',
+          lock: '<rect x="4" y="10" width="16" height="11" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path>',
+          download: '<path d="M12 3v12m0 0 4-4m-4 4-4-4"></path><path d="M4 20h16"></path>',
+          more: '<circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle>',
+          bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"></path>',
+          upload: '<path d="M12 16V4m0 0-4 4m4-4 4 4"></path><path d="M4 20h16"></path>'
+        };
+        return `<svg ${common}>${paths[name] || paths.document}</svg>`;
+      }
+
+      function avatar(p, large=false) { return `<span class="avatar ${p.tone || ''} ${large ? 'large' : ''}">${p.initials}</span>`; }
+      function badge(text, tone='') { return `<span class="badge ${tone}">${text}</span>`; }
+      function dotStatus(tone, text) { return `<span class="state-cell"><i class="dot ${tone}"></i>${text}</span>`; }
+      function escapeHtml(value) { return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char])); }
+      function formatDateIt(value) { const parts=String(value||'').split('-'); return parts.length===3?`${parts[2]}/${parts[1]}/${parts[0]}`:REFERENCE_DATE; }
+      function statusLegend(includeBlue=true) {
+        return `<div class="status-legend" aria-label="Legenda stati"><span><i class="dot green"></i>Valido</span><span><i class="dot orange"></i>In scadenza</span><span><i class="dot red"></i>Scaduto</span>${includeBlue?'<span><i class="dot blue"></i>Pianificato</span>':''}<span><i class="dot gray"></i>Nessun dato</span></div>`;
+      }
+      function viewMeta(extra='') {
+        return `<div class="view-meta"><span><strong>Situazione calcolata al ${REFERENCE_DATE}</strong> · sono considerate soltanto registrazioni, evidenze e date presenti in piattaforma</span>${extra}</div>`;
+      }
+      function kpi(value, label, tone='blue', iconName='check', action='') {
+        const tag=action?'button':'div';
+        const attrs=action?` type="button" class="kpi actionable" data-action="${action}" title="Apri il dettaglio"`:' class="kpi"';
+        return `<${tag}${attrs}><span class="kpi-icon ${tone}">${icon(iconName)}</span><div><strong>${value}</strong><span>${label}</span></div></${tag}>`;
+      }
+      function actionButton(text, modal, primary=true) {
+        return `<button type="button" class="btn ${primary ? 'primary' : ''}" data-modal="${modal}">${icon('plus','small')} ${text}</button>`;
+      }
+
+      function renderMainTabs() {
+        document.getElementById('mainTabs').innerHTML = mainViews.map(([key,label]) =>
+          `<button type="button" role="tab" aria-selected="${state.mainView===key}" class="main-tab ${state.mainView===key?'active':''}" data-main-view="${key}">${label}</button>`
+        ).join('');
+      }
+
+      function render() {
+        renderMainTabs();
+        const root = document.getElementById('viewRoot');
+        if (state.mainView === 'people') root.innerHTML = renderPeople();
+        if (state.mainView === 'control') root.innerHTML = renderControl();
+        if (state.mainView === 'schedule') root.innerHTML = renderSchedule();
+        if (state.mainView === 'analytics') root.innerHTML = renderAnalytics();
+      }
+
+      function renderPeople() {
+        if (!state.selectedId) return renderPeopleFull();
+        const p = people.find(x => x.id === state.selectedId) || people[0];
+        return `<div class="detail-layout ${state.detailFull?'full':''}">
+          ${state.detailFull ? '' : renderPeopleRail(p)}
+          <article class="card detail-panel">
+            <div class="detail-sticky">${renderDetailHeader(p)}${renderDetailTabs()}</div>
+            <div class="detail-content">${renderDetailContent(p)}</div>
+          </article>
+        </div>`;
+      }
+
+      function renderPeopleFull() {
+        return `<section class="card people-full">
+          <div class="card-title-row">
+            <h2>Anagrafica persone <span class="count-inline">87 persone</span></h2>
+            ${actionButton('Nuova persona','new-person')}
+          </div>
+          <div class="toolbar">
+            <div class="search-wrap">${icon('search')}<input class="control" id="peopleSearch" type="search" value="${state.peopleQuery}" placeholder="Cerca per nome, cognome, ruolo, reparto..." aria-label="Cerca persone"></div>
+            <select class="control" aria-label="Filtra per reparto"><option>Tutti i reparti</option><option>Produzione</option><option>Direzione</option><option>Ufficio tecnico</option></select>
+            <select class="control" aria-label="Filtra per mansione"><option>Tutte le mansioni</option><option>Amministratore</option><option>Capocantiere</option><option>Operaio specializzato</option></select>
+            <select class="control" aria-label="Filtra per ruolo"><option>Tutti i ruoli</option><option>Datore di Lavoro</option><option>RSPP</option><option>Preposto</option></select>
+            <select class="control" aria-label="Filtra per stato"><option>Stato: Attivi</option><option>Tutti gli stati</option><option>Cessati</option></select>
+          </div>
+          <div class="matrix-legend" style="margin:0 0 9px;padding:0;border:0"><strong>Stato delle registrazioni:</strong><span>${dotStatus('green','Valide')}</span><span>${dotStatus('orange','In scadenza')}</span><span>${dotStatus('red','Scadute')}</span><span>${dotStatus('gray','Nessun dato')}</span></div>
+          <div class="table-wrap">
+            <table class="people-table" aria-label="Elenco delle persone">
+              <thead><tr><th>Persona</th><th>Mansione / reparto</th><th>Ruoli principali</th><th>Stato rapporto</th><th>Data assunzione</th><th>Stato registrazioni</th><th></th></tr></thead>
+              <tbody id="peopleRows">${people.map(renderPersonRow).join('')}</tbody>
+            </table>
+          </div>
+          <div class="people-footer">
+            <span>Seleziona una persona per aprire la scheda completa · 1–8 di 87 persone</span>
+            <div class="pagination"><button class="page-btn" type="button">‹</button><button class="page-btn active" type="button">1</button><button class="page-btn" type="button">2</button><button class="page-btn" type="button">3</button><span>…</span><button class="page-btn" type="button">11</button><button class="page-btn" type="button">›</button></div>
+          </div>
+        </section>`;
+      }
+
+      function renderPersonRow(p) {
+        return `<tr class="click-row" tabindex="0" data-open-person="${p.id}" data-search="${[p.name,p.job,p.dept,...p.roles].join(' ').toLowerCase()}">
+          <td><div class="name-cell">${avatar(p)}<strong>${p.name}</strong></div></td>
+          <td><div class="meta-stack"><strong>${p.job}</strong><small>${p.dept}</small></div></td>
+          <td class="roles-column"><div class="badge-group">${p.roles.map(r=>badge(r)).join('')}</div></td>
+          <td class="relationship-column">${badge('Attivo','green')}</td><td>${p.hired}</td>
+          <td class="requirements-column" title="${p.green} registrazioni valide, ${p.orange} in scadenza, ${p.red} scadute"><div class="status-counts"><span class="status-count"><i class="dot green"></i>${p.green}</span><span class="status-count"><i class="dot orange"></i>${p.orange}</span><span class="status-count"><i class="dot red"></i>${p.red}</span></div></td>
+          <td style="color:var(--blue);font-size:20px">›</td>
+        </tr>`;
+      }
+
+      function renderPeopleRail(selected) {
+        return `<aside class="card people-rail">
+          <div class="rail-head"><h2>Persone</h2><button type="button" class="link-btn" data-back-list>${icon('back','small')} Torna all’anagrafica</button></div>
+          <div class="search-wrap rail-search">${icon('search')}<input class="control" id="railSearch" placeholder="Cerca persone..." aria-label="Cerca persone"></div>
+          <div id="railPeople">${people.map(p=>`<button type="button" class="rail-person ${p.id===selected.id?'active':''}" data-select-person="${p.id}" data-name="${p.name.toLowerCase()}">${avatar(p)}<span>${p.name}</span></button>`).join('')}</div>
+        </aside>`;
+      }
+
+      function renderDetailHeader(p) {
+        return `<header class="detail-header">
+          <div class="profile-head">${avatar(p,true)}<div class="profile-copy"><div class="profile-name-row"><h2>${p.name}</h2>${badge('Rapporto attivo','green')}</div><p>${p.job} · ${p.dept}</p></div></div>
+          <div class="profile-actions">
+            <button type="button" class="btn" data-toggle-full>${icon('expand','small')} <span>${state.detailFull?'Affianca elenco':'A tutta larghezza'}</span></button>
+            <button type="button" class="btn icon-only" data-close-detail aria-label="Chiudi scheda">${icon('close')}</button>
+          </div>
+        </header>`;
+      }
+
+      function renderDetailTabs() {
+        return `<nav class="detail-tabs" role="tablist" aria-label="Scheda della persona">${detailTabs.map(([key,label])=>`<button type="button" role="tab" aria-selected="${state.detailTab===key}" class="detail-tab ${state.detailTab===key?'active':''}" data-detail-tab="${key}">${label}</button>`).join('')}</nav>`;
+      }
+
+      function renderDetailContent(p) {
+        const views = { overview: renderOverview, profile: renderProfile, roles: renderRoles, training: renderTraining, health: renderHealth, skills: renderSkills, notes: renderNotes };
+        return views[state.detailTab](p);
+      }
+
+      function renderOverview(p) {
+        return `<section class="person-status-banner" aria-label="Stato degli elementi monitorati della persona">
+          <button type="button" class="status-overview-main" data-main-view="control" title="Apri il monitoraggio filtrato sulla persona"><span class="compliance-ring"><strong>71%</strong></span><span class="compliance-copy"><h3>Stato degli elementi monitorati</h3><p>10 registrazioni valide su 14 presenti. Il valore descrive solo i dati disponibili in piattaforma.</p></span></button>
+          <button type="button" class="status-overview-metric" data-action="person-expiring" title="Mostra gli elementi in scadenza"><span class="kpi-icon orange">${icon('clock')}</span><span class="metric-copy"><strong>2</strong><small>In scadenza</small></span></button>
+          <button type="button" class="status-overview-metric" data-action="person-expired" title="Mostra gli elementi scaduti"><span class="kpi-icon red">${icon('warning')}</span><span class="metric-copy"><strong>1</strong><small>Scaduto</small></span></button>
+          <button type="button" class="status-overview-metric" data-action="person-planned" title="Mostra le attività pianificate"><span class="kpi-icon">${icon('calendar')}</span><span class="metric-copy"><strong>1</strong><small>Attività pianificata</small></span></button>
+        </section>
+        <div class="two-col">
+          <section class="card section-card"><div class="section-title-row"><h3>Prossime scadenze</h3><button class="link-btn" data-main-view="schedule">Apri scadenziario</button></div><div class="mini-list">
+            <button type="button" class="mini-row" data-detail-tab="training"><div><strong>Antincendio</strong><small>Aggiornamento formazione</small></div><span>20/07/2026</span>${badge('In scadenza','orange')}</button>
+            <button type="button" class="mini-row" data-detail-tab="health"><div><strong>Visita medica</strong><small>Sorveglianza sanitaria</small></div><span>15/08/2026</span>${badge('In scadenza','orange')}</button>
+            <button type="button" class="mini-row" data-detail-tab="training"><div><strong>PLE</strong><small>Abilitazione</small></div><span>10/09/2027</span>${badge('Valida','green')}</button>
+          </div></section>
+          <section class="card section-card"><div class="section-title-row"><h3>Ruoli assegnati</h3><button class="link-btn" data-detail-tab="roles">Gestisci ruoli</button></div><div class="mini-list">
+            <button type="button" class="mini-row" data-detail-tab="roles"><div><strong>Legale Rappresentante</strong><small>Fonte: CCIAA · dal 01/01/2020</small></div><span>Documentazione acquisita</span>${badge('Attivo','green')}</button>
+            <button type="button" class="mini-row" data-detail-tab="roles"><div><strong>Datore di Lavoro</strong><small>Fonte: Azienda · dal 01/01/2020</small></div><span>1 documento da integrare</span>${badge('Attivo','green')}</button>
+            <button type="button" class="mini-row" data-detail-tab="roles"><div><strong>Dirigente</strong><small>Fonte: Azienda · dal 01/06/2022</small></div><span>Documento presente</span>${badge('Attivo','green')}</button>
+          </div></section>
+        </div>`;
+      }
+
+      function progress(label,value,tone='blue',targetTab='') {
+        const tag=targetTab?'button':'div';
+        const attrs=targetTab?` type="button" class="progress-item" data-detail-tab="${targetTab}" title="Apri ${label}"`:' class="progress-item"';
+        return `<${tag}${attrs}><span>${label}</span><span class="progress-track"><span class="progress-fill ${tone}" style="width:${value}%"></span></span><strong>${value}%</strong></${tag}>`;
+      }
+
+      const profileFields = [
+        ['Nome','Alessandro'],['Cognome','Cauduro'],['Codice fiscale','CDRLSN85B01H501X'],['Telefono','+39 345 1234567'],['Email','alessandro.cauduro@azienda.it']
+      ];
+      const registryFields = [
+        ['Matricola interna','P-0001'],['Data di nascita','01/02/1985'],['Luogo di nascita','Venezia'],['Provincia di nascita','VE'],['Stato di nascita','Italia'],['Sesso','Maschio',['Maschio','Femmina','Non specificato']],['Cittadinanza','Italiana']
+      ];
+      const addressFields = [
+        ['Indirizzo di residenza','Via Roma 18'],['CAP','30100'],['Comune','Venezia'],['Provincia','VE'],['Domicilio','Coincide con la residenza',['Coincide con la residenza','Diverso dalla residenza']]
+      ];
+      const contactFields = [
+        ['Telefono personale','+39 345 1234567'],['Email personale','alessandro.cauduro@email.it'],['Contatto di emergenza','Elena Cauduro'],['Relazione','Familiare'],['Telefono emergenza','+39 347 9876543']
+      ];
+      const languageFields = [
+        ['Lingua madre','Italiano'],['Comprensione lingua italiana','Adeguata',['Adeguata','Parziale','Da verificare','Non adeguata']],['Supporto linguistico necessario','No',['No','Sì']],['Altre lingue','Inglese']
+      ];
+      const documentFields = [
+        ['Documento di identità','Carta di identità'],['Numero documento','CA1234567'],['Scadenza documento','15/04/2031'],['Permesso di soggiorno','Non applicabile']
+      ];
+      const companyFields = [['Tipo di rapporto','Amministratore'],['Data inizio','01/01/2020'],['Mansione','Amministratore'],['Reparto','Direzione'],['Stato rapporto','Attivo']];
+      const contractFields = [
+        ['Durata del rapporto','Tempo indeterminato',['Tempo indeterminato','Tempo determinato','Collaborazione','Non applicabile']],['Data fine prevista','—'],['Orario','Tempo pieno',['Tempo pieno','Tempo parziale']],['Percentuale part-time','—'],['CCNL applicato','Edilizia industria'],['Livello / inquadramento','Quadro']
+      ];
+
+      function renderField([label,value,options]) {
+        if(!state.editProfile) return `<div class="field"><label>${label}</label><div class="field-value">${value}</div></div>`;
+        if(options) return `<div class="field"><label>${label}</label><select data-profile-input aria-label="${label}">${options.map(option=>`<option ${option===value?'selected':''}>${option}</option>`).join('')}</select></div>`;
+        return `<div class="field"><label>${label}</label><input value="${value}" data-profile-input aria-label="${label}"></div>`;
+      }
+      function fieldGrid(fields) { return `<div class="field-grid">${fields.map(renderField).join('')}</div>`; }
+
+      function fieldSection(title, fields) {
+        return `<section class="card section-card field-section"><div class="section-title-row"><h3>${title}</h3></div>${fieldGrid(fields)}</section>`;
+      }
+
+      function renderProfile() {
+        return `<div class="detail-heading"><div><h3>Persona e rapporto</h3><p>Dati essenziali della persona e rapporto corrente con l’azienda</p></div>
+          ${state.editProfile?`<div><button class="btn" data-cancel-profile>Annulla</button> <button class="btn primary" data-save-profile>${icon('check','small')} Salva modifiche</button></div>`:`<button class="btn" data-edit-profile>${icon('pencil','small')} Modifica dati</button>`}
+        </div>${state.editProfile?`<div class="edit-status-bar"><span>${dotStatus(state.profileDirty?'orange':'blue',state.profileDirty?'Modifiche non salvate':'Modalità modifica attiva')}</span><span>I dati verranno registrati soltanto con “Salva modifiche”.</span></div>`:''}${fieldSection('Dati essenziali',profileFields)}${fieldSection('Rapporto corrente con l’azienda',companyFields)}<details class="card section-card optional-data"><summary>Dossier personale <span class="subtle">Dati anagrafici, contrattuali e operativi</span></summary><div class="dossier-block"><h4>Dati anagrafici completi</h4><p>Informazioni identificative e di nascita della persona.</p>${fieldGrid(registryFields)}</div><div class="dossier-block"><h4>Residenza e domicilio</h4>${fieldGrid(addressFields)}</div><div class="dossier-block"><h4>Contatti personali e di emergenza</h4>${fieldGrid(contactFields)}</div><div class="dossier-block"><h4>Lingua e comprensione</h4><p>Informazioni utili alla corretta comprensione della formazione e delle istruzioni operative.</p>${fieldGrid(languageFields)}</div><div class="dossier-block"><h4>Documenti personali</h4><p>I campi non applicabili rimangono esplicitamente distinti dai dati mancanti.</p>${fieldGrid(documentFields)}</div><div class="dossier-block"><h4>Dettagli contrattuali</h4><p>La data di fine viene richiesta soltanto per i rapporti a termine.</p>${fieldGrid(contractFields)}</div></details>`;
+      }
+
+      function renderRoles() {
+        return `<div class="detail-heading"><div><h3>Ruoli e responsabilità</h3><p>Incarichi societari importati e ruoli assegnati dall’azienda</p></div>${actionButton('Assegna ruolo','new-role')}</div>
+        <section class="card section-card"><div class="section-title-row"><h3>Ruoli registrati</h3><span class="subtle" style="font-size:11px">Apri un ruolo per consultarne o definirne il mansionario</span></div><div class="table-wrap"><table><thead><tr><th>Ruolo</th><th>Ambito</th><th>Fonte</th><th>Data inizio</th><th>Data fine</th><th>Stato</th><th>Documentazione</th><th></th></tr></thead><tbody>
+          ${roleRow('legal-representative','01/01/2020','Dati importati','green')}${roleRow('employer','01/01/2020','Da integrare','orange')}${roleRow('manager','01/06/2022','Presente','green')}
+        </tbody></table></div>${state.activeRoleDefinition?renderRoleWorkspace(state.activeRoleDefinition):''}</section>`;
+      }
+      function roleRow(id,start,documents,tone) {
+        const role=roleDefinitions[id];
+        if(!role) return '';
+        const selected=state.activeRoleDefinition===id;
+        return `<tr class="${selected?'role-row-selected':''}"><td><button type="button" class="role-name-button" data-open-role-definition="${id}">${role.title}</button></td><td>${role.scope}</td><td><div class="meta-stack">${badge(role.source,role.source==='CCIAA'?'':'blue')}${role.source==='CCIAA'?'<small>Incarico importato</small>':''}</div></td><td>${start}</td><td>—</td><td>${badge('Attivo','green')}</td><td>${dotStatus(tone,documents)}</td><td><button type="button" class="btn ghost icon-only" style="min-height:31px;width:31px" data-open-role-definition="${id}" title="Apri ruolo e mansionario" aria-label="Apri ${role.title}">${icon('more','small')}</button></td></tr>`;
+      }
+
+      function renderRoleWorkspace(id) {
+        const role=roleDefinitions[id];
+        if(!role) return '';
+        const assignmentNote=role.source==='CCIAA'?'L’incarico proviene dalla CCIAA e resta in sola lettura. Il mansionario è invece una configurazione aziendale modificabile.':'Il mansionario è collegato al ruolo, non alla singola assegnazione.';
+        return `<section class="card role-workspace" id="roleWorkspace"><div class="role-workspace-head"><div class="role-workspace-title"><span class="kpi-icon">${icon('document')}</span><div><h3>${role.title}</h3><p>${role.scope} · ${assignmentNote}</p></div></div><button type="button" class="btn icon-only" data-close-role-definition aria-label="Chiudi configurazione ruolo">${icon('close')}</button></div><div class="role-workspace-tabs" role="tablist" aria-label="Configurazione del ruolo"><button type="button" class="role-workspace-tab ${state.roleDefinitionTab==='mansionario'?'active':''}" data-role-definition-tab="mansionario">Mansionario</button><button type="button" class="role-workspace-tab ${state.roleDefinitionTab==='competencies'?'active':''}" data-role-definition-tab="competencies">Conoscenza, competenza e consapevolezza</button></div><div class="role-workspace-body">${state.roleDefinitionTab==='mansionario'?renderRoleMansionario(role):renderRoleCompetencyProfile(role)}</div></section>`;
+      }
+
+      function renderRoleMansionario(role) {
+        if(state.roleMansionarioEditing) return renderRoleMansionarioEditor(role);
+        return `<div class="section-title-row"><div><h3>Mansionario del ruolo</h3><span class="subtle" style="font-size:11px">Definizione unica applicata a tutte le persone che ricoprono il ruolo</span></div><button type="button" class="btn" data-edit-role-mansionario>${icon('pencil','small')} Modifica mansionario</button></div><div class="role-shared-note" style="margin-top:12px">${icon('shield','small')}<span>Le assegnazioni personali richiamano questo contenuto senza crearne copie. Le modifiche future aggiornano il ruolo e non cancellano lo storico degli incarichi.</span></div><div class="role-purpose"><h4>Scopo del ruolo</h4><p>${role.purpose}</p></div><div class="role-duty-grid">${roleDutyBlock('Attività e compiti',role.activities)}${roleDutyBlock('Responsabilità',role.responsibilities)}${roleDutyBlock('Autorità e autonomia',role.authority)}</div><div class="role-relations"><div class="role-relation"><small>Riporta a</small><strong>${role.reportsTo}</strong></div><div class="role-relation"><small>Collabora con</small><strong>${role.collaboratesWith}</strong></div></div>`;
+      }
+
+      function roleDutyBlock(title,items) {
+        return `<section class="role-duty-block"><h4>${title}</h4><ul class="role-duty-list">${items.map(item=>`<li>${item}</li>`).join('')}</ul></section>`;
+      }
+
+      function renderRoleMansionarioEditor(role) {
+        return `<form id="roleMansionarioForm" class="role-editor" data-role-id="${role.id}"><div class="section-title-row" style="margin-bottom:11px"><div><h3>Modifica mansionario</h3><span class="subtle" style="font-size:11px">Inserisci una voce per riga nelle sezioni multiple</span></div></div><div class="role-editor-grid"><label class="modal-field full">Scopo del ruolo<textarea class="textarea" name="rolePurpose" required>${role.purpose}</textarea></label><label class="modal-field">Attività e compiti<textarea class="textarea" name="roleActivities" required>${role.activities.join('\n')}</textarea></label><label class="modal-field">Responsabilità<textarea class="textarea" name="roleResponsibilities" required>${role.responsibilities.join('\n')}</textarea></label><label class="modal-field">Autorità e autonomia<textarea class="textarea" name="roleAuthority" required>${role.authority.join('\n')}</textarea></label><div><label class="modal-field">Riporta a<input class="control" name="roleReportsTo" value="${role.reportsTo}" required></label><label class="modal-field" style="margin-top:10px">Collabora con<input class="control" name="roleCollaboratesWith" value="${role.collaboratesWith}" required></label></div></div><div class="role-editor-actions"><button type="button" class="btn" data-cancel-role-mansionario>Annulla</button><button type="submit" class="btn primary">${icon('check','small')} Salva mansionario</button></div></form>`;
+      }
+
+      function roleCompetencyRows(role,key) {
+        const source=`Ruolo: ${role.title}`;
+        return competencyMacroData[key].rows.filter(row=>row.sources.includes(source));
+      }
+
+      function renderRoleSkillPanel(role,key) {
+        const item=competencyMacroData[key];
+        const rows=roleCompetencyRows(role,key);
+        return `<section class="role-skill-panel"><div class="role-skill-panel-head"><h4>${item.title}</h4>${badge(`${rows.length} ${rows.length===1?'voce':'voci'}`,rows.length?'blue':'gray')}</div>${rows.length?`<div class="role-skill-list">${rows.map(row=>`<div class="role-skill-row"><strong>${row.name}</strong>${row.description}</div>`).join('')}</div>`:`<div class="role-skill-empty">Nessuna voce base definita per questo ruolo</div>`}</section>`;
+      }
+
+      function renderRoleCompetencyProfile(role) {
+        const form=state.roleCompetencyAdding?`<form id="roleCompetencyForm" class="role-skill-form" data-role-id="${role.id}"><div class="role-skill-form-grid"><label class="modal-field">Macroarea<select class="control" name="roleCompetencyMacro"><option value="knowledge">Conoscenza</option><option value="competence">Competenza</option><option value="awareness">Consapevolezza</option></select></label><label class="modal-field">Nome della voce<input class="control" name="roleCompetencyName" placeholder="Es. Gestione delle emergenze" required></label><label class="modal-field full-mobile">Descrizione<input class="control" name="roleCompetencyDescription" placeholder="Cosa viene valutato"></label></div><div class="role-editor-actions"><button type="button" class="btn" data-cancel-role-competency>Annulla</button><button type="submit" class="btn primary">${icon('check','small')} Aggiungi al ruolo</button></div></form>`:'';
+        return `<div class="section-title-row"><div><h3>Profilo di valutazione del ruolo</h3><span class="subtle" style="font-size:11px">Le voci vengono ereditate automaticamente dalle persone assegnate al ruolo</span></div>${state.roleCompetencyAdding?'':`<button type="button" class="btn" data-add-role-competency>${icon('plus','small')} Aggiungi voce base</button>`}</div><div class="role-shared-note" style="margin-top:12px">${icon('shield','small')}<span>Qui si definisce il profilo base del ruolo. Nella scheda della persona sarà possibile soltanto valutarlo, aggiungere eccezioni personali o nascondere voci non pertinenti.</span></div><div class="role-skill-summary">${renderRoleSkillPanel(role,'knowledge')}${renderRoleSkillPanel(role,'competence')}${renderRoleSkillPanel(role,'awareness')}</div>${form}`;
+      }
+
+      function renderTraining() {
+        return `<div class="detail-heading"><div><h3>Formazione e abilitazioni</h3><p>Corsi, attestati, qualifiche operative, validità e documentazione in un’unica sezione</p></div><div class="section-actions">${actionButton('Registra formazione','new-training')}${actionButton('Aggiungi abilitazione','new-ability',false)}</div></div>
+        <section class="card section-card"><div class="kpi-grid">${kpi('13','Registrazioni valide','green','shield')}${kpi('3','In scadenza','orange','clock')}${kpi('1','Scaduta','red','warning')}${kpi('9','Documenti presenti','blue','document')}</div>
+        <div class="toolbar compact"><div class="search-wrap">${icon('search')}<input class="control" placeholder="Cerca corso, attestato o abilitazione..."></div><select class="control"><option>Tutte le tipologie</option><option>Formazione</option><option>Abilitazione</option></select><select class="control"><option>Tutti gli stati</option></select><span class="switch-wrap"><button type="button" class="switch" data-switch aria-label="Solo obbligatori"></button> Solo obbligatori</span><span></span></div>
+        <div class="section-title-row"><div><h3>Registrazioni acquisite</h3><span class="subtle" style="font-size:11px">Formazione e abilitazioni sono consultabili e filtrabili nella stessa vista</span></div></div><div class="table-wrap"><table><thead><tr><th>Tipo</th><th>Corso / abilitazione</th><th>Dettaglio</th><th>Conseguimento</th><th>Scadenza</th><th>Durata</th><th>Documento</th><th>Stato</th><th>Azioni</th></tr></thead><tbody>
+          ${combinedRecordRow('Formazione','Formazione lavoratori rischio specifico','Base','15/03/2024','15/03/2028','8 ore','Valida','green')}
+          ${combinedRecordRow('Formazione','Aggiornamento antincendio','Aggiornamento','10/07/2023','10/07/2026','5 ore','In scadenza','orange')}
+          ${combinedRecordRow('Formazione','Primo soccorso','Base','22/09/2021','22/09/2024','12 ore','Scaduta','red')}
+          ${combinedRecordRow('Formazione','Dirigenti','Base','05/02/2024','05/02/2029','16 ore','Valida','green')}
+          ${combinedRecordRow('Abilitazione','Piattaforme di lavoro elevabili (PLE)','Con e senza stabilizzatori','12/04/2022','12/04/2027','—','Valida','green')}
+          ${combinedRecordRow('Abilitazione','Gru su autocarro','Patentino operatore','18/09/2021','18/09/2026','—','In scadenza','orange')}
+          ${combinedRecordRow('Abilitazione','Carrelli elevatori semoventi','Industriali','03/03/2023','03/03/2028','—','Valida','green')}
+          ${combinedRecordRow('Abilitazione','Escavatori idraulici','Operatore','07/11/2022','07/11/2027','—','Valida','green')}
+          ${combinedRecordRow('Abilitazione','Montaggio e smontaggio ponteggi','Addetto','21/06/2022','21/06/2027','—','Valida','green')}
+        </tbody></table></div>
+        <details class="embedded-details"><summary><span>Storico ore formative <small class="subtle" style="margin-left:7px">Chiuso per impostazione predefinita</small></span></summary><div class="progress-list">${progress('2024 · 18 ore',65)}${progress('2025 · 28 ore',100)}${progress('2026 · 24 ore',86)}</div><div style="margin-top:10px"><button class="link-btn" data-main-view="analytics">Apri analisi completa</button></div></details></section>`;
+      }
+      function combinedRecordRow(kind,name,detail,date,expiry,hours,status,tone) { return `<tr><td><span class="record-kind">${icon(kind==='Formazione'?'cap':'shield','small')}${kind}</span></td><td><strong>${name}</strong></td><td>${detail}</td><td>${date}</td><td>${expiry}</td><td>${hours}</td><td><span style="color:var(--blue)">${icon('document','small')} Presente</span></td><td>${badge(status,tone)}</td><td><button class="btn icon-only" style="min-height:31px;width:31px" data-toast="Modifica registrazione simulata">${icon('pencil','small')}</button></td></tr>`; }
+
+      function renderHealth() {
+        return `<div class="detail-heading"><div><h3>Idoneità sanitaria</h3><p>Giudizio sintetico, validità e visite programmate</p></div>${actionButton('Registra visita','new-visit')}</div>
+        <div class="privacy-banner">${icon('lock','small')} <strong>Dati sanitari protetti</strong> · Visibili esclusivamente agli utenti autorizzati</div>
+        <div class="kpi-grid">${kpi('Idoneo','Ultimo giudizio','green','shield')}${kpi('15/08/2026','Valido fino al','orange','calendar')}${kpi('15/08/2026','Prossima visita','blue','clock')}${kpi('Nessuna','Limitazione segnalata','green','document')}</div>
+        <div class="two-col asym"><section class="card section-card"><div class="section-title-row"><h3>Storico visite</h3><button class="link-btn" data-toast="Storico completo simulato">Mostra tutte</button></div><div class="table-wrap"><table><thead><tr><th>Tipo visita</th><th>Data</th><th>Giudizio</th><th>Scadenza</th><th>Documento</th><th>Stato</th></tr></thead><tbody><tr><td>Preventiva</td><td>01/01/2020</td><td>${badge('Idoneo','green')}</td><td>01/01/2021</td><td>${icon('lock','small')} Riservato</td><td>${badge('Valida','green')}</td></tr><tr><td>Periodica</td><td>12/08/2024</td><td>${badge('Idoneo','green')}</td><td>15/08/2025</td><td>${icon('lock','small')} Riservato</td><td>${badge('Valida','green')}</td></tr><tr><td>Periodica</td><td>15/08/2025</td><td>${badge('Idoneo','green')}</td><td>15/08/2026</td><td>${icon('lock','small')} Riservato</td><td>${badge('Valida','green')}</td></tr></tbody></table></div></section>
+          <div><section class="card section-card"><div class="section-title-row"><h3>Prossima attività</h3></div><div style="margin-top:12px"><strong>Visita periodica · 15/08/2026</strong><p class="subtle" style="margin:7px 0 12px">Medico competente<br>Dott.ssa Laura Bianchi</p><div class="badge-group"><button class="btn primary" data-modal="plan-visit">Pianifica</button><button class="btn" data-toast="Promemoria inviato">${icon('bell','small')} Promemoria</button></div></div></section><section class="card section-card"><div class="section-title-row"><h3>Esposizioni associate</h3><span class="subtle" style="font-size:11px">Sola lettura</span></div><div class="badge-group" style="margin:12px 0">${badge('Rumore')}${badge('Vibrazioni')}${badge('Movimentazione carichi')}</div><p class="subtle" style="margin:0 0 10px">Fonte: modulo Sicurezza · Valutazione dei rischi</p><button class="link-btn" data-toast="Protocollo sanitario simulato">Apri nel modulo Sicurezza</button></section></div>
+        </div>`;
+      }
+
+      function renderSkills() {
+        return `<div class="detail-heading"><div><h3>Conoscenza, competenza e consapevolezza</h3><p>Il profilo individuale combina automaticamente le voci previste da profilo generale, mansione e ruoli assegnati</p></div></div>
+        <div class="three-col competency-macro-grid">${Object.entries(competencyMacroData).map(([key,item])=>macroValueCard(key,item)).join('')}</div>
+        ${state.activeCompetencyMacro?renderCompetencyDetail(state.activeCompetencyMacro):''}
+        <section class="card section-card" style="margin-top:12px"><div class="section-title-row"><div><h3>Titoli di studio</h3><span class="subtle" style="font-size:11px">Titoli dichiarati e relative evidenze documentali</span></div><button class="link-btn" data-modal="new-degree">+ Aggiungi titolo</button></div><div class="table-wrap"><table class="study-table"><thead><tr><th>Titolo</th><th>Indirizzo / specializzazione</th><th>Istituto o ateneo</th><th>Anno</th><th>Documento</th><th>Stato</th><th>Azioni</th></tr></thead><tbody><tr><td><strong>Laurea magistrale</strong></td><td>Economia e gestione aziendale</td><td>Ca’ Foscari Venezia</td><td>2009</td><td><span style="color:var(--blue)">${icon('document','small')} Presente</span></td><td>${badge('Verificato','green')}</td><td><button class="btn icon-only" style="min-height:31px;width:31px" data-toast="Modifica titolo simulata">${icon('pencil','small')}</button></td></tr><tr><td><strong>Diploma di ragioneria</strong></td><td>Amministrazione e contabilità</td><td>I.T.C. Venezia</td><td>2004</td><td><span class="subtle">Non allegato</span></td><td>${badge('Dichiarato','orange')}</td><td><button class="btn icon-only" style="min-height:31px;width:31px" data-toast="Modifica titolo simulata">${icon('pencil','small')}</button></td></tr></tbody></table></div></section>
+        <details class="card section-card optional-data"><summary><span>Esperienze rilevanti <small class="subtle" style="margin-left:7px">2 esperienze registrate · chiuse per impostazione predefinita</small></span></summary><div class="mini-list"><div class="mini-row"><div><strong>Amministratore</strong><small>Esperienza organizzativa · impresa attuale</small></div><strong>2020–oggi</strong>${badge('Verificata','green')}</div><div class="mini-row"><div><strong>Responsabile operativo</strong><small>Esperienza professionale · organizzazione precedente</small></div><strong>2015–2019</strong>${badge('Dichiarata','orange')}</div></div><div style="margin-top:12px"><button class="btn" data-modal="new-experience">${icon('plus','small')} Aggiungi esperienza</button></div></details>`;
+      }
+      function levelSegments(n) { return `<span class="level-bars" style="width:64px;margin:0">${[1,2,3].map(i=>`<i class="${i<=n?'on':''}"></i>`).join('')}</span>`; }
+      function activeCompetencySources(row) {
+        const disabled=row.disabledSources||[];
+        return row.sources.filter(source=>source==='Voce personale'||!disabled.includes(source));
+      }
+      function competencyMetrics(item) {
+        const applicable=item.rows.filter(row=>row.personal||activeCompetencySources(row).length>0);
+        const visible=applicable.filter(row=>!row.hidden);
+        const hidden=applicable.filter(row=>row.hidden);
+        const evaluated=visible.filter(row=>Number.isInteger(row.levelNumber));
+        const complete=visible.length>0 && evaluated.length===visible.length;
+        const levelNumber=evaluated.length?Math.round(evaluated.reduce((sum,row)=>sum+row.levelNumber,0)/evaluated.length):0;
+        const levels={1:'Base',2:'Intermedia',3:'Avanzata'};
+        const tone=!complete?'orange':levelNumber===3?'green':levelNumber===2?'orange':levelNumber===1?'red':'gray';
+        return {visible,hidden,evaluated,complete,levelNumber,tone,label:complete?(levels[levelNumber]||'Non valutata'):'Da completare'};
+      }
+      function macroValueCard(key,item) {
+        const selected=state.activeCompetencyMacro===key;
+        const metrics=competencyMetrics(item);
+        const summary=`${metrics.visible.length} ${metrics.visible.length===1?'voce attiva':'voci attive'}${metrics.hidden.length?` · ${metrics.hidden.length} ${metrics.hidden.length===1?'nascosta':'nascoste'}`:''} · aggiornata ${item.updated}`;
+        return `<button type="button" class="card level-card ${selected?'selected':''}" data-competency-macro="${key}" aria-expanded="${selected}" aria-controls="competencyDetail" aria-label="${selected?'Chiudi':'Apri'} la composizione di ${item.title}"><span class="kpi-icon ${metrics.tone}">${icon(metrics.tone==='green'?'check':metrics.tone==='red'?'warning':'clock')}</span><span class="macro-value-copy"><strong>${item.title}</strong><span class="macro-value-level"><span>${metrics.label}</span>${levelSegments(metrics.levelNumber)}</span><small class="subtle">${summary}</small></span></button>`;
+      }
+      function competencySourceChips(row) { const sources=activeCompetencySources(row); const first=sources[0]||'—'; return `<span class="source-list"><span class="source-chip ${first==='Voce personale'?'personal':''}">${first}${sources.length>1?` +${sources.length-1}`:''}</span></span>`; }
+      function competencyLevelBadge(row) { return row.level?badge(row.level,row.levelNumber===3?'green':row.levelNumber===2?'orange':'red'):badge('Non valutata','gray'); }
+      function competencyNormalRow(key,row) {
+        return `<tr><td><div class="competency-name-cell"><strong>${row.name}</strong><small>${row.description}<br>${competencySourceChips(row)}</small></div></td><td>${competencyLevelBadge(row)}</td><td><strong>${row.updated}</strong><small class="subtle">${row.evaluator}</small></td><td><button type="button" class="btn ghost icon-only" data-hide-competency="${row.id}" data-macro-key="${key}" title="Nascondi dal profilo individuale" aria-label="Altre azioni per ${row.name}">${icon('more','small')}</button></td></tr>`;
+      }
+      function renderPersonalCompetencyForm(key,item) {
+        return `<form id="competencyPersonalForm" class="competency-editor" data-macro-key="${key}"><div class="competency-editor-head"><div><h4>Nuova voce personalizzata di ${item.title}</h4><span class="subtle">La voce sarà aggiunta soltanto al profilo di questa persona.</span></div><button type="button" class="btn icon-only" data-cancel-competency-add aria-label="Annulla aggiunta">${icon('close')}</button></div><div class="competency-editor-grid"><label class="modal-field">Nome della voce *<input class="control" name="competencyName" required placeholder="Es. Procedure commessa specifica"></label><label class="modal-field">Descrizione<input class="control" name="competencyDescription" placeholder="Cosa deve essere conosciuto o dimostrato"></label><label class="modal-field">Scala<select class="control" name="competencyScale"><option>Tre livelli</option></select></label></div><div class="competency-editor-actions"><button type="button" class="btn" data-cancel-competency-add>Annulla</button><button type="submit" class="btn primary">${icon('check','small')} Aggiungi al profilo</button></div></form>`;
+      }
+      function renderCompetencyEvaluation(key,item,visible) {
+        return `<form id="competencyEvaluationForm" data-macro-key="${key}"><div class="competency-evaluation-meta"><label class="modal-field">Data valutazione<input class="control" name="evaluationDate" type="date" value="2026-09-03" required></label><label class="modal-field">Valutatore<input class="control" name="evaluationEvaluator" value="Laura Conti" required></label><label class="modal-field full-mobile">Nota generale<input class="control" name="evaluationNote" placeholder="Evidenze o osservazioni comuni"></label></div><div class="table-wrap"><table class="competency-evaluation-table"><thead><tr><th>Voce</th><th>Fonte</th><th>Valutazione precedente</th><th>Nuova valutazione</th><th>Evidenza / nota</th></tr></thead><tbody>${visible.map(row=>`<tr><td><div class="competency-name-cell"><strong>${row.name}</strong><small>${row.description}</small></div></td><td>${competencySourceChips(row)}</td><td>${competencyLevelBadge(row)}</td><td><select class="control" data-evaluation-row="${row.id}" aria-label="Nuova valutazione per ${row.name}"><option value="1" ${row.levelNumber===1?'selected':''}>Base</option><option value="2" ${row.levelNumber===2?'selected':''}>Intermedio</option><option value="3" ${row.levelNumber===3?'selected':''}>Avanzato</option></select></td><td><input class="control" data-evaluation-note="${row.id}" placeholder="Nota facoltativa"></td></tr>`).join('')}</tbody></table></div><div class="helper-panel"><strong>Valori precedenti riproposti:</strong> puoi modificare soltanto le voci cambiate. Il salvataggio registra una nuova valutazione datata senza cancellare lo storico.</div><div class="competency-editor-actions"><button type="button" class="btn" data-cancel-competency-evaluation>Annulla</button><button type="submit" class="btn primary">${icon('check','small')} Salva valutazione</button></div></form>`;
+      }
+      function renderHiddenCompetencies(key,hidden) {
+        if(!hidden.length) return '';
+        return `<details class="competency-hidden"><summary>Voci nascoste (${hidden.length}) <span class="subtle">Escluse dalla valutazione e dal calcolo del macrovalore</span></summary><div class="hidden-competency-list">${hidden.map(row=>`<div class="hidden-competency-row"><div class="competency-name-cell"><strong>${row.name}</strong><small>${row.description}</small></div>${competencySourceChips(row)}<button type="button" class="btn" data-restore-competency="${row.id}" data-macro-key="${key}">${icon('eye','small')} Ripristina</button></div>`).join('')}</div></details>`;
+      }
+      function renderCompetencyDetail(key) {
+        const item=competencyMacroData[key];
+        if(!item) return '';
+        const metrics=competencyMetrics(item);
+        const evaluating=state.competencyEvaluationKey===key;
+        const pointer={knowledge:'16.666%',competence:'50%',awareness:'83.333%'}[key];
+        return `<div class="competency-detail-wrap" id="competencyDetail" style="--pointer-x:${pointer}"><section class="card section-card competency-inline-card"><div class="section-title-row"><div><h3>Profilo individuale · ${item.title}</h3><span class="subtle" style="font-size:11px">${metrics.visible.length} voci attive${metrics.hidden.length?` · ${metrics.hidden.length} nascoste`:''} · ${item.description}</span></div><div class="section-actions">${evaluating?'':`<button class="btn primary" data-start-competency-evaluation="${key}">${icon('check','small')} Valuta</button>`}<button class="btn icon-only" type="button" data-close-competency aria-label="Chiudi dettaglio">${icon('close')}</button></div></div><div class="competency-profile-note">${icon('shield','small')}<span>Le voci sono ereditate da <strong>mansione e ruoli assegnati</strong>. La loro configurazione avviene dalla sezione <strong>Ruoli</strong>; qui puoi soltanto valutare, aggiungere un’eccezione personale o nascondere una voce non pertinente.</span></div>${state.competencyAdding?renderPersonalCompetencyForm(key,item):''}${evaluating?renderCompetencyEvaluation(key,item,metrics.visible):`<div class="table-wrap"><table class="competency-detail-table" style="min-width:680px"><thead><tr><th>Voce e origine</th><th>Valutazione</th><th>Ultimo aggiornamento</th><th></th></tr></thead><tbody>${metrics.visible.map(row=>competencyNormalRow(key,row)).join('')}</tbody></table></div><div style="margin-top:12px"><button class="link-btn" data-add-personal-competency="${key}">${icon('plus','small')} Aggiungi voce personale</button></div>`}${evaluating?'':renderHiddenCompetencies(key,metrics.hidden)}</section></div>`;
+      }
+
+      function openBaseProfileManager(key=state.baseProfileMacro) {
+        state.baseProfileMacro=competencyMacroData[key]?key:'knowledge';
+        if(!baseProfileSources.includes(state.baseProfileSource)) state.baseProfileSource=baseProfileSources[0];
+        const item=competencyMacroData[state.baseProfileMacro];
+        const source=state.baseProfileSource;
+        const rows=item.rows.filter(row=>!row.personal&&row.sources.includes(source));
+        const macroTabs=Object.entries(competencyMacroData).map(([macroKey,macro])=>`<button type="button" class="base-source-tab ${macroKey===state.baseProfileMacro?'active':''}" data-base-macro="${macroKey}">${macro.title}</button>`).join('');
+        const sourceTabs=baseProfileSources.map(label=>`<button type="button" class="base-source-tab ${label===source?'active':''}" data-base-source="${label}">${label}</button>`).join('');
+        const list=rows.length?rows.map(row=>{
+          const inactive=(row.disabledSources||[]).includes(source);
+          return `<div class="base-profile-row ${inactive?'inactive':''}"><div class="competency-name-cell"><strong>${row.name}</strong><small>${row.description}</small></div><span>${source}</span><span>${badge(inactive?'Non attiva':'Attiva',inactive?'gray':'green')}</span><button type="button" class="btn ${inactive?'':'danger'}" data-toggle-base-voice="${row.id}" data-macro-key="${state.baseProfileMacro}" data-base-source="${source}">${inactive?`${icon('eye','small')} Riattiva`:`${icon('eyeOff','small')} Disattiva`}</button></div>`;
+        }).join(''):`<div class="base-profile-empty">Nessuna voce configurata per questa combinazione.</div>`;
+        document.getElementById('modalRoot').innerHTML=`<div class="modal-layer" role="presentation" data-close-modal><section class="modal base-profile-modal" role="dialog" aria-modal="true" aria-labelledby="baseProfileTitle"><div class="modal-head"><div><h2 id="baseProfileTitle">Configurazione profili di competenza</h2><p class="subtle" style="margin:6px 0 0">Definisci una volta le voci associate ai profili aziendali, alle mansioni e ai ruoli.</p></div><button class="btn icon-only" data-close-modal aria-label="Chiudi">${icon('close')}</button></div><div class="base-profile-intro">${icon('shield','small')}<span><strong>Configurazione aziendale:</strong> le modifiche effettuate qui si applicano automaticamente a tutte le persone collegate alla fonte selezionata. Le personalizzazioni e i nascondimenti della singola persona non vengono alterati.</span></div><label class="modal-field">Macroarea</label><div class="base-source-tabs" role="tablist" aria-label="Macroarea da configurare">${macroTabs}</div><label class="modal-field">Profilo, mansione o ruolo di origine</label><div class="base-source-tabs" role="tablist" aria-label="Fonte da configurare">${sourceTabs}</div><div class="section-title-row"><div><h3>Voci assegnate</h3><span class="subtle" style="font-size:11px">${item.title} · ${source}</span></div>${badge(`${rows.filter(row=>!(row.disabledSources||[]).includes(source)).length} attive`,'blue')}</div><div class="base-profile-list">${list}</div><form id="baseProfileForm" class="base-profile-form" data-macro-key="${state.baseProfileMacro}" data-base-source="${source}"><div class="section-title-row"><div><h3>Aggiungi una voce al profilo base</h3><span class="subtle" style="font-size:11px">Verrà ereditata dalle persone collegate a “${source}”.</span></div></div><div class="base-profile-form-grid"><label class="modal-field">Nome della voce *<input class="control" name="baseCompetencyName" required placeholder="Es. Procedure di reparto"></label><label class="modal-field">Descrizione<input class="control" name="baseCompetencyDescription" placeholder="Cosa deve essere conosciuto, applicato o compreso"></label><button type="submit" class="btn primary">${icon('plus','small')} Aggiungi al profilo</button></div></form><div class="helper-panel"><strong>Disattivazione non distruttiva:</strong> una voce disattivata non viene più ereditata da questa fonte, ma le valutazioni già registrate restano nello storico.</div></section></div>`;
+      }
+
+      function renderNotes() {
+        const composer=state.noteComposer?`<aside><section class="card section-card"><div class="section-title-row"><h3>Nuova nota</h3><button class="btn ghost icon-only" data-cancel-note-composer aria-label="Chiudi">${icon('close')}</button></div><form id="noteForm"><label class="modal-field" style="margin-top:12px">Categoria<select class="control"><option>Generale</option><option>Formazione</option><option>Ruolo</option></select></label><label class="modal-field" style="margin-top:10px">Annotazione<textarea class="textarea" id="noteText" placeholder="Scrivi qui la tua nota..."></textarea></label><label class="modal-field" style="margin-top:10px">Visibilità<select class="control"><option>Solo consulenti</option><option>Condivisa con l’azienda</option></select></label><div class="section-actions" style="margin-top:12px"><button class="btn" type="button" data-cancel-note-composer>Annulla</button><button class="btn primary" type="submit">Salva nota</button></div></form></section></aside>`:'';
+        return `<div class="detail-heading"><div><h3>Note e annotazioni</h3><p>Osservazioni operative, promemoria e comunicazioni sulla persona</p></div>${actionButton('Nuova nota','focus-note')}</div>
+        <div class="notes-grid"><section><div class="toolbar" style="grid-template-columns:1fr 160px 150px auto;margin-top:0"><div class="search-wrap">${icon('search')}<input class="control" placeholder="Cerca nelle note..."></div><select class="control"><option>Tutte le categorie</option></select><select class="control"><option>Tutti gli autori</option></select><span class="switch-wrap"><button type="button" class="switch" data-switch></button> In evidenza</span></div><div class="timeline">
+          ${note('Formazione','Aggiornamento antincendio da pianificare','Pianificare l’aggiornamento antincendio livello 2 entro fine Q2.','Marco Bianchi · 15/05/2026 10:30','Solo consulenti','red')}
+          ${note('Ruolo','Confermata delega operativa','Confermata la delega operativa per gestione emergenze e primo soccorso.','Laura Conti · 20/03/2026 09:15','Condivisa con l’azienda','blue')}
+          ${note('Sorveglianza sanitaria','Promemoria visita periodica','Prossima visita periodica prevista per agosto 2026.','Laura Conti · 10/03/2026 14:45','Condivisa con l’azienda','purple')}
+          ${note('Formazione','Disponibilità corso PLE','Disponibile una sessione del corso PLE nel mese di aprile.','Marco Bianchi · 05/02/2026 11:20','Solo consulenti','orange')}
+        </div></section>${composer}</div>`;
+      }
+      function note(cat,title,text,meta,visibility,tone) { return `<article class="note-item"><span class="note-icon" style="color:var(--${tone==='blue'?'blue':tone});background:var(--${tone==='blue'?'blue':tone}-soft, var(--blue-soft))">${icon(tone==='red'?'warning':tone==='purple'?'lock':'document')}</span><div class="note-body"><div class="note-top"><div>${badge(cat,tone==='red'?'red':tone==='orange'?'orange':tone==='purple'?'purple':'')} <strong style="margin-left:7px">${title}</strong></div><button class="btn ghost icon-only" style="min-height:25px;width:25px">${icon('more','small')}</button></div><p>${text}</p><div class="note-meta"><span>${meta}</span><span>${visibility}</span></div></div></article>`; }
+
+      function renderControl() {
+        return `${viewMeta(statusLegend())}<div class="kpi-grid six">${kpi('87','Persone attive','green','user','all-people')}${kpi('438','Registrazioni valide','green','shield','control-valid')}${kpi('31','In scadenza','orange','clock','control-expiring')}${kpi('12','Scadute','red','warning','control-expired')}${kpi('9','Registrazioni incomplete','orange','document','control-incomplete')}${kpi('14','Attività pianificate','blue','calendar','control-planned')}</div>
+        <section class="card workforce-compliance" aria-label="Conformità complessiva del personale">
+          <div class="donut"><strong>72%<small>regolari</small></strong></div>
+          <div class="workforce-compliance-copy"><h3>Conformità complessiva del personale</h3><p><strong>63 persone su 87</strong> non presentano registrazioni scadute o incomplete negli elementi monitorati.</p><small>Il calcolo considera esclusivamente i dati registrati in piattaforma e non rappresenta una valutazione normativa o legale della persona.</small></div>
+          <div class="legend-list" aria-label="Distribuzione degli stati"><div class="legend-item"><span class="legend-label">${dotStatus('green','Regolari')}</span><strong>63</strong></div><div class="legend-item"><span class="legend-label">${dotStatus('orange','In attenzione')}</span><strong>12</strong></div><div class="legend-item"><span class="legend-label">${dotStatus('red','Da gestire')}</span><strong>7</strong></div><div class="legend-item"><span class="legend-label">${dotStatus('gray','Nessun dato')}</span><strong>5</strong></div></div>
+        </section>
+        <section class="card section-card matrix-card"><div class="section-title-row"><div><h3>Quadro generale del personale</h3><span class="subtle" style="font-size:11px">La matrice riepiloga esclusivamente dati già registrati; il grigio non indica una mancanza</span></div><button class="btn" data-action="matrix-full">Vista dettagliata</button></div><div class="matrix-toolbar"><div class="search-wrap">${icon('search')}<input class="control" placeholder="Cerca per nome, mansione o reparto..."></div><select class="control"><option>Reparto: Tutti</option></select><select class="control"><option>Mansione: Tutte</option></select><select class="control"><option>Stato: Tutti</option></select><span class="switch-wrap"><button type="button" class="switch ${state.criticalOnly?'on':''}" data-critical-switch></button> Solo anomalie</span><span></span></div><div class="table-wrap ${state.criticalOnly?'critical-filter-on':''}"><table class="matrix-table"><thead><tr><th>Persona</th><th>Mansione / reparto</th><th>Formazione e abilitazioni</th><th>Idoneità</th><th>Ruoli</th><th>Documenti</th><th>Prossima data</th></tr></thead><tbody>
+          ${matrixRow(people[0],['orange','orange','green','green'],'15/08/2026')}${matrixRow(people[1],['red','green','green','green'],'20/08/2026')}${matrixRow(people[2],['orange','orange','green','gray'],'05/09/2026')}${matrixRow(people[3],['orange','green','green','green'],'07/09/2026')}${matrixRow(people[4],['orange','orange','green','orange'],'09/09/2026')}
+        </tbody></table></div><div class="matrix-legend"><strong>Legenda:</strong><span>${dotStatus('green','Valido')}</span><span>${dotStatus('orange','In scadenza')}</span><span>${dotStatus('red','Scaduto')}</span><span>${dotStatus('blue','Pianificato')}</span><span>${dotStatus('gray','Nessun dato')}</span><span class="subtle">Seleziona una cella per aprire le registrazioni della categoria.</span></div><div class="people-footer"><span>1–5 di 87 persone</span><div class="pagination"><button class="page-btn active">1</button><button class="page-btn">2</button><button class="page-btn">3</button><span>…</span><button class="page-btn">18</button></div></div></section>`;
+      }
+      function matrixStatus(tone,personId,targetTab,category) {
+        const labels={green:'Valido',orange:'Scadenza',red:'Scaduto',blue:'Pianificato',gray:'Nessun dato'};
+        const reasons={green:'Le registrazioni presenti risultano valide',orange:'È presente almeno una registrazione prossima alla scadenza',red:'È presente almeno una registrazione scaduta',blue:'È presente un’attività pianificata non ancora completata',gray:'Non risultano informazioni registrate per questa categoria'};
+        return `<button type="button" class="matrix-status" data-open-category="${personId}" data-target-tab="${targetTab}" title="${category}: ${reasons[tone]}"><i class="dot ${tone}"></i>${labels[tone]}</button>`;
+      }
+      function matrixRow(p,tones,date) {
+        const categories=[['training','Formazione e abilitazioni'],['health','Idoneità sanitaria'],['roles','Ruoli'],['profile','Documenti']];
+        const noAnomalies=tones.every(t=>t==='green');
+        return `<tr class="${noAnomalies?'conform-row':''}"><td><div class="name-cell">${avatar(p)}<strong>${p.name}</strong></div></td><td><div class="meta-stack"><strong>${p.job}</strong><small>${p.dept}</small></div></td>${tones.map((t,i)=>`<td>${matrixStatus(t,p.id,categories[i][0],categories[i][1])}</td>`).join('')}<td><button type="button" class="link-btn" data-open-person="${p.id}" data-target-tab="overview" title="Apri la prossima scadenza">${date}</button></td></tr>`;
+      }
+
+      function matrixDetailCell(personId,item) {
+        return `<button type="button" class="matrix-detail-cell" data-open-category="${personId}" data-target-tab="${item[3]}" title="Apri le registrazioni"><span class="state-cell"><i class="dot ${item[0]}"></i>${item[1]}</span><small>${item[2]}</small></button>`;
+      }
+      function matrixDetailRow(row) {
+        const p=row.person;
+        const searchable=[p.name,p.job,p.dept,...p.roles].join(' ').toLowerCase();
+        return `<tr data-matrix-row data-search="${searchable}" data-dept="${p.dept}" data-overall="${row.overall[2]}"><td><button type="button" class="matrix-person-link" data-open-person="${p.id}" data-target-tab="overview">${avatar(p)}<strong>${p.name}</strong></button></td><td><div class="meta-stack"><strong>${p.job}</strong><small>${p.dept}</small></div></td><td>${matrixDetailCell(p.id,row.learning)}</td><td>${matrixDetailCell(p.id,row.health)}</td><td>${matrixDetailCell(p.id,row.roles)}</td><td>${matrixDetailCell(p.id,row.documents)}</td><td><strong style="color:var(--${row.next==='Scaduta'?'red':'ink-2'})">${row.next}</strong></td><td><span class="matrix-overall">${badge(row.overall[1],row.overall[0])}</span></td></tr>`;
+      }
+      function openMatrixDetail() {
+        document.getElementById('modalRoot').innerHTML=`<div class="modal-layer" role="presentation" data-close-modal><section class="modal matrix-detail-modal" role="dialog" aria-modal="true" aria-labelledby="matrixDetailTitle"><div class="modal-head"><div><h2 id="matrixDetailTitle">Vista dettagliata del personale</h2><p class="subtle">Quadro trasversale delle registrazioni presenti al ${REFERENCE_DATE} · dati dimostrativi</p></div><button class="btn icon-only" type="button" data-close-modal aria-label="Chiudi">${icon('close')}</button></div><div class="matrix-detail-body">
+          <div class="matrix-detail-summary" aria-label="Riepilogo complessivo"><div class="matrix-summary-item"><span>${dotStatus('green','Regolari')}</span><strong>63</strong></div><div class="matrix-summary-item"><span>${dotStatus('orange','In attenzione')}</span><strong>12</strong></div><div class="matrix-summary-item"><span>${dotStatus('red','Da gestire')}</span><strong>7</strong></div><div class="matrix-summary-item"><span>${dotStatus('gray','Nessun dato')}</span><strong>5</strong></div></div>
+          <div class="matrix-detail-toolbar"><div class="search-wrap">${icon('search')}<input class="control" id="matrixDetailSearch" type="search" placeholder="Cerca persona, mansione, reparto o ruolo..." aria-label="Cerca nella matrice"></div><select class="control" data-matrix-filter="dept" aria-label="Filtra per reparto"><option value="">Tutti i reparti</option><option>Direzione</option><option>Produzione</option><option>Ufficio tecnico</option><option>Amministrazione</option><option>Manutenzione</option><option>Logistica</option></select><select class="control" data-matrix-filter="overall" aria-label="Filtra per stato complessivo"><option value="">Tutti gli stati</option><option value="regular">Regolare</option><option value="attention">In attenzione</option><option value="manage">Da gestire</option><option value="nodata">Nessun dato</option></select><button type="button" class="btn" data-toast="Esportazione della matrice simulata">${icon('download','small')} Esporta</button></div>
+          <div class="matrix-detail-scroll"><table class="matrix-detail-table" aria-label="Matrice dettagliata del personale"><thead><tr><th>Persona</th><th>Mansione / reparto</th><th>Formazione e abilitazioni</th><th>Idoneità</th><th>Ruoli</th><th>Documenti</th><th>Prossima data</th><th>Stato complessivo</th></tr></thead><tbody>${matrixDetailData.map(matrixDetailRow).join('')}</tbody></table></div>
+          <div class="matrix-detail-footer"><span id="matrixDetailCount"><strong>8 persone visualizzate</strong> su 87 complessive</span><span>Seleziona uno stato per aprire la relativa sezione della persona.</span></div>
+        </div></section></div>`;
+        requestAnimationFrame(()=>document.getElementById('matrixDetailSearch')?.focus());
+      }
+      function filterMatrixDetail() {
+        const search=(document.getElementById('matrixDetailSearch')?.value||'').trim().toLowerCase();
+        const dept=document.querySelector('[data-matrix-filter="dept"]')?.value||'';
+        const overall=document.querySelector('[data-matrix-filter="overall"]')?.value||'';
+        let visible=0;
+        document.querySelectorAll('[data-matrix-row]').forEach(row=>{
+          const show=(!search||row.dataset.search.includes(search))&&(!dept||row.dataset.dept===dept)&&(!overall||row.dataset.overall===overall);
+          row.classList.toggle('hidden',!show);
+          if(show) visible++;
+        });
+        const count=document.getElementById('matrixDetailCount');
+        if(count) count.innerHTML=`<strong>${visible} ${visible===1?'persona visualizzata':'persone visualizzate'}</strong> su 87 complessive`;
+      }
+
+      function renderSchedule() {
+        const days=['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+        const nums=['31','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','23','24','25','26','27','28','29','30','1','2','3','4'];
+        return `${viewMeta(statusLegend())}<div class="schedule-toolbar"><select class="control"><option>Settembre 2026</option></select><button class="btn icon-only" data-toast="Agosto 2026" aria-label="Mese precedente">‹</button><button class="btn icon-only" data-toast="Ottobre 2026" aria-label="Mese successivo">›</button><div class="segmented"><button class="segment ${state.scheduleMode==='list'?'active':''}" data-schedule-mode="list">Elenco</button><button class="segment ${state.scheduleMode==='calendar'?'active':''}" data-schedule-mode="calendar">Calendario</button></div><div class="schedule-actions"><button class="btn" data-toast="Collegamento a Google Calendar previsto in una fase successiva" title="Integrazione futura">${icon('calendar','small')} Google Calendar ${badge('Futuro')}</button>${actionButton('Pianifica corso','plan-course')}</div></div>
+        <div class="toolbar"><div class="search-wrap">${icon('search')}<input class="control" placeholder="Cerca per nome, attività o categoria..."></div><select class="control"><option>Entro 90 giorni</option></select><select class="control"><option>Tutti i reparti</option></select><select class="control"><option>Tutte le tipologie</option></select><select class="control"><option>Tutti gli stati</option></select></div>
+        <div class="kpi-grid">${kpi('5','Scaduti','red','warning','schedule-expired')}${kpi('8','Entro 30 giorni','orange','clock','schedule-30')}${kpi('14','Entro 90 giorni','green','shield','schedule-90')}${kpi('4','Corsi prenotati','blue','calendar','schedule-planned')}</div>
+        ${state.scheduleMode==='list'?renderScheduleList(days,nums):renderScheduleCalendar(days,nums)}`;
+      }
+      function miniCalendar(days,nums,large=false) {
+        return `<div class="calendar ${large?'large':''}">${days.map(x=>`<span class="day-head">${x}</span>`).join('')}${nums.map((x,i)=>`<span class="${i===0||i>30?'muted':''} ${i===30?'today':''} ${[4,7,9].includes(i)?'event-orange':''} ${[11,18].includes(i)?'event-red':''} ${[10,22,28].includes(i)?'event-green':''}">${x}</span>`).join('')}</div>`;
+      }
+      function renderScheduleList(days,nums) {
+        return `<div class="schedule-grid ${state.scheduleCalendarOpen?'with-aside':''}"><section class="card section-card"><div class="section-title-row"><div><h3>Scadenze e attività programmate</h3><span class="subtle" style="font-size:11px">L’elenco rimane la vista operativa principale</span></div><button type="button" class="btn" data-toggle-calendar-panel>${icon('calendar','small')} ${state.scheduleCalendarOpen?'Nascondi calendario':'Mostra calendario'}</button></div><div class="table-wrap"><table><thead><tr><th>Persona</th><th>Attività</th><th>Categoria</th><th>Data</th><th>Mancano</th><th>Stato</th><th></th></tr></thead><tbody>
+          <tr class="group-row"><td colspan="7">⌄ Scadute (5)</td></tr>${scheduleRow(people[1],'Aggiornamento RSPP','Formazione','20/08/2026','−11 giorni','Scaduto','red')}${scheduleRow(people[4],'Visita medica periodica','Sorveglianza sanitaria','18/08/2026','−13 giorni','Scaduto','red')}
+          <tr class="group-row"><td colspan="7" style="color:var(--orange)">⌄ Questa settimana (3)</td></tr>${scheduleRow(people[2],'Aggiornamento antincendio','Formazione','05/09/2026','2 giorni','In scadenza','orange')}${scheduleRow(people[3],'PLE – Abilitazione','Abilitazione','07/09/2026','4 giorni','In scadenza','orange')}${scheduleRow(people[4],'Visita medica periodica','Sorveglianza sanitaria','09/09/2026','6 giorni','In scadenza','orange')}
+          <tr class="group-row"><td colspan="7">⌄ Settembre 2026 (6)</td></tr>${scheduleRow(people[0],'Lavori in quota – Addetto','Abilitazione','22/09/2026','19 giorni','Programmata','blue')}${scheduleRow(people[5],'Aggiornamento RSPP','Formazione','28/09/2026','25 giorni','Programmata','blue')}${scheduleRow(people[3],'Primo soccorso – Aggiornamento','Formazione','30/09/2026','27 giorni','Corso prenotato','blue')}
+        </tbody></table></div><div style="text-align:center;margin-top:10px"><button class="link-btn" data-toast="Altre scadenze caricate">Mostra altre scadenze</button></div></section>${state.scheduleCalendarOpen?`<aside class="schedule-aside"><section class="card section-card"><div class="section-title-row"><h3>Riepilogo del periodo</h3></div><strong style="display:block;margin-top:12px">Settembre 2026</strong>${miniCalendar(days,nums)}<div class="badge-group" style="margin-top:12px">${dotStatus('red','Scaduti')}${dotStatus('orange','30 giorni')}${dotStatus('green','90 giorni')}${dotStatus('blue','Prenotati')}</div></section></aside>`:''}</div>
+        <div class="schedule-support-grid">${organizeCard('3 rinnovi antincendio','Entro 90 giorni','plan-course')}${organizeCard('2 visite mediche','Entro 90 giorni','plan-visit')}${organizeCard('4 aggiornamenti attrezzature','Entro 90 giorni','plan-course')}</div>`;
+      }
+      function renderScheduleCalendar(days,nums) {
+        return `<div class="calendar-view-grid"><section class="card section-card"><div class="section-title-row"><div><h3>Calendario · Settembre 2026</h3><span class="subtle" style="font-size:11px">Seleziona un giorno per visualizzare le attività</span></div>${statusLegend()}</div>${miniCalendar(days,nums,true)}</section><aside><section class="card section-card"><div class="section-title-row"><h3>02 settembre 2026</h3>${badge('Oggi')}</div><div class="mini-list"><button class="mini-row" data-open-person="3" data-target-tab="training"><div><strong>Aggiornamento antincendio</strong><small>Luca Bianchi · Formazione</small></div><span>09:00</span>${badge('Pianificato')}</button><button class="mini-row" data-open-person="5" data-target-tab="health"><div><strong>Visita periodica</strong><small>Giulia Ferri · Sorveglianza</small></div><span>15:30</span>${badge('Pianificata')}</button></div></section><section class="card section-card"><div class="section-title-row"><h3>Da organizzare</h3></div>${organize('3 rinnovi antincendio','Entro 90 giorni','plan-course')}${organize('2 visite mediche','Entro 90 giorni','plan-visit')}</section></aside></div>`;
+      }
+      function scheduleRow(p,activity,cat,date,left,status,tone) {
+        const target=cat==='Sorveglianza sanitaria'?'health':'training';
+        return `<tr><td><div class="name-cell">${avatar(p)}<div class="meta-stack"><strong>${p.name}</strong><small>${p.job}</small></div></div></td><td>${activity}</td><td>${badge(cat,cat==='Sorveglianza sanitaria'?'purple':cat==='Abilitazione'?'green':'')}</td><td><strong style="color:var(--${tone})">${date}</strong></td><td style="color:var(--${tone})">${left}</td><td>${badge(status,tone)}</td><td><button class="btn icon-only" style="min-height:31px;width:31px" data-open-person="${p.id}" data-target-tab="${target}" aria-label="Apri dettaglio">›</button></td></tr>`;
+      }
+      function organize(title,sub,modal='plan-course') { return `<div class="organize-row"><span class="kpi-icon orange" style="width:32px;height:32px">${icon('clock','small')}</span><div><strong>${title}</strong><small class="subtle" style="display:block;margin-top:3px">${sub}</small></div><button class="btn" style="min-height:31px" data-modal="${modal}">Gestisci</button></div>`; }
+      function organizeCard(title,sub,modal) { return `<section class="card section-card"><div class="section-title-row"><h3>${title}</h3><span class="kpi-icon orange" style="width:32px;height:32px">${icon('clock','small')}</span></div><p class="subtle" style="margin:10px 0 12px">${sub}</p><button class="btn" style="width:100%" data-modal="${modal}">Organizza attività</button></section>`; }
+
+      function renderAnalytics() {
+        const months=['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic']; const hs=[60,68,82,76,70,74,56,47,58,64,69,61];
+        return `${viewMeta('<span><strong>Periodo analizzato:</strong> 01/01/2026–02/09/2026</span>')}<div class="toolbar" style="grid-template-columns:repeat(4,minmax(150px,1fr)) auto"><select class="control"><option>Anno 2026</option></select><select class="control"><option>Tutti i reparti</option></select><select class="control"><option>Tutte le mansioni</option></select><select class="control"><option>Tutte le categorie</option></select><button class="btn" data-toast="Report esportato">${icon('download','small')} Esporta report</button></div>
+        <div class="analytics-kpi-groups"><section class="card metric-group history"><div class="metric-group-title"><strong>Attività formativa svolta</strong><span>valori storici</span></div><div class="kpi-grid">${kpi('1.248','Ore erogate','blue','clock')}${kpi('14,3','Ore medie per persona','blue','user')}${kpi('18','Corsi completati','blue','cap')}</div></section><section class="card metric-group future"><div class="metric-group-title"><strong>Stato e pianificazione</strong><span>dati registrati</span></div><div class="kpi-grid">${kpi('438','Registrazioni valide','green','shield','analytics-valid')}${kpi('14','Attività pianificate','orange','calendar','analytics-planned')}</div></section></div>
+        <div class="chart-grid"><section class="card section-card"><div class="section-title-row"><h3>Ore di formazione per mese</h3><span class="subtle">Consuntivo e attività già pianificate</span></div><div class="bar-chart">${months.map((m,i)=>`<div class="month-bar ${i>7?'future':''}" style="--h:${hs[i]}%"><span>${m}</span></div>`).join('')}</div></section><section class="card section-card"><div class="section-title-row"><h3>Formazione per categoria</h3></div><div class="donut-layout" style="grid-template-columns:155px 1fr"><div class="donut category-donut"><strong>1.248<small>Ore totali</small></strong></div><div class="legend-list"><div class="legend-item"><span class="legend-label"><i class="dot blue"></i>Formazione base</span><strong>35%</strong></div><div class="legend-item"><span class="legend-label"><i class="dot green"></i>Sicurezza</span><strong>27%</strong></div><div class="legend-item"><span class="legend-label"><i class="dot purple"></i>Attrezzature</span><strong>21%</strong></div><div class="legend-item"><span class="legend-label"><i class="dot cyan"></i>Ruoli aziendali</span><strong>11%</strong></div><div class="legend-item"><span class="legend-label"><i class="dot orange"></i>Aggiornamenti</span><strong>6%</strong></div></div></div></section></div>
+        <div class="two-col"><section class="card section-card"><div class="section-title-row"><h3>Ore per reparto</h3></div><div style="margin-top:10px">${hbar('Produzione',536,100)}${hbar('Ufficio tecnico',248,46)}${hbar('Direzione',168,31)}${hbar('Amministrazione',156,29)}${hbar('Manutenzione',140,26)}</div></section><section class="card section-card"><div class="section-title-row"><h3>Stato delle attività formative</h3></div><div class="progress-list">${progress('Completate · 63 persone',72,'green')}${progress('Pianificate · 16 persone',18,'blue')}${progress('Da organizzare · 8 persone',10,'orange')}</div></section></div>
+        <section class="card section-card"><div class="section-title-row"><h3>Dettaglio persone</h3><span class="switch-wrap"><button class="switch" data-switch></button> Solo con scadenze</span></div><div class="table-wrap"><table><thead><tr><th>Persona</th><th>Reparto</th><th>Ore 2025</th><th>Ore 2026</th><th>Corsi completati</th><th>In scadenza</th><th>Scaduti</th><th>Stato registrazioni</th></tr></thead><tbody>${analyticsRow(people[1],28,32,5,1,0,'Regolari','green')}${analyticsRow(people[4],24,28,4,2,0,'In scadenza','orange')}${analyticsRow(people[2],36,40,6,0,0,'Regolari','green')}${analyticsRow(people[3],18,16,2,1,1,'Da gestire','red')}${analyticsRow(people[0],20,24,3,1,0,'Pianificato','blue')}</tbody></table></div></section>`;
+      }
+      function hbar(label,value,pct) { return `<div class="hbar-row"><span>${label}</span><span class="progress-track"><span class="progress-fill" style="width:${pct}%"></span></span><strong>${value} ore</strong></div>`; }
+      function analyticsRow(p,y1,y2,courses,expiring,expired,status,tone) { return `<tr><td><div class="name-cell">${avatar(p)}<strong>${p.name}</strong></div></td><td>${p.dept}</td><td>${y1} ore</td><td>${y2} ore</td><td>${courses}</td><td>${expiring}</td><td>${expired}</td><td>${badge(status,tone)}</td></tr>`; }
+
+      function formInput(label,placeholder='',type='text',full=false,value='') { const required=label.includes('*')?' required':''; return `<label class="modal-field ${full?'full':''}">${label}<input class="control" type="${type}" placeholder="${placeholder}" value="${value}"${required}></label>`; }
+      function formSelect(label,options,full=false) { const required=label.includes('*')?' required':''; return `<label class="modal-field ${full?'full':''}">${label}<select class="control"${required}>${options.map(x=>`<option>${x}</option>`).join('')}</select></label>`; }
+      function formText(label,placeholder='Aggiungi una nota facoltativa...') { return `<label class="modal-field full">${label}<textarea class="textarea" placeholder="${placeholder}"></textarea></label>`; }
+      function fileDrop(label='Carica documento') { return `<button type="button" class="file-drop" data-toast="Selezione documento simulata">${icon('upload')}<span><strong>${label}</strong><br><span class="subtle">PDF o immagine · trascina qui oppure seleziona un file</span></span></button>`; }
+      function modalBody(kind) {
+        if(kind==='new-person') return `<section class="modal-section"><h3>Dati essenziali</h3><div class="modal-grid three">${formInput('Nome *','Nome')}${formInput('Cognome *','Cognome')}${formInput('Codice fiscale','16 caratteri')}${formInput('Email','nome@azienda.it','email')}${formInput('Telefono','+39 ...','tel')}</div></section><section class="modal-section"><h3>Primo rapporto con l’azienda</h3><div class="modal-grid three">${formSelect('Tipo rapporto *',['Dipendente','Collaboratore','Amministratore','Altro'])}${formInput('Data inizio *','','date')}${formSelect('Stato *',['Attivo','Pianificato'])}${formSelect('Mansione *',['Amministratore','Impiegato tecnico','Capocantiere','Operaio specializzato'])}${formSelect('Reparto *',['Direzione','Produzione','Ufficio tecnico','Amministrazione'])}${formText('Note iniziali')}</div></section><div class="helper-panel"><strong>Compilazione essenziale:</strong> gli altri dati anagrafici potranno essere aggiunti successivamente dalla scheda della persona.</div>`;
+        if(kind==='new-role') return `<section class="modal-section"><h3>Dati del ruolo</h3><div class="modal-grid">${formSelect('Ruolo *',['Datore di Lavoro','Dirigente','RSPP','Preposto','Responsabile Qualità'])}${formSelect('Ambito',['Intera azienda','Sede principale','Reparto Produzione'])}${formInput('Data inizio *','','date')}${formInput('Data fine','','date')}${formText('Note')}</div></section><section class="modal-section"><h3>Documento</h3>${fileDrop('Documento di nomina o incarico')}</section>`;
+        if(kind==='new-training') return `<section class="modal-section"><h3>Corso svolto</h3><div class="modal-grid three">${formSelect('Corso / attestato *',['Formazione lavoratori','Aggiornamento antincendio','Primo soccorso','Dirigenti','Lavori in quota'])}${formSelect('Tipologia *',['Base','Aggiornamento','Specialistica'])}${formInput('Data completamento *','','date')}${formInput('Ore riconosciute *','0','number')}${formInput('Ente formatore *','Denominazione')}${formSelect('Esito',['Superato','Frequentato','Non superato'])}</div></section><section class="modal-section"><h3>Attestato e validità</h3><div class="modal-grid">${formInput('Numero attestato','Numero o protocollo')}${formInput('Scadenza esplicita','','date')}${fileDrop('Carica attestato')}</div></section><div class="helper-panel">La scadenza deriva dalla durata configurata per il corso, salvo una data esplicita documentata. La registrazione non stabilisce obblighi non presenti in piattaforma.</div>`;
+        if(kind==='plan-course') return `<section class="modal-section"><h3>Sessione formativa</h3><div class="modal-grid three">${formSelect('Corso *',['Aggiornamento antincendio','Primo soccorso','PLE','RSPP'])}${formInput('Data prevista *','','date')}${formInput('Durata prevista','Ore','number')}${formSelect('Modalità',['In presenza','Videoconferenza','E-learning'])}${formInput('Luogo o link','Sede / URL')}${formInput('Ente formatore','Denominazione')}</div></section><section class="modal-section"><h3>Partecipanti</h3><div class="modal-grid">${formSelect('Reparto',['Tutti','Produzione','Ufficio tecnico','Direzione'])}${formSelect('Persone selezionate',['6 persone selezionate','Alessandro Cauduro','Mario Rossi','Luca Bianchi'])}${formText('Comunicazione ai partecipanti','Indicazioni organizzative...')}</div></section><div class="helper-panel">La pianificazione genera un’attività blu separata. La registrazione diventa valida soltanto quando il corso viene completato e documentato.</div>`;
+        if(kind==='new-ability') return `<section class="modal-section"><h3>Dati dell’abilitazione</h3><div class="modal-grid three">${formSelect('Abilitazione *',['PLE','Gru su autocarro','Carrelli elevatori','Escavatori','Ponteggi'])}${formInput('Livello / tipologia','Specificazione')}${formInput('Data conseguimento *','','date')}${formInput('Scadenza','','date')}${formSelect('Stato di verifica',['Da verificare','Verificata'])}${formText('Note')}</div></section><section class="modal-section"><h3>Documento</h3>${fileDrop('Documento o patentino')}</section>`;
+        if(kind==='new-visit') return `<div class="privacy-banner">${icon('lock','small')} <strong>Dati sanitari protetti</strong> · registra soltanto le informazioni ammesse e necessarie</div><section class="modal-section"><h3>Visita e giudizio</h3><div class="modal-grid three">${formSelect('Tipo visita *',['Preventiva','Periodica','Cambio mansione','Su richiesta'])}${formInput('Data visita *','','date')}${formSelect('Giudizio *',['Idoneo','Idoneo con prescrizioni','Temporaneamente non idoneo','Non idoneo'])}${formInput('Periodicità mesi','12','number')}${formInput('Prossima visita','','date')}${formSelect('Medico competente',['Dott.ssa Laura Bianchi','Altro medico'])}</div></section><section class="modal-section"><h3>Documento protetto</h3><div class="modal-grid">${fileDrop('Carica giudizio di idoneità')}${formText('Prescrizioni minime consentite','Non inserire diagnosi o dati non necessari...')}</div></section>`;
+        if(kind==='plan-visit') return `<div class="privacy-banner">${icon('lock','small')} <strong>Pianificazione riservata</strong> · l’appuntamento sarà visibile solo agli utenti autorizzati</div><section class="modal-section"><div class="modal-grid three">${formSelect('Tipo visita *',['Periodica','Preventiva','Cambio mansione'])}${formInput('Data *','','date')}${formInput('Ora *','','time')}${formSelect('Medico competente',['Dott.ssa Laura Bianchi','Altro medico'])}${formInput('Luogo','Ambulatorio / sede')}${formSelect('Promemoria',['7 giorni prima','3 giorni prima','Nessuno'])}${formText('Indicazioni organizzative')}</div></section>`;
+        if(kind==='new-degree') return `<section class="modal-section"><div class="modal-grid three">${formSelect('Titolo di studio *',['Licenza media','Diploma','Laurea triennale','Laurea magistrale','Master'])}${formInput('Indirizzo / specializzazione','Descrizione')}${formInput('Istituto o ateneo','Denominazione')}${formInput('Anno conseguimento','2026','number')}${formSelect('Stato documento',['Da caricare','Presente','Verificato'])}${formInput('Votazione','Facoltativa')}${fileDrop('Carica documento')}</div></section>`;
+        if(kind==='new-experience') return `<section class="modal-section"><div class="modal-grid three">${formInput('Ruolo / attività *','Mansione')}${formInput('Organizzazione','Azienda')}${formInput('Data inizio','','date')}${formInput('Data fine','','date')}${formSelect('Rilevanza',['Professionale','Tecnica','Organizzativa'])}${formSelect('Verificata',['No','Sì'])}${formText('Descrizione dell’esperienza')}</div></section>`;
+        if(kind==='new-reminder') return `<section class="modal-section"><div class="modal-grid three">${formInput('Oggetto *','Promemoria')}${formSelect('Categoria',['Formazione','Ruolo','Sorveglianza','Competenza','Generale'])}${formInput('Scadenza *','','date')}${formInput('Ora','','time')}${formSelect('Destinatari',['Solo autore','Consulenti','Azienda e consulenti'])}${formSelect('Ricorrenza',['Nessuna','Mensile','Annuale'])}${formText('Nota')}</div></section>`;
+        return `<div class="modal-grid">${formInput('Descrizione *','Descrizione')}${formInput('Data','','date')}${formText('Note')}</div>`;
+      }
+      function openModal(kind) {
+        if (kind === 'focus-note') { state.noteComposer=true; render(); requestAnimationFrame(()=>document.getElementById('noteText')?.focus()); return; }
+        const configs = {
+          'new-person':['Nuova persona','Crea l’anagrafica e il primo rapporto con l’azienda.'],
+          'new-role':['Assegna un ruolo','Registra incarico, durata ed eventuale documento.'],
+          'new-training':['Registra formazione','Collega corso, partecipazione, attestato e validità.'],
+          'plan-course':['Pianifica un corso','Crea la sessione e seleziona le persone coinvolte.'],
+          'new-ability':['Aggiungi abilitazione','Registra tipologia, validità ed eventuale documento.'],
+          'new-visit':['Registra visita','Salva giudizio d’idoneità, periodicità e documento protetto.'],
+          'plan-visit':['Pianifica visita','Imposta appuntamento, medico e promemoria.'],
+          'new-degree':['Aggiungi titolo di studio','Seleziona il titolo dal catalogo e allega l’evidenza.'],
+          'new-experience':['Aggiungi esperienza','Registra un’esperienza professionale rilevante.'],
+          'new-reminder':['Nuovo promemoria','Imposta scadenza, destinatari e ricorrenza.']
+        };
+        const c=configs[kind] || ['Nuovo elemento','Compila le informazioni richieste.'];
+        document.getElementById('modalRoot').innerHTML = `<div class="modal-layer" role="presentation" data-close-modal><section class="modal wide" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal-head"><div><h2 id="modalTitle">${c[0]}</h2><p class="subtle" style="margin:6px 0 0">${c[1]}</p></div><button class="btn icon-only" data-close-modal aria-label="Chiudi">${icon('close')}</button></div><form id="modalForm">${modalBody(kind)}<div class="modal-actions"><button class="btn" type="button" data-close-modal>Annulla</button><button class="btn primary" type="submit">${icon('check','small')} Salva</button></div></form></section></div>`;
+      }
+      function openUnsavedDialog() {
+        document.getElementById('modalRoot').innerHTML=`<div class="modal-layer" role="presentation"><section class="modal unsaved-modal" role="dialog" aria-modal="true" aria-labelledby="unsavedTitle"><div class="modal-head"><div class="unsaved-title"><span class="kpi-icon orange">${icon('warning')}</span><div><h2 id="unsavedTitle">Modifiche non salvate</h2><p class="subtle" style="margin:6px 0 0">Hai modificato i dati della persona. Se esci senza salvare, le modifiche andranno perse.</p></div></div><button class="btn icon-only" data-unsaved-continue aria-label="Chiudi">${icon('close')}</button></div><div class="unsaved-actions"><button type="button" class="btn" data-unsaved-continue>Continua a modificare</button><button type="button" class="btn danger" data-unsaved-discard>Esci senza salvare</button><button type="button" class="btn primary" data-unsaved-save>Salva ed esci</button></div></section></div>`;
+      }
+      function guardUnsaved(action) {
+        if(state.editProfile && state.profileDirty){ state.pendingAction=action; openUnsavedDialog(); return; }
+        action();
+      }
+      function finishPending(save=false) {
+        const action=state.pendingAction;
+        state.pendingAction=null;
+        state.editProfile=false;
+        state.profileDirty=false;
+        closeModal();
+        if(save) toast('Dati della persona salvati');
+        if(action) action();
+      }
+      function closeModal(){ state.pendingAction=null; document.getElementById('modalRoot').innerHTML=''; }
+      let toastTimer;
+      function toast(message) { const root=document.getElementById('toastRoot'); root.innerHTML=`<div class="toast">${message}</div>`; clearTimeout(toastTimer); toastTimer=setTimeout(()=>root.innerHTML='',2600); }
+
+      function handleAction(action) {
+        if(action==='all-people'){ state.mainView='people'; state.selectedId=null; render(); return; }
+        if(action==='person-expiring'){ state.mainView='schedule'; render(); toast('Scadenziario filtrato sulla persona selezionata'); return; }
+        if(action==='person-expired'){ state.detailTab='training'; render(); toast('Mostrate le registrazioni scadute'); return; }
+        if(action==='person-planned'){ state.mainView='schedule'; state.scheduleMode='list'; render(); toast('Mostrate le attività pianificate'); return; }
+        if(action==='analytics-valid'){ state.mainView='control'; state.criticalOnly=false; render(); return; }
+        if(action==='analytics-planned'){ state.mainView='schedule'; state.scheduleMode='list'; render(); toast('Mostrati i corsi pianificati'); return; }
+        if(action==='matrix-full'){ openMatrixDetail(); return; }
+        if(action.startsWith('control-')){ state.criticalOnly=!['control-valid','control-planned'].includes(action); render(); toast('Quadro filtrato in base all’indicatore selezionato'); return; }
+        if(action.startsWith('schedule-')){ toast('Scadenziario filtrato in base all’indicatore selezionato'); return; }
+      }
+
+      document.addEventListener('click', e => {
+        if(e.target.closest('[data-unsaved-continue]')){ state.pendingAction=null; document.getElementById('modalRoot').innerHTML=''; return; }
+        if(e.target.closest('[data-unsaved-discard]')){ finishPending(false); return; }
+        if(e.target.closest('[data-unsaved-save]')){ finishPending(true); return; }
+        const main=e.target.closest('[data-main-view]'); if(main){ guardUnsaved(()=>{ state.mainView=main.dataset.mainView; state.editProfile=false; state.profileDirty=false; if(state.mainView!=='people') state.detailFull=false; render(); }); return; }
+        const category=e.target.closest('[data-open-category]'); if(category){ guardUnsaved(()=>{ closeModal(); state.mainView='people'; state.selectedId=Number(category.dataset.openCategory); state.detailTab=category.dataset.targetTab||'overview'; state.detailFull=false; state.editProfile=false; state.profileDirty=false; render(); }); return; }
+        const open=e.target.closest('[data-open-person]'); if(open){ guardUnsaved(()=>{ closeModal(); state.mainView='people'; state.selectedId=Number(open.dataset.openPerson); state.detailTab=open.dataset.targetTab||'overview'; state.detailFull=false; state.editProfile=false; state.profileDirty=false; render(); }); return; }
+        const select=e.target.closest('[data-select-person]'); if(select){ guardUnsaved(()=>{ state.selectedId=Number(select.dataset.selectPerson); state.detailTab='overview'; state.editProfile=false; state.profileDirty=false; render(); }); return; }
+        if(e.target.closest('[data-back-list]')||e.target.closest('[data-close-detail]')){ guardUnsaved(()=>{ state.selectedId=null; state.detailFull=false; state.detailTab='overview'; state.editProfile=false; state.profileDirty=false; render(); }); return; }
+        if(e.target.closest('[data-toggle-full]')){ guardUnsaved(()=>{ state.detailFull=!state.detailFull; render(); }); return; }
+        const tab=e.target.closest('[data-detail-tab]'); if(tab){ guardUnsaved(()=>{ state.detailTab=tab.dataset.detailTab; state.editProfile=false; state.profileDirty=false; render(); }); return; }
+        if(e.target.closest('[data-edit-profile]')){ state.editProfile=true; state.profileDirty=false; render(); return; }
+        if(e.target.closest('[data-cancel-profile]')){ guardUnsaved(()=>{ state.editProfile=false; state.profileDirty=false; render(); }); return; }
+        if(e.target.closest('[data-save-profile]')){ state.editProfile=false; state.profileDirty=false; render(); toast('Dati della persona salvati'); return; }
+        const action=e.target.closest('[data-action]'); if(action){ guardUnsaved(()=>handleAction(action.dataset.action)); return; }
+        const scheduleMode=e.target.closest('[data-schedule-mode]'); if(scheduleMode){ state.scheduleMode=scheduleMode.dataset.scheduleMode; render(); return; }
+        if(e.target.closest('[data-toggle-calendar-panel]')){ state.scheduleCalendarOpen=!state.scheduleCalendarOpen; render(); return; }
+        if(e.target.closest('[data-close-competency]')){ state.activeCompetencyMacro=null; state.competencyAdding=false; state.competencyEvaluationKey=null; render(); return; }
+        const competencyMacro=e.target.closest('[data-competency-macro]'); if(competencyMacro){ const key=competencyMacro.dataset.competencyMacro; state.activeCompetencyMacro=state.activeCompetencyMacro===key?null:key; state.competencyAdding=false; state.competencyEvaluationKey=null; render(); return; }
+        const addCompetency=e.target.closest('[data-add-personal-competency]'); if(addCompetency){ state.activeCompetencyMacro=addCompetency.dataset.addPersonalCompetency; state.competencyAdding=true; state.competencyEvaluationKey=null; render(); return; }
+        if(e.target.closest('[data-cancel-competency-add]')){ state.competencyAdding=false; render(); return; }
+        const startEvaluation=e.target.closest('[data-start-competency-evaluation]'); if(startEvaluation){ const key=startEvaluation.dataset.startCompetencyEvaluation; state.activeCompetencyMacro=key; state.competencyEvaluationKey=key; state.competencyAdding=false; render(); return; }
+        if(e.target.closest('[data-cancel-competency-evaluation]')){ state.competencyEvaluationKey=null; render(); return; }
+        if(e.target.closest('[data-cancel-note-composer]')){ state.noteComposer=false; render(); return; }
+        const openRoleDefinition=e.target.closest('[data-open-role-definition]'); if(openRoleDefinition){ const id=openRoleDefinition.dataset.openRoleDefinition; state.activeRoleDefinition=id; state.roleDefinitionTab='mansionario'; state.roleMansionarioEditing=false; state.roleCompetencyAdding=false; render(); requestAnimationFrame(()=>document.getElementById('roleWorkspace')?.scrollIntoView({behavior:'smooth',block:'nearest'})); return; }
+        if(e.target.closest('[data-close-role-definition]')){ state.activeRoleDefinition=null; state.roleMansionarioEditing=false; state.roleCompetencyAdding=false; render(); return; }
+        const roleDefinitionTab=e.target.closest('[data-role-definition-tab]'); if(roleDefinitionTab){ state.roleDefinitionTab=roleDefinitionTab.dataset.roleDefinitionTab; state.roleMansionarioEditing=false; state.roleCompetencyAdding=false; render(); return; }
+        if(e.target.closest('[data-edit-role-mansionario]')){ state.roleMansionarioEditing=true; render(); return; }
+        if(e.target.closest('[data-cancel-role-mansionario]')){ state.roleMansionarioEditing=false; render(); return; }
+        if(e.target.closest('[data-add-role-competency]')){ state.roleCompetencyAdding=true; render(); return; }
+        if(e.target.closest('[data-cancel-role-competency]')){ state.roleCompetencyAdding=false; render(); return; }
+        const hideCompetency=e.target.closest('[data-hide-competency]'); if(hideCompetency){ const item=competencyMacroData[hideCompetency.dataset.macroKey]; const row=item?.rows.find(entry=>entry.id===hideCompetency.dataset.hideCompetency); if(row){ row.hidden=true; render(); toast('Voce nascosta dal profilo individuale'); } return; }
+        const restoreCompetency=e.target.closest('[data-restore-competency]'); if(restoreCompetency){ const item=competencyMacroData[restoreCompetency.dataset.macroKey]; const row=item?.rows.find(entry=>entry.id===restoreCompetency.dataset.restoreCompetency); if(row){ row.hidden=false; render(); toast('Voce ripristinata nel profilo individuale'); } return; }
+        const manageBase=e.target.closest('[data-manage-base-profile]'); if(manageBase){ state.baseProfileMacro=manageBase.dataset.manageBaseProfile; state.baseProfileSource='Profilo generale'; openBaseProfileManager(state.baseProfileMacro); return; }
+        const baseMacro=e.target.closest('.base-source-tab[data-base-macro]'); if(baseMacro){ state.baseProfileMacro=baseMacro.dataset.baseMacro; openBaseProfileManager(state.baseProfileMacro); return; }
+        const baseSource=e.target.closest('.base-source-tab[data-base-source]'); if(baseSource){ state.baseProfileSource=baseSource.dataset.baseSource; openBaseProfileManager(state.baseProfileMacro); return; }
+        const toggleBase=e.target.closest('[data-toggle-base-voice]'); if(toggleBase){ const item=competencyMacroData[toggleBase.dataset.macroKey]; const row=item?.rows.find(entry=>entry.id===toggleBase.dataset.toggleBaseVoice); const source=toggleBase.dataset.baseSource; if(row&&source){ row.disabledSources=row.disabledSources||[]; const index=row.disabledSources.indexOf(source); if(index>=0) row.disabledSources.splice(index,1); else row.disabledSources.push(source); render(); openBaseProfileManager(toggleBase.dataset.macroKey); toast(index>=0?'Voce riattivata nel profilo base':'Voce disattivata dal profilo base'); } return; }
+        const modal=e.target.closest('[data-modal]'); if(modal){ openModal(modal.dataset.modal); return; }
+        const close=e.target.closest('[data-close-modal]'); if(close&&(close.tagName==='BUTTON'||close===e.target)){ closeModal(); return; }
+        const sw=e.target.closest('[data-switch]'); if(sw){ sw.classList.toggle('on'); return; }
+        if(e.target.closest('[data-critical-switch]')){ state.criticalOnly=!state.criticalOnly; render(); return; }
+        const t=e.target.closest('[data-toast]'); if(t){ toast(t.dataset.toast); }
+      });
+
+      document.addEventListener('keydown', e => {
+        const row=e.target.closest('[data-open-person]');
+        if(row && (e.key==='Enter'||e.key===' ')){ e.preventDefault(); row.click(); }
+        if(e.key==='Escape' && document.querySelector('.modal-layer')) closeModal();
+      });
+
+      document.addEventListener('input', e => {
+        if(e.target.matches('[data-profile-input]')){ state.profileDirty=true; const bar=document.querySelector('.edit-status-bar'); if(bar) bar.innerHTML=`<span>${dotStatus('orange','Modifiche non salvate')}</span><span>I dati verranno registrati soltanto con “Salva modifiche”.</span>`; }
+        if(e.target.id==='matrixDetailSearch') filterMatrixDetail();
+        if(e.target.id==='peopleSearch'){
+          state.peopleQuery=e.target.value;
+          const q=e.target.value.trim().toLowerCase();
+          document.querySelectorAll('#peopleRows tr').forEach(row=>row.classList.toggle('hidden',q && !row.dataset.search.includes(q)));
+        }
+        if(e.target.id==='railSearch'){
+          const q=e.target.value.trim().toLowerCase();
+          document.querySelectorAll('#railPeople .rail-person').forEach(row=>row.classList.toggle('hidden',q && !row.dataset.name.includes(q)));
+        }
+      });
+
+      document.addEventListener('change', e => {
+        if(e.target.matches('[data-matrix-filter]')) filterMatrixDetail();
+      });
+
+      document.addEventListener('submit', e => {
+        e.preventDefault();
+        if(e.target.id==='noteForm') { const text=document.getElementById('noteText'); if(!text.value.trim()){ toast('Scrivi una nota prima di salvarla'); return; } state.noteComposer=false; render(); toast('Nota salvata'); return; }
+        if(e.target.id==='roleMansionarioForm'){
+          const role=roleDefinitions[e.target.dataset.roleId];
+          if(!role) return;
+          const lines=name=>e.target.elements[name].value.split('\n').map(value=>escapeHtml(value.trim())).filter(Boolean);
+          role.purpose=escapeHtml(e.target.elements.rolePurpose.value.trim());
+          role.activities=lines('roleActivities');
+          role.responsibilities=lines('roleResponsibilities');
+          role.authority=lines('roleAuthority');
+          role.reportsTo=escapeHtml(e.target.elements.roleReportsTo.value.trim());
+          role.collaboratesWith=escapeHtml(e.target.elements.roleCollaboratesWith.value.trim());
+          state.roleMansionarioEditing=false;
+          render();
+          toast(`Mansionario di ${role.title} salvato`);
+          return;
+        }
+        if(e.target.id==='roleCompetencyForm'){
+          const role=roleDefinitions[e.target.dataset.roleId];
+          const key=e.target.elements.roleCompetencyMacro.value;
+          const item=competencyMacroData[key];
+          const name=e.target.elements.roleCompetencyName.value.trim();
+          const description=e.target.elements.roleCompetencyDescription.value.trim()||'Voce prevista dal profilo del ruolo';
+          if(!role||!item||!name){ toast('Completa i dati della voce base'); return; }
+          item.rows.push({id:`role-${Date.now()}`,name:escapeHtml(name),description:escapeHtml(description),sources:[`Ruolo: ${role.title}`],level:null,levelNumber:null,updated:'—',evaluator:'—',personal:false,hidden:false,history:[]});
+          state.roleCompetencyAdding=false;
+          render();
+          toast(`Voce aggiunta al ruolo ${role.title}`);
+          return;
+        }
+        if(e.target.id==='competencyPersonalForm'){
+          const key=e.target.dataset.macroKey;
+          const item=competencyMacroData[key];
+          const name=e.target.elements.competencyName.value.trim();
+          const description=e.target.elements.competencyDescription.value.trim()||'Voce personalizzata per la singola persona';
+          if(!item||!name){ toast('Inserisci il nome della voce personale'); return; }
+          item.rows.push({id:`personal-${Date.now()}`,name:escapeHtml(name),description:escapeHtml(description),sources:['Voce personale'],level:null,levelNumber:null,updated:'—',evaluator:'—',personal:true,hidden:false});
+          state.competencyAdding=false;
+          render();
+          toast('Voce personale aggiunta al profilo');
+          return;
+        }
+        if(e.target.id==='baseProfileForm'){
+          const key=e.target.dataset.macroKey;
+          const source=e.target.dataset.baseSource;
+          const item=competencyMacroData[key];
+          const name=e.target.elements.baseCompetencyName.value.trim();
+          const description=e.target.elements.baseCompetencyDescription.value.trim()||'Voce configurata nel profilo aziendale';
+          if(!item||!source||!name){ toast('Inserisci il nome della voce del profilo'); return; }
+          item.rows.push({id:`base-${Date.now()}`,name:escapeHtml(name),description:escapeHtml(description),sources:[source],level:null,levelNumber:null,updated:'—',evaluator:'—',personal:false,hidden:false,history:[]});
+          render();
+          openBaseProfileManager(key);
+          toast(`Voce aggiunta a ${source}`);
+          return;
+        }
+        if(e.target.id==='competencyEvaluationForm'){
+          const key=e.target.dataset.macroKey;
+          const item=competencyMacroData[key];
+          if(!item) return;
+          const date=formatDateIt(e.target.elements.evaluationDate.value);
+          const evaluator=escapeHtml(e.target.elements.evaluationEvaluator.value.trim()||'Utente corrente');
+          e.target.querySelectorAll('[data-evaluation-row]').forEach(select=>{
+            const row=item.rows.find(entry=>entry.id===select.dataset.evaluationRow);
+            if(!row) return;
+            row.history=row.history||[];
+            if(Number.isInteger(row.levelNumber)) row.history.push({level:row.level,levelNumber:row.levelNumber,date:row.updated,evaluator:row.evaluator,note:row.lastNote||''});
+            const value=Number(select.value);
+            row.levelNumber=value;
+            row.level={1:'Base',2:'Intermedio',3:'Avanzato'}[value];
+            row.updated=date;
+            row.evaluator=evaluator;
+            const note=e.target.querySelector(`[data-evaluation-note="${row.id}"]`)?.value.trim();
+            if(note) row.lastNote=escapeHtml(note);
+          });
+          item.updated=date;
+          state.competencyEvaluationKey=null;
+          render();
+          toast(`Valutazione di ${item.title} salvata`);
+          return;
+        }
+        if(e.target.id==='modalForm'){ closeModal(); toast('Informazioni salvate nel prototipo'); }
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>

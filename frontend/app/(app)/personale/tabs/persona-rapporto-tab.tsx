@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -9,18 +10,15 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { CatalogoVoce, PersonaDossier, PersonaProfilo } from "@/lib/types/personale-hr";
+import type { CatalogoVoce, DocumentoPersonale, PersonaDossier, PersonaProfilo } from "@/lib/types/personale-hr";
 
 import { aggiornaProfiloPersona } from "../actions";
+import { DocumentoPersonaleDialog } from "../documento-personale-dialog";
+import { EliminaDocumentoDialog } from "../elimina-documento-dialog";
 import { useDirtyGuard } from "../person-detail";
 
 const SESSO_OPZIONI = ["Maschio", "Femmina", "Non specificato"];
 const COMPRENSIONE_OPZIONI = ["Adeguata", "Parziale", "Da verificare", "Non adeguata"];
-const PERMESSO_SOGGIORNO_OPZIONI: { value: PersonaDossier["permesso_soggiorno_stato"]; label: string }[] = [
-  { value: "NON_INDICATO", label: "Non indicato" },
-  { value: "NON_APPLICABILE", label: "Non applicabile" },
-  { value: "POSSEDUTO", label: "Posseduto" },
-];
 
 /** Età derivata dalla data di nascita (§6 della correzione): mai salvata,
  * ricalcolata qui con lo stesso algoritmo del backend (vedi
@@ -51,13 +49,18 @@ export function PersonaRapportoTab({
   persona,
   mansioni: _mansioni,
   reparti: _reparti,
-  tipiRapporto: _tipiRapporto,
+  tipiRapporto,
+  tipiDocumento,
+  documentiPersona,
 }: {
   persona: PersonaProfilo;
   mansioni: CatalogoVoce[];
   reparti: CatalogoVoce[];
   tipiRapporto: CatalogoVoce[];
+  tipiDocumento: CatalogoVoce[];
+  documentiPersona: DocumentoPersonale[];
 }) {
+  const router = useRouter();
   const { setDirty, registerSave } = useDirtyGuard();
   const [editing, setEditing] = useState(false);
   const [dossierAperto, setDossierAperto] = useState(false);
@@ -71,6 +74,12 @@ export function PersonaRapportoTab({
   const [dossier, setDossier] = useState<PersonaDossier>(persona.dossier);
 
   const rapporto = persona.rapporto_corrente;
+  // Solo per registrare il PRIMO rapporto quando non ne esiste ancora uno
+  // (es. una persona nota solo come incarico CCIAA): il backend le richiede
+  // solo in quel caso, altrimenti "Durata del rapporto" resta di sola
+  // lettura come già previsto per un rapporto esistente.
+  const [tipoRapportoId, setTipoRapportoId] = useState("");
+  const [dataInizio, setDataInizio] = useState("");
   const [dataFinePrevista, setDataFinePrevista] = useState(rapporto?.data_fine_prevista ?? "");
   const [tempoLavoro, setTempoLavoro] = useState(rapporto?.tempo_lavoro ?? "PIENO");
   const [percentualePartTime, setPercentualePartTime] = useState(
@@ -89,6 +98,8 @@ export function PersonaRapportoTab({
     setTelefono(persona.telefono ?? "");
     setEmail(persona.email ?? "");
     setDossier(persona.dossier);
+    setTipoRapportoId("");
+    setDataInizio("");
     setDataFinePrevista(rapporto?.data_fine_prevista ?? "");
     setTempoLavoro(rapporto?.tempo_lavoro ?? "PIENO");
     setPercentualePartTime(rapporto?.percentuale_part_time != null ? String(rapporto.percentuale_part_time) : "");
@@ -103,20 +114,23 @@ export function PersonaRapportoTab({
   }
 
   async function salva(): Promise<boolean> {
+    if (!rapporto && (!tipoRapportoId || !dataInizio)) {
+      setErrore("Seleziona la durata del rapporto e la data di inizio per registrare il primo rapporto.");
+      return false;
+    }
     setSalvando(true);
     setErrore(null);
     const risultato = await aggiornaProfiloPersona(persona.id, {
       persona: { nome, cognome, codice_fiscale: codiceFiscale, telefono: telefono || null, email: email || null },
       dossier,
-      rapporto: rapporto
-        ? {
-            data_fine_prevista: dataFinePrevista || null,
-            tempo_lavoro: tempoLavoro,
-            percentuale_part_time: percentualePartTime ? Number(percentualePartTime) : null,
-            ccnl: ccnl || null,
-            livello_inquadramento: livelloInquadramento || null,
-          }
-        : undefined,
+      rapporto: {
+        ...(!rapporto ? { tipo_rapporto_id: tipoRapportoId, data_inizio: dataInizio } : {}),
+        data_fine_prevista: dataFinePrevista || null,
+        tempo_lavoro: tempoLavoro,
+        percentuale_part_time: percentualePartTime ? Number(percentualePartTime) : null,
+        ccnl: ccnl || null,
+        livello_inquadramento: livelloInquadramento || null,
+      },
     });
     setSalvando(false);
     if (!risultato.ok) {
@@ -131,7 +145,22 @@ export function PersonaRapportoTab({
     registerSave(editing ? salva : null);
     return () => registerSave(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editing, nome, cognome, codiceFiscale, telefono, email, dossier, dataFinePrevista, tempoLavoro, percentualePartTime, ccnl, livelloInquadramento]);
+  }, [
+    editing,
+    nome,
+    cognome,
+    codiceFiscale,
+    telefono,
+    email,
+    dossier,
+    tipoRapportoId,
+    dataInizio,
+    dataFinePrevista,
+    tempoLavoro,
+    percentualePartTime,
+    ccnl,
+    livelloInquadramento,
+  ]);
 
   function onChange<T>(setter: (v: T) => void) {
     return (v: T) => {
@@ -141,7 +170,10 @@ export function PersonaRapportoTab({
   }
 
   const eta = editing ? calcolaEta(dossier.data_nascita) : persona.dossier.eta;
-  const aTermine = rapporto?.tipo_rapporto.codice === "DETERMINATO";
+  const tipoRapportoSelezionato = tipiRapporto.find((t) => t.id === tipoRapportoId);
+  const aTermine = rapporto
+    ? rapporto.tipo_rapporto.codice === "DETERMINATO"
+    : tipoRapportoSelezionato?.codice === "DETERMINATO";
 
   return (
     <div className="flex flex-col gap-4">
@@ -346,20 +378,15 @@ export function PersonaRapportoTab({
             )}
           </DossierSezione>
 
-          <DossierSezione titolo="Contatti personali e di emergenza">
-            <dl className="grid grid-cols-3 gap-3 text-sm">
-              <Campo label="Telefono personale" valore={persona.telefono ?? "—"} />
-              <Campo label="Email personale" valore={persona.email ?? "—"} />
-            </dl>
-            <p className="mt-1 text-xs text-muted-foreground">Telefono ed email personali si modificano in Dati essenziali.</p>
+          <DossierSezione titolo="Contatto di emergenza">
             {!editing ? (
-              <dl className="mt-3 grid grid-cols-3 gap-3 text-sm">
+              <dl className="grid grid-cols-3 gap-3 text-sm">
                 <Campo label="Contatto di emergenza" valore={dossier.contatto_emergenza_nome ?? "—"} />
                 <Campo label="Relazione" valore={dossier.contatto_emergenza_relazione ?? "—"} />
                 <Campo label="Telefono di emergenza" valore={dossier.contatto_emergenza_telefono ?? "—"} />
               </dl>
             ) : (
-              <div className="mt-3 grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <CampoInput
                   label="Contatto di emergenza"
                   value={dossier.contatto_emergenza_nome ?? ""}
@@ -416,69 +443,80 @@ export function PersonaRapportoTab({
             )}
           </DossierSezione>
 
-          <DossierSezione titolo="Documenti personali">
-            {!editing ? (
-              <dl className="grid grid-cols-3 gap-3 text-sm">
-                <Campo label="Tipo di documento" valore={dossier.tipo_documento_identita ?? "—"} />
-                <Campo label="Numero documento" valore={dossier.numero_documento_identita ?? "—"} />
-                <Campo label="Scadenza documento" valore={formattaData(dossier.scadenza_documento_identita)} />
-                <Campo
-                  label="Permesso di soggiorno"
-                  valore={PERMESSO_SOGGIORNO_OPZIONI.find((o) => o.value === dossier.permesso_soggiorno_stato)?.label ?? "—"}
-                />
-                {dossier.permesso_soggiorno_stato === "POSSEDUTO" && (
-                  <Campo label="Estremi permesso di soggiorno" valore={dossier.permesso_soggiorno_dettaglio ?? "—"} />
-                )}
-              </dl>
+          <DossierSezione
+            titolo={`Documenti personali (${documentiPersona.length})`}
+            azione={
+              <DocumentoPersonaleDialog
+                personaId={persona.id}
+                tipiDocumento={tipiDocumento}
+                onSaved={() => router.refresh()}
+                trigger={
+                  <Button variant="outline" size="sm">
+                    + Aggiungi documento
+                  </Button>
+                }
+              />
+            }
+          >
+            {documentiPersona.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nessun documento personale registrato.</p>
             ) : (
-              <div className="grid grid-cols-3 gap-3">
-                <CampoInput
-                  label="Tipo di documento"
-                  value={dossier.tipo_documento_identita ?? ""}
-                  onChange={(v) => patchDossier({ tipo_documento_identita: v || null })}
-                />
-                <CampoInput
-                  label="Numero documento"
-                  value={dossier.numero_documento_identita ?? ""}
-                  onChange={(v) => patchDossier({ numero_documento_identita: v || null })}
-                />
-                <CampoInput
-                  label="Scadenza documento"
-                  type="date"
-                  value={dossier.scadenza_documento_identita ?? ""}
-                  onChange={(v) => patchDossier({ scadenza_documento_identita: v || null })}
-                />
-                <div className="flex flex-col gap-1.5">
-                  <Label>Permesso di soggiorno</Label>
-                  <Select
-                    value={dossier.permesso_soggiorno_stato}
-                    onValueChange={(v) => patchDossier({ permesso_soggiorno_stato: v as PersonaDossier["permesso_soggiorno_stato"] })}
-                  >
-                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {PERMESSO_SOGGIORNO_OPZIONI.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {dossier.permesso_soggiorno_stato === "POSSEDUTO" && (
-                  <CampoInput
-                    label="Estremi permesso di soggiorno"
-                    value={dossier.permesso_soggiorno_dettaglio ?? ""}
-                    onChange={(v) => patchDossier({ permesso_soggiorno_dettaglio: v || null })}
-                  />
-                )}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-muted-foreground">
+                      <th className="py-1.5 pr-3 font-medium">Tipo</th>
+                      <th className="py-1.5 pr-3 font-medium">Numero</th>
+                      <th className="py-1.5 pr-3 font-medium">Data di rilascio</th>
+                      <th className="py-1.5 pr-3 font-medium">Data di scadenza</th>
+                      <th className="py-1.5 pr-3 font-medium">Allegati</th>
+                      <th className="py-1.5 font-medium">Azioni</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {documentiPersona.map((doc) => (
+                      <tr key={doc.id} className="border-b border-border last:border-0">
+                        <td className="py-1.5 pr-3">{doc.tipo_documento.denominazione}</td>
+                        <td className="py-1.5 pr-3">{doc.numero ?? "—"}</td>
+                        <td className="py-1.5 pr-3">{formattaData(doc.data_rilascio)}</td>
+                        <td className="py-1.5 pr-3">{formattaData(doc.data_scadenza)}</td>
+                        <td className="py-1.5 pr-3">{doc.numero_allegati}</td>
+                        <td className="py-1.5">
+                          <div className="flex gap-2">
+                            <DocumentoPersonaleDialog
+                              personaId={persona.id}
+                              tipiDocumento={tipiDocumento}
+                              documento={doc}
+                              onSaved={() => router.refresh()}
+                              trigger={
+                                <Button variant="outline" size="sm">
+                                  Modifica
+                                </Button>
+                              }
+                            />
+                            <EliminaDocumentoDialog
+                              documento={doc}
+                              onDeleted={() => router.refresh()}
+                              trigger={
+                                <Button variant="outline" size="sm">
+                                  Rimuovi
+                                </Button>
+                              }
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </DossierSezione>
 
           <DossierSezione titolo="Dettagli contrattuali">
-            {!rapporto ? (
+            {!rapporto && !editing ? (
               <p className="text-sm text-muted-foreground">Nessun rapporto registrato.</p>
-            ) : !editing ? (
+            ) : rapporto && !editing ? (
               <dl className="grid grid-cols-3 gap-3 text-sm">
                 <Campo label="Durata del rapporto" valore={rapporto.tipo_rapporto.denominazione} />
                 <Campo
@@ -497,10 +535,35 @@ export function PersonaRapportoTab({
               </dl>
             ) : (
               <div className="grid grid-cols-3 gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <Label>Durata del rapporto</Label>
-                  <div className="flex h-8 items-center text-sm text-muted-foreground">{rapporto.tipo_rapporto.denominazione}</div>
-                </div>
+                {rapporto ? (
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Durata del rapporto</Label>
+                    <div className="flex h-8 items-center text-sm text-muted-foreground">{rapporto.tipo_rapporto.denominazione}</div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex flex-col gap-1.5">
+                      <Label>Durata del rapporto</Label>
+                      <Select
+                        value={tipoRapportoId}
+                        onValueChange={(v) => {
+                          setTipoRapportoId(v);
+                          setDirty(true);
+                        }}
+                      >
+                        <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Seleziona..." /></SelectTrigger>
+                        <SelectContent>
+                          {tipiRapporto.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              {t.denominazione}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <CampoInput label="Data di inizio" type="date" value={dataInizio} onChange={onChange(setDataInizio)} />
+                  </>
+                )}
                 <CampoInput
                   label={aTermine ? "Data di fine prevista" : "Data di fine prevista (facoltativa)"}
                   type="date"
@@ -543,10 +606,13 @@ export function PersonaRapportoTab({
   );
 }
 
-function DossierSezione({ titolo, children }: { titolo: string; children: ReactNode }) {
+function DossierSezione({ titolo, azione, children }: { titolo: string; azione?: ReactNode; children: ReactNode }) {
   return (
     <div className="rounded-md border border-border/60 p-3">
-      <h5 className="mb-3 text-sm font-semibold text-foreground">{titolo}</h5>
+      <div className="mb-3 flex items-center justify-between">
+        <h5 className="text-sm font-semibold text-foreground">{titolo}</h5>
+        {azione}
+      </div>
       {children}
     </div>
   );

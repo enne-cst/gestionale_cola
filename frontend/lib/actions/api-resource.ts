@@ -30,3 +30,17 @@ export async function postApiResource<T>(path: string, body: unknown): Promise<A
 export async function patchApiResource<T>(path: string, body: unknown): Promise<ApiResult<T>> {
   return apiFetchResult<T>(path, { method: "PATCH", body: JSON.stringify(body) });
 }
+
+/** PUT generico che non lancia (variante di `putApiResource` sopra, la cui
+ * firma lancia in caso di errore): usata dai form di modifica del modulo
+ * Personale che devono distinguere un 422 di validazione da un errore
+ * imprevisto, come già fatto per `postApiResource`/`patchApiResource`. */
+export async function putApiResourceResult<T>(path: string, body: unknown): Promise<ApiResult<T>> {
+  return apiFetchResult<T>(path, { method: "PUT", body: JSON.stringify(body) });
+}
+
+/** DELETE generico: usato dalle azioni di rimozione del modulo Personale
+ * che riusano un endpoint REST già esistente invece di duplicarne uno. */
+export async function deleteApiResource(path: string): Promise<ApiResult<null>> {
+  return apiFetchResult<null>(path, { method: "DELETE" });
+}

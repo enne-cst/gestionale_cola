@@ -5,6 +5,7 @@ Funzioni pure con `Session` esplicita come primo parametro, stesso stile di
 Service, mai usate altrove nel repository.
 """
 
+import re
 import uuid
 from datetime import date
 
@@ -19,13 +20,24 @@ from app.models.personale import (
     CatMansione,
     CatReparto,
     CatRuolo,
+    CatTipoDocumentoIdentita,
     CatTipoRapporto,
+    CatVoceValutazionePersonale,
+    CfgRuoloAzienda,
+    PerDocumentoPersonale,
     PerIncarico,
     PerRapportoAzienda,
+    RelRuoloVoceValutazione,
 )
 from app.schemas.personale_hr import (
     CatalogoCreate,
     CatalogoRead,
+    CompetenzaRuoloCreate,
+    CompetenzaRuoloRead,
+    CompetenzaRuoloUpdate,
+    DocumentoPersonaleCreate,
+    DocumentoPersonaleRead,
+    DocumentoPersonaleUpdate,
     NuovaPersonaRequest,
     PersonaDossierRead,
     PersonaDossierUpdate,
@@ -58,11 +70,6 @@ _DOSSIER_CAMPI_DIRETTI = (
     "lingua_madre",
     "supporto_linguistico_necessario",
     "altre_lingue",
-    "tipo_documento_identita",
-    "numero_documento_identita",
-    "scadenza_documento_identita",
-    "permesso_soggiorno_stato",
-    "permesso_soggiorno_dettaglio",
 )
 
 
@@ -216,7 +223,7 @@ def aggiorna_profilo_persona(
     if payload.dossier is not None:
         _applica_dossier(persona, payload.dossier)
     if payload.rapporto is not None:
-        _applica_dettagli_contrattuali(db, persona_id, payload.rapporto)
+        _applica_dettagli_contrattuali(db, azienda_id, persona_id, payload.rapporto)
     return persona
 
 
@@ -230,12 +237,30 @@ def _applica_dossier(persona: AnaPersone, dossier: PersonaDossierUpdate) -> None
     persona.luogo_nascita = dossier.luogo_nascita
 
 
-def _applica_dettagli_contrattuali(db: Session, persona_id: uuid.UUID, dettagli: RapportoDettagliUpdate) -> None:
+def _applica_dettagli_contrattuali(
+    db: Session, azienda_id: uuid.UUID, persona_id: uuid.UUID, dettagli: RapportoDettagliUpdate
+) -> None:
     rapporto = rapporto_corrente(db, persona_id)
     if rapporto is None:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, "Nessun rapporto corrente a cui applicare i dettagli contrattuali."
+        # Nessun rapporto ancora registrato per questa persona (es. un
+        # incarico CCIAA senza rapporto di lavoro): la sezione "Dettagli
+        # contrattuali" del Dossier deve poter registrare il primo rapporto,
+        # non solo modificarne uno esistente — richiede in più "Durata del
+        # rapporto" e "Data di inizio", altrimenti non compilabili altrove.
+        if dettagli.tipo_rapporto_id is None or dettagli.data_inizio is None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Durata del rapporto e data di inizio sono obbligatorie per registrare il primo rapporto.",
+            )
+        rapporto = PerRapportoAzienda(
+            azienda_id=azienda_id,
+            persona_id=persona_id,
+            tipo_rapporto_id=dettagli.tipo_rapporto_id,
+            data_inizio=dettagli.data_inizio,
+            stato="ATTIVO",
         )
+        db.add(rapporto)
+        db.flush()
     tipo_rapporto = db.get(CatTipoRapporto, rapporto.tipo_rapporto_id)
     if tipo_rapporto is not None and tipo_rapporto.codice == "DETERMINATO" and dettagli.data_fine_prevista is None:
         raise HTTPException(
@@ -445,3 +470,231 @@ def ruoli_persona(db: Session, azienda_id: uuid.UUID, persona_id: uuid.UUID) -> 
             )
         )
     return risultato
+
+
+# ---------------------------------------------------------------------------
+# Documenti personali (completamento Dossier personale) — record multipli
+# per persona, nessun collegamento ad allegati reali (§ decisione utente).
+# ---------------------------------------------------------------------------
+
+
+def lista_tipi_documento(db: Session) -> list[CatTipoDocumentoIdentita]:
+    stmt = (
+        select(CatTipoDocumentoIdentita)
+        .where(CatTipoDocumentoIdentita.attivo.is_(True))
+        .order_by(CatTipoDocumentoIdentita.ordine_visualizzazione)
+    )
+    return list(db.scalars(stmt).all())
+
+
+def _documento_a_read(db: Session, documento: PerDocumentoPersonale) -> DocumentoPersonaleRead:
+    tipo = db.get(CatTipoDocumentoIdentita, documento.tipo_documento_id)
+    return DocumentoPersonaleRead(
+        id=documento.id,
+        tipo_documento=tipo,
+        numero=documento.numero,
+        data_rilascio=documento.data_rilascio,
+        data_scadenza=documento.data_scadenza,
+        numero_allegati=0,
+    )
+
+
+def lista_documenti_persona(db: Session, azienda_id: uuid.UUID, persona_id: uuid.UUID) -> list[DocumentoPersonaleRead]:
+    stmt = (
+        select(PerDocumentoPersonale)
+        .where(PerDocumentoPersonale.persona_id == persona_id, PerDocumentoPersonale.azienda_id == azienda_id)
+        .order_by(PerDocumentoPersonale.created_at)
+    )
+    documenti = db.scalars(stmt).all()
+    return [_documento_a_read(db, d) for d in documenti]
+
+
+def crea_documento_persona(
+    db: Session, azienda_id: uuid.UUID, persona_id: uuid.UUID, payload: DocumentoPersonaleCreate
+) -> DocumentoPersonaleRead:
+    documento = PerDocumentoPersonale(
+        azienda_id=azienda_id,
+        persona_id=persona_id,
+        tipo_documento_id=payload.tipo_documento_id,
+        numero=payload.numero,
+        data_rilascio=payload.data_rilascio,
+        data_scadenza=payload.data_scadenza,
+    )
+    db.add(documento)
+    db.commit()
+    db.refresh(documento)
+    return _documento_a_read(db, documento)
+
+
+def _documento_owned_or_none(db: Session, documento_id: uuid.UUID, azienda_id: uuid.UUID) -> PerDocumentoPersonale | None:
+    documento = db.get(PerDocumentoPersonale, documento_id)
+    if documento is None or documento.azienda_id != azienda_id:
+        return None
+    return documento
+
+
+def aggiorna_documento_persona(
+    db: Session, azienda_id: uuid.UUID, documento_id: uuid.UUID, payload: DocumentoPersonaleUpdate
+) -> DocumentoPersonaleRead | None:
+    documento = _documento_owned_or_none(db, documento_id, azienda_id)
+    if documento is None:
+        return None
+    documento.tipo_documento_id = payload.tipo_documento_id
+    documento.numero = payload.numero
+    documento.data_rilascio = payload.data_rilascio
+    documento.data_scadenza = payload.data_scadenza
+    db.commit()
+    db.refresh(documento)
+    return _documento_a_read(db, documento)
+
+
+def elimina_documento_persona(db: Session, azienda_id: uuid.UUID, documento_id: uuid.UUID) -> bool:
+    documento = _documento_owned_or_none(db, documento_id, azienda_id)
+    if documento is None:
+        return False
+    db.delete(documento)
+    db.commit()
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Mansionario del ruolo (correzione "Mansionario e profilo standard delle
+# competenze del ruolo") — cfg_ruoli_azienda + rel_ruoli_voci_valutazione +
+# cat_voci_valutazione_personale, tabelle già esistenti mai popolate.
+# Combinazione Azienda + Ruolo = un solo profilo, condiviso da tutte le
+# persone che ricoprono il ruolo in quell'azienda (mai copiato altrove).
+# ---------------------------------------------------------------------------
+
+
+def _configurazione_ruolo_azienda(
+    db: Session, azienda_id: uuid.UUID, ruolo_id: uuid.UUID, *, crea_se_assente: bool
+) -> CfgRuoloAzienda | None:
+    cfg = db.scalars(
+        select(CfgRuoloAzienda).where(CfgRuoloAzienda.azienda_id == azienda_id, CfgRuoloAzienda.ruolo_id == ruolo_id)
+    ).first()
+    if cfg is None and crea_se_assente:
+        cfg = CfgRuoloAzienda(azienda_id=azienda_id, ruolo_id=ruolo_id)
+        db.add(cfg)
+        db.flush()
+    return cfg
+
+
+def mansionario_ruolo(db: Session, azienda_id: uuid.UUID, ruolo_id: uuid.UUID) -> list[CompetenzaRuoloRead]:
+    cfg = _configurazione_ruolo_azienda(db, azienda_id, ruolo_id, crea_se_assente=False)
+    if cfg is None:
+        return []
+    righe = db.scalars(
+        select(RelRuoloVoceValutazione)
+        .where(RelRuoloVoceValutazione.configurazione_ruolo_id == cfg.id, RelRuoloVoceValutazione.attiva.is_(True))
+        .order_by(RelRuoloVoceValutazione.ordine)
+    ).all()
+    risultato: list[CompetenzaRuoloRead] = []
+    for riga in righe:
+        voce = db.get(CatVoceValutazionePersonale, riga.voce_id)
+        if voce is None or not voce.attiva:
+            continue
+        risultato.append(CompetenzaRuoloRead(id=riga.id, voce_id=voce.id, nome=voce.nome, descrizione=voce.descrizione))
+    return risultato
+
+
+def _slug_codice(nome: str) -> str:
+    base = re.sub(r"[^A-Za-z0-9]+", "_", nome.strip().upper()).strip("_")
+    return base[:70] or "VOCE"
+
+
+def _codice_univoco_azienda(db: Session, azienda_id: uuid.UUID, nome: str) -> str:
+    base = _slug_codice(nome)
+    codice = base
+    suffisso = 1
+    while (
+        db.scalars(
+            select(CatVoceValutazionePersonale).where(
+                CatVoceValutazionePersonale.azienda_id == azienda_id, CatVoceValutazionePersonale.codice == codice
+            )
+        ).first()
+        is not None
+    ):
+        suffisso += 1
+        codice = f"{base}_{suffisso}"
+    return codice
+
+
+def aggiungi_competenza_ruolo(
+    db: Session, azienda_id: uuid.UUID, ruolo_id: uuid.UUID, payload: CompetenzaRuoloCreate
+) -> CompetenzaRuoloRead:
+    cfg = _configurazione_ruolo_azienda(db, azienda_id, ruolo_id, crea_se_assente=True)
+    assert cfg is not None
+
+    duplicato = db.execute(
+        select(RelRuoloVoceValutazione)
+        .join(CatVoceValutazionePersonale, CatVoceValutazionePersonale.id == RelRuoloVoceValutazione.voce_id)
+        .where(
+            RelRuoloVoceValutazione.configurazione_ruolo_id == cfg.id,
+            RelRuoloVoceValutazione.attiva.is_(True),
+            CatVoceValutazionePersonale.nome.ilike(payload.nome.strip()),
+        )
+    ).first()
+    if duplicato is not None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Esiste già una competenza con questo nome per questo ruolo."
+        )
+
+    voce = CatVoceValutazionePersonale(
+        azienda_id=azienda_id,
+        codice=_codice_univoco_azienda(db, azienda_id, payload.nome),
+        macroarea="COMPETENCE",
+        nome=payload.nome.strip(),
+        descrizione=payload.descrizione,
+    )
+    db.add(voce)
+    db.flush()
+    relazione = RelRuoloVoceValutazione(configurazione_ruolo_id=cfg.id, voce_id=voce.id)
+    db.add(relazione)
+    db.commit()
+    db.refresh(relazione)
+    return CompetenzaRuoloRead(id=relazione.id, voce_id=voce.id, nome=voce.nome, descrizione=voce.descrizione)
+
+
+def _relazione_competenza_owned_or_none(
+    db: Session, azienda_id: uuid.UUID, relazione_id: uuid.UUID
+) -> RelRuoloVoceValutazione | None:
+    relazione = db.get(RelRuoloVoceValutazione, relazione_id)
+    if relazione is None:
+        return None
+    cfg = db.get(CfgRuoloAzienda, relazione.configurazione_ruolo_id)
+    if cfg is None or cfg.azienda_id != azienda_id:
+        return None
+    return relazione
+
+
+def aggiorna_competenza_ruolo(
+    db: Session, azienda_id: uuid.UUID, relazione_id: uuid.UUID, payload: CompetenzaRuoloUpdate
+) -> CompetenzaRuoloRead | None:
+    relazione = _relazione_competenza_owned_or_none(db, azienda_id, relazione_id)
+    if relazione is None:
+        return None
+    voce = db.get(CatVoceValutazionePersonale, relazione.voce_id)
+    if voce is None:
+        return None
+    # Il nome/descrizione appartengono al profilo standard dell'azienda (§9
+    # della correzione): un solo aggiornamento in place, mai una copia per
+    # persona. Le valutazioni storiche non sono ancora implementate, ma
+    # `per_valutazioni_personale_dettagli.snapshot_nome` è già pensata per
+    # conservare il nome al momento della valutazione anche se qui cambia.
+    voce.nome = payload.nome.strip()
+    voce.descrizione = payload.descrizione
+    db.commit()
+    db.refresh(voce)
+    return CompetenzaRuoloRead(id=relazione.id, voce_id=voce.id, nome=voce.nome, descrizione=voce.descrizione)
+
+
+def rimuovi_competenza_ruolo(db: Session, azienda_id: uuid.UUID, relazione_id: uuid.UUID) -> bool:
+    relazione = _relazione_competenza_owned_or_none(db, azienda_id, relazione_id)
+    if relazione is None:
+        return False
+    # Disattiva solo la relazione ruolo-competenza (§10): la voce di
+    # catalogo non viene toccata, resta disponibile per lo storico e per
+    # eventuali altri ruoli che la utilizzano.
+    relazione.attiva = False
+    db.commit()
+    return True

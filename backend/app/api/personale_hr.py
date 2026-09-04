@@ -24,23 +24,38 @@ from app.core.deps import AziendaContext, get_current_azienda
 from app.core.moduli import require_modulo
 from app.core.pagination import Page, PageParams
 from app.core.personale_hr import (
+    aggiorna_competenza_ruolo,
+    aggiorna_documento_persona,
     aggiorna_profilo_persona,
+    aggiungi_competenza_ruolo,
+    crea_documento_persona,
     crea_mansione,
     crea_persona_con_rapporto,
     crea_reparto,
+    elimina_documento_persona,
+    lista_documenti_persona,
     lista_mansioni,
     lista_persone,
     lista_reparti,
+    lista_tipi_documento,
     lista_tipi_rapporto,
+    mansionario_ruolo,
     profilo_persona,
     rapporto_a_read,
+    rimuovi_competenza_ruolo,
     ruoli_persona,
 )
 from app.database import get_db
-from app.models.personale import PerRapportoAzienda
+from app.models.personale import CatRuolo, PerRapportoAzienda
 from app.schemas.personale_hr import (
     CatalogoCreate,
     CatalogoRead,
+    CompetenzaRuoloCreate,
+    CompetenzaRuoloRead,
+    CompetenzaRuoloUpdate,
+    DocumentoPersonaleCreate,
+    DocumentoPersonaleRead,
+    DocumentoPersonaleUpdate,
     NuovaPersonaRequest,
     PersonaListRow,
     PersonaProfiloRead,
@@ -152,6 +167,70 @@ def get_ruoli_persona(
     return ruoli_persona(db, ctx.azienda_id, persona_id)
 
 
+@router.get("/persone/{persona_id}/documenti", response_model=list[DocumentoPersonaleRead], tags=TAGS)
+def get_documenti_persona(
+    persona_id: UUID,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    if profilo_persona(db, ctx.azienda_id, persona_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona non trovata")
+    return lista_documenti_persona(db, ctx.azienda_id, persona_id)
+
+
+@router.post(
+    "/persone/{persona_id}/documenti",
+    response_model=DocumentoPersonaleRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=TAGS,
+)
+def post_documento_persona(
+    persona_id: UUID,
+    payload: DocumentoPersonaleCreate,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    if profilo_persona(db, ctx.azienda_id, persona_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona non trovata")
+    return crea_documento_persona(db, ctx.azienda_id, persona_id, payload)
+
+
+@router.put("/documenti/{documento_id}", response_model=DocumentoPersonaleRead, tags=TAGS)
+def put_documento_persona(
+    documento_id: UUID,
+    payload: DocumentoPersonaleUpdate,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    documento = aggiorna_documento_persona(db, ctx.azienda_id, documento_id, payload)
+    if documento is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Documento non trovato")
+    return documento
+
+
+@router.delete("/documenti/{documento_id}", status_code=status.HTTP_204_NO_CONTENT, tags=TAGS)
+def delete_documento_persona(
+    documento_id: UUID,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    if not elimina_documento_persona(db, ctx.azienda_id, documento_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Documento non trovato")
+
+
+@router.get("/tipi-documento-identita", response_model=list[CatalogoRead], tags=TAGS)
+def get_tipi_documento(
+    db: Session = Depends(get_db),
+    _ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    return lista_tipi_documento(db)
+
+
 # ---------------------------------------------------------------------------
 # Cataloghi
 # ---------------------------------------------------------------------------
@@ -202,3 +281,69 @@ def get_tipi_rapporto(
     _modulo: None = Depends(_modulo_dep),
 ):
     return lista_tipi_rapporto(db)
+
+
+# ---------------------------------------------------------------------------
+# Mansionario del ruolo (profilo standard delle competenze) — Azienda +
+# Ruolo, condiviso da tutte le persone che lo ricoprono. Non collega mai
+# l'origine CCIAA dell'assegnazione: la configurazione appartiene
+# all'azienda e al ruolo, non all'incarico.
+# ---------------------------------------------------------------------------
+
+
+def _ruolo_esistente_o_404(db: Session, ruolo_id: UUID) -> None:
+    if db.get(CatRuolo, ruolo_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ruolo non trovato")
+
+
+@router.get("/ruoli/{ruolo_id}/mansionario", response_model=list[CompetenzaRuoloRead], tags=TAGS)
+def get_mansionario_ruolo(
+    ruolo_id: UUID,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    _ruolo_esistente_o_404(db, ruolo_id)
+    return mansionario_ruolo(db, ctx.azienda_id, ruolo_id)
+
+
+@router.post(
+    "/ruoli/{ruolo_id}/mansionario",
+    response_model=CompetenzaRuoloRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=TAGS,
+)
+def post_competenza_ruolo(
+    ruolo_id: UUID,
+    payload: CompetenzaRuoloCreate,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    _ruolo_esistente_o_404(db, ruolo_id)
+    return aggiungi_competenza_ruolo(db, ctx.azienda_id, ruolo_id, payload)
+
+
+@router.put("/mansionario/competenze/{relazione_id}", response_model=CompetenzaRuoloRead, tags=TAGS)
+def put_competenza_ruolo(
+    relazione_id: UUID,
+    payload: CompetenzaRuoloUpdate,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    competenza = aggiorna_competenza_ruolo(db, ctx.azienda_id, relazione_id, payload)
+    if competenza is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Competenza non trovata")
+    return competenza
+
+
+@router.delete("/mansionario/competenze/{relazione_id}", status_code=status.HTTP_204_NO_CONTENT, tags=TAGS)
+def delete_competenza_ruolo(
+    relazione_id: UUID,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    if not rimuovi_competenza_ruolo(db, ctx.azienda_id, relazione_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Competenza non trovata")

@@ -2,7 +2,14 @@ import { Users } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
 import { apiFetch } from "@/lib/api";
-import type { CatalogoVoce, Page as ApiPage, PersonaListRow, PersonaProfilo, PersonaRuolo } from "@/lib/types/personale-hr";
+import type {
+  CatalogoVoce,
+  DocumentoPersonale,
+  Page as ApiPage,
+  PersonaListRow,
+  PersonaProfilo,
+  PersonaRuolo,
+} from "@/lib/types/personale-hr";
 import type { RuoloSummary } from "@/lib/types/personale";
 
 import { PersonaleShell } from "./personale-shell";
@@ -40,15 +47,18 @@ export default async function PersonalePage({ searchParams }: { searchParams: Pr
   const ruoloId = primo(params.ruolo_id) ?? "";
   if (ruoloId) listQuery.set("ruolo_id", ruoloId);
 
-  const [persone, mansioni, reparti, tipiRapporto, ruoli, profiloSelezionato, ruoliPersona] = await Promise.all([
-    apiFetch<ApiPage<PersonaListRow>>(`/api/personale/schede-persona?${listQuery.toString()}`),
-    apiFetch<CatalogoVoce[]>("/api/personale/mansioni"),
-    apiFetch<CatalogoVoce[]>("/api/personale/reparti"),
-    apiFetch<CatalogoVoce[]>("/api/personale/tipi-rapporto"),
-    apiFetch<RuoloSummary[]>("/api/personale/ruoli"),
-    personId ? apiFetch<PersonaProfilo>(`/api/personale/persone/${personId}/profilo`) : Promise.resolve(null),
-    personId ? apiFetch<PersonaRuolo[]>(`/api/personale/persone/${personId}/ruoli`) : Promise.resolve([]),
-  ]);
+  const [persone, mansioni, reparti, tipiRapporto, ruoli, tipiDocumento, profiloSelezionato, ruoliPersona, documentiPersona] =
+    await Promise.all([
+      apiFetch<ApiPage<PersonaListRow>>(`/api/personale/schede-persona?${listQuery.toString()}`),
+      apiFetch<CatalogoVoce[]>("/api/personale/mansioni"),
+      apiFetch<CatalogoVoce[]>("/api/personale/reparti"),
+      apiFetch<CatalogoVoce[]>("/api/personale/tipi-rapporto"),
+      apiFetch<RuoloSummary[]>("/api/personale/ruoli"),
+      apiFetch<CatalogoVoce[]>("/api/personale/tipi-documento-identita"),
+      personId ? apiFetch<PersonaProfilo>(`/api/personale/persone/${personId}/profilo`) : Promise.resolve(null),
+      personId ? apiFetch<PersonaRuolo[]>(`/api/personale/persone/${personId}/ruoli`) : Promise.resolve([]),
+      personId ? apiFetch<DocumentoPersonale[]>(`/api/personale/persone/${personId}/documenti`) : Promise.resolve([]),
+    ]);
 
   return (
     <div className="flex h-full flex-col gap-4 p-6">
@@ -63,8 +73,10 @@ export default async function PersonalePage({ searchParams }: { searchParams: Pr
         reparti={reparti}
         tipiRapporto={tipiRapporto}
         ruoli={ruoli}
+        tipiDocumento={tipiDocumento}
         personaSelezionata={profiloSelezionato}
         ruoliPersona={ruoliPersona}
+        documentiPersona={documentiPersona}
       />
     </div>
   );

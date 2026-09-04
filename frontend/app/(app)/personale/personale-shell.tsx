@@ -4,7 +4,14 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 
 import { cn } from "@/lib/utils";
-import type { CatalogoVoce, Page as ApiPage, PersonaListRow, PersonaProfilo, PersonaRuolo } from "@/lib/types/personale-hr";
+import type {
+  CatalogoVoce,
+  DocumentoPersonale,
+  Page as ApiPage,
+  PersonaListRow,
+  PersonaProfilo,
+  PersonaRuolo,
+} from "@/lib/types/personale-hr";
 import type { RuoloSummary } from "@/lib/types/personale";
 
 import { PeopleList } from "./people-list";
@@ -27,8 +34,10 @@ export function PersonaleShell({
   reparti,
   tipiRapporto,
   ruoli,
+  tipiDocumento,
   personaSelezionata,
   ruoliPersona,
+  documentiPersona,
 }: {
   view: string;
   tab: string;
@@ -39,8 +48,10 @@ export function PersonaleShell({
   reparti: CatalogoVoce[];
   tipiRapporto: CatalogoVoce[];
   ruoli: RuoloSummary[];
+  tipiDocumento: CatalogoVoce[];
   personaSelezionata: PersonaProfilo | null;
   ruoliPersona: PersonaRuolo[];
+  documentiPersona: DocumentoPersonale[];
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -96,6 +107,8 @@ export function PersonaleShell({
           tipiRapporto={tipiRapporto}
           ruoli={ruoli}
           ruoliPersona={ruoliPersona}
+          tipiDocumento={tipiDocumento}
+          documentiPersona={documentiPersona}
         />
       )}
 

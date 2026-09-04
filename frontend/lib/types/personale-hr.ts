@@ -109,17 +109,15 @@ export interface PersonaDossier {
   comprensione_lingua_italiana: string | null;
   supporto_linguistico_necessario: boolean;
   altre_lingue: string | null;
-
-  tipo_documento_identita: string | null;
-  numero_documento_identita: string | null;
-  scadenza_documento_identita: string | null;
-  permesso_soggiorno_stato: "NON_INDICATO" | "NON_APPLICABILE" | "POSSEDUTO";
-  permesso_soggiorno_dettaglio: string | null;
 }
 
 export type PersonaDossierUpdatePayload = PersonaDossier;
 
 export interface RapportoDettagliUpdatePayload {
+  // Solo per registrare il primo rapporto di una persona che non ne ha
+  // ancora uno: il backend le richiede solo in quel caso.
+  tipo_rapporto_id?: string;
+  data_inizio?: string;
   data_fine_prevista?: string | null;
   tempo_lavoro: string;
   percentuale_part_time?: number | null;
@@ -173,4 +171,45 @@ export interface PersonaRuolo {
   data_fine: string | null;
   documentazione: DocumentazioneRuolo;
   note: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Documenti personali (completamento Dossier personale) — record multipli
+// per persona. Nessun allegato reale finché il modulo Documenti non sarà
+// costruito: numero_allegati resta sempre 0.
+// ---------------------------------------------------------------------------
+
+export interface DocumentoPersonale {
+  id: string;
+  tipo_documento: CatalogoVoce;
+  numero: string | null;
+  data_rilascio: string | null;
+  data_scadenza: string | null;
+  numero_allegati: number;
+}
+
+export interface DocumentoPersonalePayload {
+  tipo_documento_id: string;
+  numero?: string | null;
+  data_rilascio?: string | null;
+  data_scadenza?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Mansionario del ruolo (profilo standard delle competenze) — Azienda +
+// Ruolo, condiviso da tutte le persone che lo ricoprono. "id" è l'id della
+// relazione ruolo↔competenza (per rimuoverla), "voce_id" è l'id della voce
+// di catalogo (per modificarne nome/descrizione).
+// ---------------------------------------------------------------------------
+
+export interface CompetenzaRuolo {
+  id: string;
+  voce_id: string;
+  nome: string;
+  descrizione: string | null;
+}
+
+export interface CompetenzaRuoloPayload {
+  nome: string;
+  descrizione?: string | null;
 }

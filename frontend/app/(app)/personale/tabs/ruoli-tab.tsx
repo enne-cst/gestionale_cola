@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,7 @@ import type { PersonaProfilo, PersonaRuolo } from "@/lib/types/personale-hr";
 
 import { AMBITO_LABEL, AssegnaRuoloDialog } from "../assegna-ruolo-dialog";
 import { CessaRuoloDialog } from "../cessa-ruolo-dialog";
+import { MansionarioRuolo } from "../mansionario-ruolo";
 
 const STATO_LABEL: Record<string, string> = {
   PIANIFICATO: "Pianificato",
@@ -32,13 +34,14 @@ function formattaData(valore: string | null): string {
   return data.toLocaleDateString("it-IT");
 }
 
-/** Tab "Ruoli e responsabilità" (§3-§13 della correzione): elenco delle
- * assegnazioni reali della persona (incarichi societari importati dalla
- * CCIAA + ruoli assegnati manualmente dall'azienda), stesso motore
- * ruolo+incarico già in uso per Soci/Amministratori/Sindaci. Il mansionario
- * del ruolo e il relativo contenuto restano fuori da questa fase — ogni
- * riga mantiene solo il riferimento al ruolo di catalogo (`ruolo_id`) che
- * servirà a recuperarlo in seguito. */
+/** Tab "Ruoli e responsabilità" (§3-§13 della correzione "Struttura della
+ * sezione Ruoli"): elenco delle assegnazioni reali della persona (incarichi
+ * societari importati dalla CCIAA + ruoli assegnati manualmente
+ * dall'azienda), stesso motore ruolo+incarico già in uso per
+ * Soci/Amministratori/Sindaci. Cliccando sul nome di un ruolo si apre il
+ * relativo mansionario aziendale (correzione "Mansionario e profilo
+ * standard delle competenze del ruolo") — una configurazione di Azienda +
+ * Ruolo, indipendente dalla singola assegnazione o dalla sua fonte. */
 export function RuoliTab({
   persona,
   ruoli,
@@ -49,10 +52,13 @@ export function RuoliTab({
   ruoliPersona: PersonaRuolo[];
 }) {
   const router = useRouter();
+  const [ruoloApertoId, setRuoloApertoId] = useState<string | null>(null);
 
   function onSaved() {
     router.refresh();
   }
+
+  const rigaAperta = ruoliPersona.find((r) => r.ruolo_id === ruoloApertoId);
 
   return (
     <div className="flex flex-col gap-4">
@@ -97,7 +103,15 @@ export function RuoliTab({
               ) : (
                 ruoliPersona.map((r) => (
                   <tr key={r.id} className="border-b border-border last:border-0">
-                    <td className="p-3 font-medium text-foreground">{r.ruolo_denominazione}</td>
+                    <td className="p-3 font-medium">
+                      <button
+                        type="button"
+                        className="text-foreground underline-offset-2 hover:underline"
+                        onClick={() => setRuoloApertoId((prev) => (prev === r.ruolo_id ? null : r.ruolo_id))}
+                      >
+                        {r.ruolo_denominazione}
+                      </button>
+                    </td>
                     <td className="p-3">{r.ambito ? (AMBITO_LABEL[r.ambito] ?? r.ambito) : "—"}</td>
                     <td className="p-3">
                       <Badge variant={r.fonte === "CCIAA" ? "outline" : "default"}>
@@ -147,6 +161,16 @@ export function RuoliTab({
           </table>
         </div>
       </div>
+
+      {rigaAperta && (
+        <MansionarioRuolo
+          ruoloId={rigaAperta.ruolo_id}
+          ruoloDenominazione={rigaAperta.ruolo_denominazione}
+          ambito={rigaAperta.ambito}
+          fonte={rigaAperta.fonte}
+          onClose={() => setRuoloApertoId(null)}
+        />
+      )}
     </div>
   );
 }

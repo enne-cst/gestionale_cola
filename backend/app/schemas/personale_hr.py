@@ -174,12 +174,6 @@ class PersonaDossierRead(_OrmModel):
     supporto_linguistico_necessario: bool = False
     altre_lingue: str | None = None
 
-    tipo_documento_identita: str | None = None
-    numero_documento_identita: str | None = None
-    scadenza_documento_identita: date | None = None
-    permesso_soggiorno_stato: str = "NON_INDICATO"
-    permesso_soggiorno_dettaglio: str | None = None
-
 
 class PersonaDossierUpdate(_OrmModel):
     matricola_interna: str | None = None
@@ -209,30 +203,64 @@ class PersonaDossierUpdate(_OrmModel):
     supporto_linguistico_necessario: bool = False
     altre_lingue: str | None = None
 
-    tipo_documento_identita: str | None = None
-    numero_documento_identita: str | None = None
-    scadenza_documento_identita: date | None = None
-    permesso_soggiorno_stato: str = "NON_INDICATO"
-    permesso_soggiorno_dettaglio: str | None = None
-
     @model_validator(mode="after")
     def _validazioni(self) -> "PersonaDossierUpdate":
         if self.data_nascita is not None and self.data_nascita > date.today():
             raise ValueError("La data di nascita non può essere futura.")
-        if self.permesso_soggiorno_stato not in {"NON_INDICATO", "NON_APPLICABILE", "POSSEDUTO"}:
-            raise ValueError("Stato del permesso di soggiorno non valido.")
         return self
 
 
 # ---------------------------------------------------------------------------
+# Documenti personali (completamento Dossier personale) — record multipli
+# per persona, catalogo tipi dedicato (cat_tipi_documento_identita, colonna
+# nuova approvata dall'utente). Il permesso di soggiorno è una delle
+# tipologie del catalogo, non più un campo a parte (§5.4). Nessun
+# collegamento ad allegati reali: `numero_allegati` è sempre 0 finché il
+# modulo Documenti non sarà costruito (decisione utente esplicita).
+# ---------------------------------------------------------------------------
+
+
+class DocumentoPersonaleRead(_OrmModel):
+    id: uuid.UUID
+    tipo_documento: CatalogoRead
+    numero: str | None = None
+    data_rilascio: date | None = None
+    data_scadenza: date | None = None
+    numero_allegati: int = 0
+
+
+class DocumentoPersonaleCreate(_OrmModel):
+    tipo_documento_id: uuid.UUID
+    numero: str | None = None
+    data_rilascio: date | None = None
+    data_scadenza: date | None = None
+
+    @model_validator(mode="after")
+    def _date_coerenti(self) -> "DocumentoPersonaleCreate":
+        if self.data_rilascio is not None and self.data_scadenza is not None and self.data_scadenza < self.data_rilascio:
+            raise ValueError("La data di scadenza non può precedere la data di rilascio.")
+        return self
+
+
+class DocumentoPersonaleUpdate(DocumentoPersonaleCreate):
+    pass
+
+
+# ---------------------------------------------------------------------------
 # Dettagli contrattuali modificabili in place (§11/§12.3): "Durata del
-# rapporto" (tipo_rapporto_id) resta di sola lettura come mansione/reparto —
-# cambiarla richiede chiudere il periodo corrente e aprirne uno nuovo (§12.2,
-# storicizzazione), flusso non ancora costruito (decisione utente).
+# rapporto" (tipo_rapporto_id) resta di sola lettura come mansione/reparto
+# quando un rapporto esiste già — cambiarla richiede chiudere il periodo
+# corrente e aprirne uno nuovo (§12.2, storicizzazione), flusso non ancora
+# costruito (decisione utente). `tipo_rapporto_id`/`data_inizio` servono
+# solo per registrare il PRIMO rapporto di una persona che non ne ha ancora
+# uno (es. un incarico CCIAA senza rapporto di lavoro): il backend le
+# richiede solo in quel caso, le ignora altrimenti.
 # ---------------------------------------------------------------------------
 
 
 class RapportoDettagliUpdate(_OrmModel):
+    tipo_rapporto_id: uuid.UUID | None = None
+    data_inizio: date | None = None
     data_fine_prevista: date | None = None
     tempo_lavoro: str = "PIENO"
     percentuale_part_time: float | None = None
@@ -301,3 +329,37 @@ class PersonaRuoloRead(_OrmModel):
     # PRESENTE / DA_INTEGRARE / NON_PRESENTE / IMPORTATO_CCIAA / NON_RICHIESTO
     documentazione: str
     note: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Mansionario del ruolo (correzione "Mansionario e profilo standard delle
+# competenze del ruolo") — riusa cfg_ruoli_azienda/rel_ruoli_voci_valutazione/
+# cat_voci_valutazione_personale, già esistenti e mai popolati: nessuna
+# nuova tabella. Una competenza = una voce di catalogo azienda-specifica
+# (§ decisione utente) collegata al ruolo tramite la relazione; "id" qui è
+# l'id della RELAZIONE (serve per disattivarla senza toccare il catalogo),
+# "voce_id" è l'id della voce di catalogo (serve per modificarne nome e
+# descrizione, che appartengono al profilo standard, non alla relazione).
+# ---------------------------------------------------------------------------
+
+
+class CompetenzaRuoloRead(_OrmModel):
+    id: uuid.UUID
+    voce_id: uuid.UUID
+    nome: str
+    descrizione: str | None = None
+
+
+class CompetenzaRuoloCreate(_OrmModel):
+    nome: str
+    descrizione: str | None = None
+
+    @model_validator(mode="after")
+    def _nome_non_vuoto(self) -> "CompetenzaRuoloCreate":
+        if not self.nome.strip():
+            raise ValueError("Il nome della competenza è obbligatorio.")
+        return self
+
+
+class CompetenzaRuoloUpdate(CompetenzaRuoloCreate):
+    pass
