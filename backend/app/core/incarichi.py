@@ -235,11 +235,17 @@ def _incarichi_attivi(db: Session, azienda_id: UUID, ruoli_codici: frozenset[str
 def cessa_incarichi(db: Session, incarichi: list[PerIncarico]) -> None:
     """Cessa (§ commento in testa al modulo: aggiornamento della riga
     esistente, mai un DELETE) tutti gli incarichi passati, valorizzando A02
-    "Data cessazione" a oggi. Usata dalla Correzione 12 dopo che l'utente ha
-    confermato esplicitamente la cessazione — mai chiamata senza conferma."""
+    "Data cessazione" a oggi e allineando anche la colonna `stato` (modulo
+    Personale §13.1, sezione "Ruoli e responsabilità") — le due
+    rappresentazioni dello stato di un incarico (assenza di A02 per il
+    motore CCIAA, colonna `stato` per il nuovo tab Ruoli) restano coerenti
+    ovunque un incarico venga cessato, non solo dal nuovo tab. Usata dalla
+    Correzione 12 dopo che l'utente ha confermato esplicitamente la
+    cessazione — mai chiamata senza conferma."""
     oggi = date.today().isoformat()
     for incarico in incarichi:
         valida_e_salva_valori(db, incarico, {"A02": oggi}, parziale=True)
+        incarico.stato = "CESSATO"
 
 
 # ===========================================================================

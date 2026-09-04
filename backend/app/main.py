@@ -12,6 +12,7 @@ from app.api.health import router as health_router
 from app.api.moduli import router as moduli_router
 from app.api.panoramica import router as panoramica_router
 from app.api.personale import router as personale_router
+from app.api.personale_hr import router as personale_hr_router
 from app.api.personale_occupazione import router as personale_occupazione_router
 from app.api.sezioni import router as sezioni_router
 from app.api.sistema import router as sistema_router
@@ -60,6 +61,7 @@ app.include_router(titoli_abilitativi_router)
 app.include_router(unita_locali_router)
 app.include_router(aggiornamento_impresa_router)
 app.include_router(personale_router)
+app.include_router(personale_hr_router)
 app.include_router(personale_occupazione_router)
 app.include_router(moduli_router)
 app.include_router(sezioni_router)

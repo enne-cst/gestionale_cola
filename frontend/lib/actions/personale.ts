@@ -45,6 +45,13 @@ export async function getIncarichi(ruoloCodice?: string): Promise<Incarico[]> {
   return apiFetch<Incarico[]>(`/api/personale/incarichi${query}`);
 }
 
+// § sezione "Ruoli e responsabilità" del modulo Personale: la modifica di
+// un'assegnazione riparte dal record completo (`valori` incluso), non
+// disponibile nella riga sintetica della tabella "Ruoli registrati".
+export async function getIncarico(id: string): Promise<Incarico> {
+  return apiFetch<Incarico>(`/api/personale/incarichi/${id}`);
+}
+
 export type TitolareCaricaCollegio = { id: string; nome: string };
 
 export type EsitoIncarico =

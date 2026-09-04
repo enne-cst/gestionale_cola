@@ -69,7 +69,7 @@ export function PersonaPicker({
         data_nascita: (formData.get("data_nascita") as string) || null,
         luogo_nascita: (formData.get("luogo_nascita") as string) || null,
         nazionalita: (formData.get("nazionalita") as string) || null,
-        residenza: (formData.get("residenza") as string) || null,
+        indirizzo_residenza: (formData.get("indirizzo_residenza") as string) || null,
       });
       setPersone((prev) => [...(prev ?? []), nuova]);
       onChange(nuova);
@@ -100,7 +100,7 @@ export function PersonaPicker({
             <FormField label="Data di nascita" name="data_nascita" type="date" />
             <FormField label="Luogo di nascita" name="luogo_nascita" />
             <FormField label="Cittadinanza" name="nazionalita" />
-            <FormField label="Domicilio" name="residenza" />
+            <FormField label="Domicilio" name="indirizzo_residenza" />
             {erroreCreazione && <p className="text-xs text-destructive">{erroreCreazione}</p>}
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setCreando(false)} disabled={salvando}>

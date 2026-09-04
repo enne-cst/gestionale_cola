@@ -21,7 +21,11 @@ class AnaPersoneCreate(_OrmModel):
     nazionalita: str | None = None
     conoscenza_lingua_italiana: str | None = None
     codice_fiscale: str
-    residenza: str | None = None
+    # Sostituisce "residenza" (testo libero), superata dalla migrazione 018
+    # del modulo Personale: unico campo strutturato riusato anche dal CCIAA,
+    # comune/CAP/provincia restano di competenza del dossier del modulo
+    # Personale, non richiesti in questo motore minimo.
+    indirizzo_residenza: str | None = None
     tipologia_contratto: str | None = None
     data_assunzione: date | None = None
     data_fine_rapporto: date | None = None
@@ -46,7 +50,7 @@ class AnaPersoneUpdate(_OrmModel):
     nazionalita: str | None = None
     conoscenza_lingua_italiana: str | None = None
     codice_fiscale: str | None = None
-    residenza: str | None = None
+    indirizzo_residenza: str | None = None
     tipologia_contratto: str | None = None
     data_assunzione: date | None = None
     data_fine_rapporto: date | None = None
@@ -105,7 +109,7 @@ class PersonaSummary(_OrmModel):
     data_nascita: date | None = None
     luogo_nascita: str | None = None
     nazionalita: str | None = None
-    residenza: str | None = None
+    indirizzo_residenza: str | None = None
 
 
 class PersonaGiuridicaSummary(_OrmModel):
@@ -125,6 +129,10 @@ class RuoloSummary(_OrmModel):
     codice: str
     codice_documento: str | None = None
     denominazione: str
+    # Ambito del ruolo (Governance/Sicurezza/Qualità/Ambiente/Organizzazione/
+    # Altro, modulo Personale §13.1) — colonna già esistente su cat_ruoli,
+    # solo non ancora esposta qui prima della sezione "Ruoli e responsabilità".
+    ambito: str | None = None
 
 
 class CaratteristicaRuoloRead(_OrmModel):
@@ -151,6 +159,11 @@ class IncaricoCreate(_OrmModel):
     ruolo_id: uuid.UUID
     note: str | None = None
     valori: dict[str, Any] = {}
+    # Origine dell'assegnazione (modulo Personale §13.2): CCIAA = carica
+    # societaria (comportamento invariato, tutte le chiamate esistenti dalle
+    # card Soci/Amministratori/Sindaci non la valorizzano mai esplicitamente),
+    # AZIENDA = assegnazione manuale dalla sezione "Ruoli e responsabilità".
+    fonte: str = "CCIAA"
 
     @model_validator(mode="after")
     def _titolare_esclusivo(self) -> "IncaricoCreate":
@@ -165,6 +178,10 @@ class IncaricoUpdate(_OrmModel):
     ruolo_id: uuid.UUID | None = None
     note: str | None = None
     valori: dict[str, Any] | None = None
+    # Stato dell'incarico (PIANIFICATO/ATTIVO/SOSPESO/CESSATO, colonna già
+    # esistente con CHECK a livello DB — nessuna validazione duplicata qui,
+    # stesso stile già in uso per RapportoAziendaCreate.stato/tempo_lavoro).
+    stato: str | None = None
 
     @model_validator(mode="after")
     def _titolare_non_ambiguo(self) -> "IncaricoUpdate":
@@ -181,6 +198,8 @@ class IncaricoRead(_OrmModel):
     ruolo_id: uuid.UUID
     note: str | None = None
     valori: dict[str, Any] = {}
+    fonte: str
+    stato: str
     persona: PersonaSummary | None = None
     persona_giuridica: PersonaGiuridicaSummary | None = None
     ruolo: RuoloSummary

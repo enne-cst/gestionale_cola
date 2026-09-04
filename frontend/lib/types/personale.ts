@@ -29,7 +29,7 @@ export type PersonaCreatePayload = {
   data_nascita?: string | null;
   luogo_nascita?: string | null;
   nazionalita?: string | null;
-  residenza?: string | null;
+  indirizzo_residenza?: string | null;
 };
 
 export type PersonaSummary = {
@@ -40,7 +40,7 @@ export type PersonaSummary = {
   data_nascita: string | null;
   luogo_nascita: string | null;
   nazionalita: string | null;
-  residenza: string | null;
+  indirizzo_residenza: string | null;
 };
 
 // § Correzione 16: persona giuridica (società, ente) — titolare alternativo
@@ -81,6 +81,7 @@ export type RuoloSummary = {
   codice: string;
   codice_documento: string | null;
   denominazione: string;
+  ambito: string | null;
 };
 
 // Corrisponde a cat_caratteristiche_incarico.tipo_dato: guida il controllo
@@ -120,6 +121,8 @@ export type Incarico = {
   ruolo_id: string;
   note: string | null;
   valori: Record<string, ValoreIncarico>;
+  fonte: string;
+  stato: string;
   persona: PersonaSummary | null;
   persona_giuridica: PersonaGiuridicaSummary | null;
   ruolo: RuoloSummary;
@@ -143,4 +146,6 @@ export type IncaricoPayload = {
   ruolo_id: string;
   note?: string | null;
   valori: Record<string, ValoreIncarico>;
+  fonte?: string;
+  stato?: string;
 };

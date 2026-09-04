@@ -1,8 +1,8 @@
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, SmallInteger, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, SmallInteger, String, Text, Time, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -55,7 +55,47 @@ class AnaPersone(Base):
     nazionalita: Mapped[str | None] = mapped_column(String(100))
     conoscenza_lingua_italiana: Mapped[str | None] = mapped_column(String(100))
     codice_fiscale: Mapped[str] = mapped_column(String(32))
+    # Superata dalla migrazione 018 (indirizzo_residenza + comune/CAP/
+    # provincia strutturati sotto): mantenuta solo per non perdere i dati
+    # storici, nessuno schema applicativo la legge o la scrive più.
     residenza: Mapped[str | None] = mapped_column(Text)
+    # Campi "sempre visibili" della card Dati essenziali (modulo Personale
+    # §12.1) — mancanti fino alla migrazione 017, aggiunti costruendo il
+    # tab Persona e rapporto.
+    telefono: Mapped[str | None] = mapped_column(String(50))
+    email: Mapped[str | None] = mapped_column(String(255))
+
+    # Dossier personale (§12.3, migrazione 018) — anagrafica completa,
+    # residenza/domicilio, contatti di emergenza, lingua, documenti. Sesso/
+    # data_nascita/luogo_nascita/nazionalita/conoscenza_lingua_italiana sopra
+    # restano le colonne riusate anche qui, non duplicate.
+    matricola_interna: Mapped[str | None] = mapped_column(String(50))
+    provincia_nascita: Mapped[str | None] = mapped_column(String(100))
+    stato_nascita: Mapped[str | None] = mapped_column(String(100))
+
+    indirizzo_residenza: Mapped[str | None] = mapped_column(String(255))
+    cap_residenza: Mapped[str | None] = mapped_column(String(10))
+    comune_residenza: Mapped[str | None] = mapped_column(String(150))
+    provincia_residenza: Mapped[str | None] = mapped_column(String(100))
+    domicilio_coincide_residenza: Mapped[bool] = mapped_column(Boolean, default=True)
+    indirizzo_domicilio: Mapped[str | None] = mapped_column(String(255))
+    cap_domicilio: Mapped[str | None] = mapped_column(String(10))
+    comune_domicilio: Mapped[str | None] = mapped_column(String(150))
+    provincia_domicilio: Mapped[str | None] = mapped_column(String(100))
+
+    contatto_emergenza_nome: Mapped[str | None] = mapped_column(String(200))
+    contatto_emergenza_relazione: Mapped[str | None] = mapped_column(String(100))
+    contatto_emergenza_telefono: Mapped[str | None] = mapped_column(String(50))
+
+    lingua_madre: Mapped[str | None] = mapped_column(String(100))
+    supporto_linguistico_necessario: Mapped[bool] = mapped_column(Boolean, default=False)
+    altre_lingue: Mapped[str | None] = mapped_column(Text)
+
+    tipo_documento_identita: Mapped[str | None] = mapped_column(String(100))
+    numero_documento_identita: Mapped[str | None] = mapped_column(String(100))
+    scadenza_documento_identita: Mapped[date | None]
+    permesso_soggiorno_stato: Mapped[str] = mapped_column(String(20), default="NON_INDICATO")
+    permesso_soggiorno_dettaglio: Mapped[str | None] = mapped_column(String(200))
 
     tipologia_contratto: Mapped[str | None] = mapped_column(String(200))
     data_assunzione: Mapped[date | None]
@@ -127,6 +167,10 @@ class CatRuolo(Base):
     ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
     ruolo_sistema: Mapped[bool] = mapped_column(Boolean, default=True)
     attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Ambito del ruolo (Governance/Sicurezza/Qualità/Ambiente/Organizzazione/
+    # Altro, modulo Personale §13.1) — NULL finché la mappatura dei ruoli
+    # esistenti non è stata proposta e approvata voce per voce.
+    ambito: Mapped[str | None] = mapped_column(String(30))
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -203,6 +247,12 @@ class PerIncarico(Base):
     )
     ruolo_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("cat_ruoli.id"))
     note: Mapped[str | None] = mapped_column(Text)
+    # Fonte e stato (modulo Personale §13.1/§13.2) — attributi universali
+    # dell'incarico, non caratteristiche opzionali per ruolo. Righe create
+    # prima di questa colonna: fonte='CCIAA' per decisione esplicita, stato
+    # derivato dalla caratteristica A02 (vedi migrazione 010).
+    fonte: Mapped[str] = mapped_column(String(20), default="CCIAA")
+    stato: Mapped[str] = mapped_column(String(20), default="ATTIVO")
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -236,6 +286,566 @@ class PerIncaricoValore(Base):
     # dichiararla qui farebbe fallire la risoluzione del metadata.
     valore_documento_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
     valore_multiplo: Mapped[dict | list | None] = mapped_column(JSONB)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatTipoRapporto(Base):
+    """Catalogo globale di sistema dei tipi di rapporto aziendale
+    (indeterminato/determinato/collaborazione/amministratore/altro,
+    § modulo Personale §12.3)."""
+
+    __tablename__ = "cat_tipi_rapporto"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(60))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatMansione(Base):
+    """Catalogo delle mansioni, per azienda (§ modulo Personale §12/§22.4):
+    ogni azienda definisce il proprio elenco, nessun valore di sistema."""
+
+    __tablename__ = "cat_mansioni"
+    __table_args__ = (UniqueConstraint("azienda_id", "codice"),)
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+    codice: Mapped[str] = mapped_column(String(80))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger, default=1)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatReparto(Base):
+    """Catalogo dei reparti, per azienda (§ modulo Personale §12/§22.4):
+    ogni azienda definisce il proprio elenco, nessun valore di sistema."""
+
+    __tablename__ = "cat_reparti"
+    __table_args__ = (UniqueConstraint("azienda_id", "codice"),)
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+    codice: Mapped[str] = mapped_column(String(80))
+    denominazione: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger, default=1)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class PerRapportoAzienda(Base):
+    """Storico dei rapporti aziendali di una persona (§ modulo Personale
+    §12.2/§22.3). Mai sovrascritto: un cambio di mansione/reparto/
+    tipologia chiude il periodo corrente (`data_fine_effettiva`) e ne apre
+    uno nuovo. Le colonne di sintesi su `AnaPersone` (mansione,
+    tipologia_contratto, date) vengono allineate dal servizio applicativo,
+    non da un trigger DB."""
+
+    __tablename__ = "per_rapporti_azienda"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+    persona_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_persone.id", ondelete="CASCADE"))
+
+    tipo_rapporto_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("cat_tipi_rapporto.id"))
+    data_inizio: Mapped[date]
+    data_fine_prevista: Mapped[date | None]
+    data_fine_effettiva: Mapped[date | None]
+    mansione_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("cat_mansioni.id"))
+    reparto_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("cat_reparti.id"))
+    stato: Mapped[str] = mapped_column(String(20), default="ATTIVO")
+    tempo_lavoro: Mapped[str] = mapped_column(String(20), default="PIENO")
+    percentuale_part_time: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    ccnl: Mapped[str | None] = mapped_column(Text)
+    livello_inquadramento: Mapped[str | None] = mapped_column(String(200))
+    note: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CfgRuoloAzienda(Base):
+    """Configurazione aziendale del ruolo (§ modulo Personale §13.4-§13.7):
+    una sola riga per (azienda, ruolo), condivisa da tutte le persone che
+    ricoprono il ruolo. Non contiene assegnazioni individuali (restano in
+    `PerIncarico`)."""
+
+    __tablename__ = "cfg_ruoli_azienda"
+    __table_args__ = (UniqueConstraint("azienda_id", "ruolo_id"),)
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+    ruolo_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("cat_ruoli.id"))
+
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+    scopo: Mapped[str | None] = mapped_column(Text)
+    riporta_a_testo: Mapped[str | None] = mapped_column(String(300))
+    collabora_con_testo: Mapped[str | None] = mapped_column(String(300))
+    version: Mapped[int] = mapped_column(default=1)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CfgRuoloMansionarioVoce(Base):
+    """Attività/responsabilità/autorità del mansionario (§13.5), una voce
+    per riga."""
+
+    __tablename__ = "cfg_ruoli_mansionario_voci"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    configurazione_ruolo_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cfg_ruoli_azienda.id", ondelete="CASCADE")
+    )
+
+    sezione: Mapped[str] = mapped_column(String(20))
+    testo: Mapped[str] = mapped_column(Text)
+    ordine: Mapped[int] = mapped_column(SmallInteger, default=1)
+    attiva: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class RelRuoloVoceValutazione(Base):
+    """Voci base di Conoscenza/Competenza/Consapevolezza apportate dal
+    ruolo (§13.6)."""
+
+    __tablename__ = "rel_ruoli_voci_valutazione"
+    __table_args__ = (UniqueConstraint("configurazione_ruolo_id", "voce_id"),)
+
+    id: Mapped[uuid.UUID] = _id_col()
+    configurazione_ruolo_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cfg_ruoli_azienda.id", ondelete="CASCADE")
+    )
+    voce_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_voci_valutazione_personale.id")
+    )
+
+    ordine: Mapped[int] = mapped_column(SmallInteger, default=1)
+    attiva: Mapped[bool] = mapped_column(Boolean, default=True)
+    valid_from: Mapped[date | None]
+    valid_to: Mapped[date | None]
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatVoceValutazionePersonale(Base):
+    """Catalogo condiviso delle voci di Conoscenza/Competenza/
+    Consapevolezza (§22.8): identità stabile usata per deduplicare quando
+    la stessa voce arriva da più fonti. `azienda_id` NULL = voce di
+    sistema."""
+
+    __tablename__ = "cat_voci_valutazione_personale"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("sys_aziende.id"))
+    codice: Mapped[str] = mapped_column(String(80))
+    macroarea: Mapped[str] = mapped_column(String(20))
+    nome: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    attiva: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class RelMansioneVoceValutazione(Base):
+    """Voci base di valutazione apportate dalla mansione."""
+
+    __tablename__ = "rel_mansioni_voci_valutazione"
+    __table_args__ = (UniqueConstraint("mansione_id", "voce_id"),)
+
+    id: Mapped[uuid.UUID] = _id_col()
+    mansione_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("cat_mansioni.id", ondelete="CASCADE"))
+    voce_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_voci_valutazione_personale.id")
+    )
+
+    ordine: Mapped[int] = mapped_column(SmallInteger, default=1)
+    attiva: Mapped[bool] = mapped_column(Boolean, default=True)
+    valid_from: Mapped[date | None]
+    valid_to: Mapped[date | None]
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class RelAziendaVoceValutazione(Base):
+    """Voci base applicabili a tutta l'azienda a prescindere da ruolo o
+    mansione ("profilo generale", §16.2/§22.9)."""
+
+    __tablename__ = "rel_azienda_voci_valutazione"
+    __table_args__ = (UniqueConstraint("azienda_id", "voce_id"),)
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+    voce_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_voci_valutazione_personale.id")
+    )
+
+    ordine: Mapped[int] = mapped_column(SmallInteger, default=1)
+    attiva: Mapped[bool] = mapped_column(Boolean, default=True)
+    valid_from: Mapped[date | None]
+    valid_to: Mapped[date | None]
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class PerVoceValutazionePersonale(Base):
+    """Voce di valutazione aggiunta da una singola persona (§16.9):
+    appartiene solo a lei, non modifica ruolo o mansione."""
+
+    __tablename__ = "per_voci_valutazione_personali"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+    persona_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_persone.id", ondelete="CASCADE"))
+
+    macroarea: Mapped[str] = mapped_column(String(20))
+    nome: Mapped[str] = mapped_column(String(200))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    attiva: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("sys_utenti.id"))
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class RelPersonaVoceNascosta(Base):
+    """Eccezione individuale che nasconde una voce ereditata per una
+    persona (§16.10): non modifica la fonte né cancella valutazioni."""
+
+    __tablename__ = "rel_persone_voci_nascoste"
+    __table_args__ = (UniqueConstraint("persona_id", "voce_id"),)
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+    persona_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_persone.id", ondelete="CASCADE"))
+    voce_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_voci_valutazione_personale.id")
+    )
+
+    motivo: Mapped[str | None] = mapped_column(Text)
+    hidden_by: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("sys_utenti.id"))
+    hidden_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    restored_by: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("sys_utenti.id"))
+    restored_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    attiva: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class PerValutazionePersonale(Base):
+    """Testata di una sessione di valutazione (§16.6): il salvataggio crea
+    sempre una nuova riga, mai un aggiornamento di una precedente."""
+
+    __tablename__ = "per_valutazioni_personale"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+    persona_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_persone.id", ondelete="CASCADE"))
+
+    macroarea: Mapped[str] = mapped_column(String(20))
+    data_valutazione: Mapped[date]
+    valutatore_user_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("sys_utenti.id"))
+    nota_generale: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class PerValutazionePersonaleDettaglio(Base):
+    """Riga di dettaglio di una valutazione: livello assegnato a una voce
+    (condivisa o personale) — esattamente una delle due valorizzata."""
+
+    __tablename__ = "per_valutazioni_personale_dettagli"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    valutazione_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("per_valutazioni_personale.id", ondelete="CASCADE")
+    )
+    voce_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_voci_valutazione_personale.id")
+    )
+    voce_personale_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("per_voci_valutazione_personali.id")
+    )
+
+    livello: Mapped[str] = mapped_column(String(20))
+    evidenza_nota: Mapped[str | None] = mapped_column(Text)
+    snapshot_nome: Mapped[str | None] = mapped_column(String(200))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatCorsoFormazione(Base):
+    """Catalogo dei corsi di formazione, per azienda (§14.4)."""
+
+    __tablename__ = "cat_corsi_formazione"
+    __table_args__ = (UniqueConstraint("azienda_id", "codice"),)
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+    codice: Mapped[str] = mapped_column(String(80))
+    denominazione: Mapped[str] = mapped_column(String(300))
+    categoria: Mapped[str | None] = mapped_column(String(200))
+    durata_standard_ore: Mapped[Decimal | None] = mapped_column(Numeric(6, 2))
+    validita_mesi: Mapped[int | None]
+    soglia_preavviso_giorni: Mapped[int | None]
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class PerFormazione(Base):
+    """Formazione acquisita da una persona (§14.5): modello semplice, una
+    riga = una persona + un corso completato."""
+
+    __tablename__ = "per_formazione"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+    persona_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_persone.id", ondelete="CASCADE"))
+    corso_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("cat_corsi_formazione.id"))
+
+    tipologia: Mapped[str | None] = mapped_column(String(20))
+    data_completamento: Mapped[date]
+    ore_riconosciute: Mapped[Decimal] = mapped_column(Numeric(6, 2))
+    ente_formatore: Mapped[str] = mapped_column(String(300))
+    esito: Mapped[str] = mapped_column(String(20), default="AMMESSO")
+    numero_attestato: Mapped[str | None] = mapped_column(String(100))
+    scadenza_esplicita: Mapped[date | None]
+    regola_scadenza: Mapped[str | None] = mapped_column(String(200))
+    documento_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatAbilitazione(Base):
+    """Catalogo globale di sistema delle abilitazioni professionali
+    (§14.6)."""
+
+    __tablename__ = "cat_abilitazioni"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(80))
+    denominazione: Mapped[str] = mapped_column(String(300))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger, default=1)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class PerAbilitazione(Base):
+    """Abilitazione posseduta da una persona (§14.6)."""
+
+    __tablename__ = "per_abilitazioni"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+    persona_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_persone.id", ondelete="CASCADE"))
+    abilitazione_catalogo_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("cat_abilitazioni.id"))
+
+    livello_tipologia: Mapped[str | None] = mapped_column(String(200))
+    data_conseguimento: Mapped[date]
+    data_scadenza: Mapped[date | None]
+    documento_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
+    note: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class PerGiudizioIdoneita(Base):
+    """Giudizio di idoneità sanitaria (§15.1): principio di
+    minimizzazione, nessuna diagnosi o referto clinico completo."""
+
+    __tablename__ = "per_giudizi_idoneita"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+    persona_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_persone.id", ondelete="CASCADE"))
+
+    tipo_visita: Mapped[str] = mapped_column(String(200))
+    data_visita: Mapped[date]
+    giudizio: Mapped[str] = mapped_column(String(30))
+    periodicita_mesi: Mapped[int | None]
+    data_scadenza: Mapped[date | None]
+    medico_competente: Mapped[str | None] = mapped_column(String(300))
+    prescrizioni_minime: Mapped[str | None] = mapped_column(Text)
+    documento_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class PerTitoloStudio(Base):
+    """Titolo di studio di una persona (§17.1). Riusa il catalogo globale
+    esistente `cat_tipologie_titoli_studio`.
+
+    Nome tabella `per_titoli_studio_persona`, non `per_titoli_studio`:
+    quel nome è già occupato da un placeholder minimo creato dalla
+    baseline (`0001_baseline_schema.py`), segnalato esplicitamente in
+    CLAUDE.md e doc/AMBIENTE-SVILUPPO.md come "catalogo titoli di studio
+    da popolare/estendere" — un concetto diverso (catalogo, non
+    registrazione per persona) e comunque sovrapposto a
+    `cat_tipologie_titoli_studio`, che è il catalogo reale già in uso."""
+
+    __tablename__ = "per_titoli_studio_persona"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+    persona_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_persone.id", ondelete="CASCADE"))
+    tipologia_titolo_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cat_tipologie_titoli_studio.id")
+    )
+
+    indirizzo_specializzazione: Mapped[str | None] = mapped_column(String(300))
+    istituto: Mapped[str | None] = mapped_column(String(300))
+    anno: Mapped[int | None] = mapped_column(SmallInteger)
+    votazione: Mapped[str | None] = mapped_column(String(50))
+    documento_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class PerEsperienza(Base):
+    """Esperienza rilevante di una persona (§17.2). Non è un rapporto
+    aziendale corrente e non modifica mansione o ruoli."""
+
+    __tablename__ = "per_esperienze"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+    persona_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_persone.id", ondelete="CASCADE"))
+
+    attivita_ruolo: Mapped[str] = mapped_column(String(300))
+    organizzazione: Mapped[str | None] = mapped_column(String(300))
+    data_inizio: Mapped[date | None]
+    data_fine: Mapped[date | None]
+    rilevanza: Mapped[str] = mapped_column(String(20))
+    verificata: Mapped[bool] = mapped_column(Boolean, default=False)
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    documento_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class PerNota(Base):
+    """Nota o annotazione contestuale su una persona (§18): nessun effetto
+    automatico su scadenze, attività o registrazioni."""
+
+    __tablename__ = "per_note"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+    persona_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_persone.id", ondelete="CASCADE"))
+
+    categoria: Mapped[str] = mapped_column(String(30), default="GENERALE")
+    titolo: Mapped[str | None] = mapped_column(String(200))
+    testo: Mapped[str] = mapped_column(Text)
+    visibilita: Mapped[str] = mapped_column(String(30), default="CONDIVISA_AZIENDA")
+    in_evidenza: Mapped[bool] = mapped_column(Boolean, default=False)
+    autore_user_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("sys_utenti.id"))
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class PerAttivita(Base):
+    """Attività pianificata manualmente (§20): corsi da organizzare,
+    visite da pianificare, promemoria. Le scadenze derivate da
+    registrazioni esistenti non vengono duplicate qui."""
+
+    __tablename__ = "per_attivita"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    azienda_id: Mapped[uuid.UUID] = _azienda_fk()
+    persona_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ana_persone.id", ondelete="CASCADE"))
+
+    tipo: Mapped[str] = mapped_column(String(50))
+    categoria: Mapped[str | None] = mapped_column(String(50))
+    titolo: Mapped[str] = mapped_column(String(300))
+    data_scadenza: Mapped[date]
+    ora: Mapped[time | None] = mapped_column(Time)
+    stato: Mapped[str] = mapped_column(String(20), default="PIANIFICATA")
+    responsabile_user_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("sys_utenti.id"))
+    source_type: Mapped[str | None] = mapped_column(String(50))
+    source_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
+    note: Mapped[str | None] = mapped_column(Text)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

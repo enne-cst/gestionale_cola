@@ -189,6 +189,8 @@ def _to_read(db: Session, incarico: PerIncarico) -> IncaricoRead:
         ruolo_id=incarico.ruolo_id,
         note=incarico.note,
         valori=leggi_valori(db, incarico.id),
+        fonte=incarico.fonte,
+        stato=incarico.stato,
         persona=persona,
         persona_giuridica=persona_giuridica,
         ruolo=ruolo,
@@ -277,6 +279,7 @@ def create_incarico(
         persona_giuridica_id=payload.persona_giuridica_id,
         ruolo_id=payload.ruolo_id,
         note=payload.note,
+        fonte=payload.fonte,
     )
     db.add(incarico)
     db.flush()
@@ -329,6 +332,8 @@ def update_incarico(
         incarico.ruolo_id = payload.ruolo_id
     if payload.note is not None:
         incarico.note = payload.note
+    if payload.stato is not None:
+        incarico.stato = payload.stato
 
     if payload.valori is not None:
         valida_e_salva_valori(db, incarico, payload.valori, parziale=True)
