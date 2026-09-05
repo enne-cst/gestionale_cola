@@ -29,50 +29,56 @@ export function IscrizioniTable({
       count={iscrizioni.length}
       addTrigger={<IscrizioneDialog trigger={<AddRowButton icon={ScrollTextIcon} />} />}
     >
-      {iscrizioni.length === 0 ? (
-        <EmptyTableMessage>Nessuna iscrizione registrata.</EmptyTableMessage>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Sezione</TableHead>
-              <TableHead>Data iscrizione</TableHead>
-              <TableHead className="w-24" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {iscrizioni.map((iscrizione) => (
-              <TableRow key={iscrizione.id}>
-                <TableCell>{iscrizione.tipo_iscrizione ?? "—"}</TableCell>
-                <TableCell>{iscrizione.sezione ?? "—"}</TableCell>
-                <TableCell>{formatDate(iscrizione.data_iscrizione)}</TableCell>
-                <TableCell className="flex justify-end gap-1">
-                  <PinRecordButton
-                    modulo={MODULO_ANAGRAFICA}
-                    sezioneSlug={SEZIONE_SLUG}
-                    recordId={iscrizione.id}
-                    etichetta={iscrizione.tipo_iscrizione ?? "Iscrizione registro imprese"}
-                    pinnedInitially={recordIdsInPanoramica.includes(iscrizione.id)}
-                  />
-                  <IscrizioneDialog
-                    dati={iscrizione}
-                    trigger={
-                      <Button variant="ghost" size="icon" aria-label="Modifica">
-                        <PencilIcon className="size-4" />
-                      </Button>
-                    }
-                  />
-                  <DeleteButton
-                    action={deleteIscrizione.bind(null, iscrizione.id)}
-                    confirmMessage={`Eliminare l'iscrizione "${iscrizione.tipo_iscrizione ?? ""}"?`}
-                  />
-                </TableCell>
+      {(inModifica) =>
+        iscrizioni.length === 0 ? (
+          <EmptyTableMessage>Nessuna iscrizione registrata.</EmptyTableMessage>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Sezione</TableHead>
+                <TableHead>Data iscrizione</TableHead>
+                <TableHead className="w-24" />
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+            </TableHeader>
+            <TableBody>
+              {iscrizioni.map((iscrizione) => (
+                <TableRow key={iscrizione.id}>
+                  <TableCell>{iscrizione.tipo_iscrizione ?? "—"}</TableCell>
+                  <TableCell>{iscrizione.sezione ?? "—"}</TableCell>
+                  <TableCell>{formatDate(iscrizione.data_iscrizione)}</TableCell>
+                  <TableCell className="flex justify-end gap-1">
+                    <PinRecordButton
+                      modulo={MODULO_ANAGRAFICA}
+                      sezioneSlug={SEZIONE_SLUG}
+                      recordId={iscrizione.id}
+                      etichetta={iscrizione.tipo_iscrizione ?? "Iscrizione registro imprese"}
+                      pinnedInitially={recordIdsInPanoramica.includes(iscrizione.id)}
+                    />
+                    {inModifica && (
+                      <>
+                        <IscrizioneDialog
+                          dati={iscrizione}
+                          trigger={
+                            <Button variant="ghost" size="icon" aria-label="Modifica">
+                              <PencilIcon className="size-4" />
+                            </Button>
+                          }
+                        />
+                        <DeleteButton
+                          action={deleteIscrizione.bind(null, iscrizione.id)}
+                          confirmMessage={`Eliminare l'iscrizione "${iscrizione.tipo_iscrizione ?? ""}"?`}
+                        />
+                      </>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )
+      }
     </DataTableCard>
   );
 }

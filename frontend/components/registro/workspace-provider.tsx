@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,6 +11,15 @@ import {
   inviaDecisioneVerifica,
   salvaSezioneRegistro,
 } from "@/lib/actions/registro";
+import {
+  getVociPanoramica,
+  pinRecordPanoramica,
+  pinVocePanoramica,
+  unpinRecordPanoramica,
+  unpinVocePanoramica,
+} from "@/lib/actions/panoramica";
+import { MODULO_ANAGRAFICA } from "@/lib/anagrafica-sezioni";
+import type { PanoramicaVoce } from "@/lib/types/panoramica";
 import type { RegistryOverview, Section } from "@/lib/types/registro";
 
 export type WorkspaceMode = "OVERVIEW" | "DRAWER" | "FULL" | "SPLIT";
@@ -475,6 +484,16 @@ type WorkspaceApi = {
   ) => Promise<boolean>;
   toggleVisibility: (sectionKey: string, fieldKey: string, visible: boolean) => void;
   toggleGroupVisibility: (sectionKey: string, fieldKeys: string[], visible: boolean) => void;
+  // § richiesta esplicita 05/09/2026: pin/unpin di un campo (sezioni
+  // singleton, es. Sede/Statuto/Capitale sociale) o di una riga intera
+  // (tabelle annidate come Soci/Amministratori/Sindaci/Titoli abilitativi/
+  // Unità locali) nella scheda Panoramica personalizzata — unica fonte
+  // condivisa da `FieldRow` e da quelle tabelle, invece di ripetere in
+  // ognuna il proprio fetch/stato locale.
+  isCampoPinned: (sectionKey: string, campo: string) => boolean;
+  isRecordPinned: (sectionKey: string, recordId: string) => boolean;
+  togglePinCampo: (sectionKey: string, campo: string, etichetta: string) => void;
+  togglePinRecord: (sectionKey: string, recordId: string, etichetta: string) => void;
   // § "Numero componenti" dell'organo amministrativo pluripersonale (31/08/2026):
   // si scrive subito con un endpoint dedicato, fuori dal ciclo bozza/"Salva
   // modifiche" (vedi NumeroComponentiOrganoField) — questo metodo rimpiazza
@@ -589,6 +608,64 @@ export function WorkspaceProvider({
     }
     eraApertoRef.current = aperto;
   }, [state.mode, state.datiCompletiOpen, router, rinfrescaOverview]);
+
+  // § richiesta esplicita 05/09/2026 ("ogni campo di ogni sezione deve
+  // poter essere pinnato nella panoramica"): un solo caricamento per tutto
+  // il workspace, condiviso da `FieldRow` (pin di un campo) e dalle
+  // tabelle annidate come Soci/Amministratori/Sindaci/Titoli abilitativi/
+  // Unità locali (pin di una riga) — evita a ciascuno di rifare la stessa
+  // fetch. Stato locale, non nel reducer sopra: indipendente dal resto
+  // della macchina a stati del workspace, aggiornato in modo ottimistico
+  // ad ogni toggle invece di dipendere da `router.refresh()`.
+  const [panoramica, setPanoramica] = useState<PanoramicaVoce[]>([]);
+  useEffect(() => {
+    getVociPanoramica(MODULO_ANAGRAFICA)
+      .then(setPanoramica)
+      .catch(() => undefined);
+  }, []);
+
+  const isCampoPinned = useCallback(
+    (sectionKey: string, campo: string) =>
+      panoramica.some((v) => v.sezione_slug === sectionKey && v.campo === campo),
+    [panoramica],
+  );
+  const isRecordPinned = useCallback(
+    (sectionKey: string, recordId: string) =>
+      panoramica.some((v) => v.sezione_slug === sectionKey && v.record_id === recordId),
+    [panoramica],
+  );
+  const togglePinCampo = useCallback(
+    (sectionKey: string, campo: string, etichetta: string) => {
+      const pinned = panoramica.some((v) => v.sezione_slug === sectionKey && v.campo === campo);
+      setPanoramica((voci) =>
+        pinned ? voci.filter((v) => !(v.sezione_slug === sectionKey && v.campo === campo)) : voci,
+      );
+      if (pinned) {
+        unpinVocePanoramica(MODULO_ANAGRAFICA, sectionKey, campo).catch(() => undefined);
+      } else {
+        pinVocePanoramica(MODULO_ANAGRAFICA, sectionKey, campo, etichetta)
+          .then((voce) => setPanoramica((voci) => [...voci, voce]))
+          .catch(() => undefined);
+      }
+    },
+    [panoramica],
+  );
+  const togglePinRecord = useCallback(
+    (sectionKey: string, recordId: string, etichetta: string) => {
+      const pinned = panoramica.some((v) => v.sezione_slug === sectionKey && v.record_id === recordId);
+      setPanoramica((voci) =>
+        pinned ? voci.filter((v) => !(v.sezione_slug === sectionKey && v.record_id === recordId)) : voci,
+      );
+      if (pinned) {
+        unpinRecordPanoramica(MODULO_ANAGRAFICA, sectionKey, recordId).catch(() => undefined);
+      } else {
+        pinRecordPanoramica(MODULO_ANAGRAFICA, sectionKey, recordId, etichetta)
+          .then((voce) => setPanoramica((voci) => [...voci, voce]))
+          .catch(() => undefined);
+      }
+    },
+    [panoramica],
+  );
 
   const caricaSezione = useCallback((sectionKey: string) => {
     if (richiesteInCorso.current.has(sectionKey)) return;
@@ -1123,6 +1200,10 @@ export function WorkspaceProvider({
       save,
       toggleVisibility,
       toggleGroupVisibility,
+      isCampoPinned,
+      isRecordPinned,
+      togglePinCampo,
+      togglePinRecord,
       refreshSectionSnapshot: (sectionKey, section) => dispatch({ type: "FIELD_SNAPSHOT", sectionKey, section }),
       submitReview,
       cancelConfirm: () => dispatch({ type: "CANCEL_CONFIRM" }),
@@ -1164,6 +1245,10 @@ export function WorkspaceProvider({
       save,
       toggleVisibility,
       toggleGroupVisibility,
+      isCampoPinned,
+      isRecordPinned,
+      togglePinCampo,
+      togglePinRecord,
       submitReview,
       confirmSaveAndExit,
       confirmDiscardAndExit,

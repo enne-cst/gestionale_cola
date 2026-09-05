@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FieldVerificationPopover } from "@/components/registro/field-verification-popover";
+import { PinToggleButton } from "@/components/pin-toggle-button";
 import { RiduzioneAmministratoriDialog } from "@/components/registro/riduzione-amministratori-dialog";
 import { VisibilityToggle } from "@/components/registro/visibility-toggle";
 import { useWorkspace } from "@/components/registro/workspace-provider";
@@ -30,7 +31,7 @@ import type { FieldState } from "@/lib/types/registro";
  * il campo è raggiungibile. Sostituisce il rendering generico di
  * `FieldRow` solo per questa chiave di campo. */
 export function NumeroComponentiOrganoField({ sectionKey, field }: { sectionKey: string; field: FieldState }) {
-  const { ruolo, toggleVisibility, refreshSectionSnapshot } = useWorkspace();
+  const { ruolo, toggleVisibility, refreshSectionSnapshot, isCampoPinned, togglePinCampo } = useWorkspace();
   const consulente = ruolo === "CONSULENTE";
   const [valore, setValore] = useState(field.value ?? "");
   const [salvando, setSalvando] = useState(false);
@@ -86,18 +87,20 @@ export function NumeroComponentiOrganoField({ sectionKey, field }: { sectionKey:
         <Label htmlFor={`campo-${sectionKey}-${field.key}`} className="text-xs font-semibold text-[#43588e]">
           {field.label}
         </Label>
-        {(consulente || field.verificationStatus) && (
-          <span className="ml-auto inline-flex items-center gap-[5px]">
-            {consulente && (
-              <VisibilityToggle
-                label={field.label}
-                visible={field.visibleToCompany}
-                onToggle={() => toggleVisibility(sectionKey, field.key, !field.visibleToCompany)}
-              />
-            )}
-            {field.verificationStatus && <FieldVerificationPopover sectionKey={sectionKey} field={field} />}
-          </span>
-        )}
+        <span className="ml-auto inline-flex items-center gap-[5px]">
+          <PinToggleButton
+            pinned={isCampoPinned(sectionKey, field.key)}
+            onToggle={() => togglePinCampo(sectionKey, field.key, field.label)}
+          />
+          {consulente && (
+            <VisibilityToggle
+              label={field.label}
+              visible={field.visibleToCompany}
+              onToggle={() => toggleVisibility(sectionKey, field.key, !field.visibleToCompany)}
+            />
+          )}
+          {field.verificationStatus && <FieldVerificationPopover sectionKey={sectionKey} field={field} />}
+        </span>
       </div>
       <Input
         id={`campo-${sectionKey}-${field.key}`}

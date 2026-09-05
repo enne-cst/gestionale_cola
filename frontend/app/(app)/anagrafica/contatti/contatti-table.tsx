@@ -29,52 +29,58 @@ export function ContattiTable({
       count={contatti.length}
       addTrigger={<ContattoDialog trigger={<AddRowButton icon={PhoneIcon} />} />}
     >
-      {contatti.length === 0 ? (
-        <EmptyTableMessage>Nessun contatto registrato.</EmptyTableMessage>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Valore</TableHead>
-              <TableHead>Descrizione</TableHead>
-              <TableHead />
-              <TableHead className="w-24" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {contatti.map((contatto) => (
-              <TableRow key={contatto.id}>
-                <TableCell>{contatto.tipo_contatto}</TableCell>
-                <TableCell>{contatto.valore}</TableCell>
-                <TableCell>{contatto.descrizione ?? "—"}</TableCell>
-                <TableCell>{contatto.principale && <Badge variant="secondary">Principale</Badge>}</TableCell>
-                <TableCell className="flex justify-end gap-1">
-                  <PinRecordButton
-                    modulo={MODULO_ANAGRAFICA}
-                    sezioneSlug={SEZIONE_SLUG}
-                    recordId={contatto.id}
-                    etichetta={`${contatto.tipo_contatto} — ${contatto.valore}`}
-                    pinnedInitially={recordIdsInPanoramica.includes(contatto.id)}
-                  />
-                  <ContattoDialog
-                    dati={contatto}
-                    trigger={
-                      <Button variant="ghost" size="icon" aria-label="Modifica">
-                        <PencilIcon className="size-4" />
-                      </Button>
-                    }
-                  />
-                  <DeleteButton
-                    action={deleteContatto.bind(null, contatto.id)}
-                    confirmMessage={`Eliminare il contatto "${contatto.valore}"?`}
-                  />
-                </TableCell>
+      {(inModifica) =>
+        contatti.length === 0 ? (
+          <EmptyTableMessage>Nessun contatto registrato.</EmptyTableMessage>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Valore</TableHead>
+                <TableHead>Descrizione</TableHead>
+                <TableHead />
+                <TableHead className="w-24" />
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+            </TableHeader>
+            <TableBody>
+              {contatti.map((contatto) => (
+                <TableRow key={contatto.id}>
+                  <TableCell>{contatto.tipo_contatto}</TableCell>
+                  <TableCell>{contatto.valore}</TableCell>
+                  <TableCell>{contatto.descrizione ?? "—"}</TableCell>
+                  <TableCell>{contatto.principale && <Badge variant="secondary">Principale</Badge>}</TableCell>
+                  <TableCell className="flex justify-end gap-1">
+                    <PinRecordButton
+                      modulo={MODULO_ANAGRAFICA}
+                      sezioneSlug={SEZIONE_SLUG}
+                      recordId={contatto.id}
+                      etichetta={`${contatto.tipo_contatto} — ${contatto.valore}`}
+                      pinnedInitially={recordIdsInPanoramica.includes(contatto.id)}
+                    />
+                    {inModifica && (
+                      <>
+                        <ContattoDialog
+                          dati={contatto}
+                          trigger={
+                            <Button variant="ghost" size="icon" aria-label="Modifica">
+                              <PencilIcon className="size-4" />
+                            </Button>
+                          }
+                        />
+                        <DeleteButton
+                          action={deleteContatto.bind(null, contatto.id)}
+                          confirmMessage={`Eliminare il contatto "${contatto.valore}"?`}
+                        />
+                      </>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )
+      }
     </DataTableCard>
   );
 }

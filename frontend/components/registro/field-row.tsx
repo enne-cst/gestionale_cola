@@ -8,26 +8,17 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { FieldVerificationPopover } from "@/components/registro/field-verification-popover";
+import { PinToggleButton } from "@/components/pin-toggle-button";
 import { VisibilityToggle } from "@/components/registro/visibility-toggle";
 import { useWorkspace } from "@/components/registro/workspace-provider";
 import { cn } from "@/lib/utils";
 import type { FieldState } from "@/lib/types/registro";
-import { formatDate, formatDecimal } from "@/lib/format";
 
-// Esportata (§ Correzione 28, "Dati della sintesi"): la sintesi mostra i
-// valori dei campi a registro senza passare da `FieldRow` (che porta con
-// sé occhietto cliccabile e popover di verifica, entrambi vietati lì —
-// vedi sintesi-panel.tsx), ma la formattazione del valore deve restare
-// la stessa, un solo posto che la definisce.
-export function formattaValore(field: FieldState): string {
-  if (field.value === null || field.value === "") return "—";
-  if (field.dataType === "date") return formatDate(field.value);
-  if (field.dataType === "importo") return formatDecimal(field.value);
-  if (field.dataType === "boolean") return field.value === "true" ? "Sì" : field.value === "false" ? "No" : "—";
-  if (field.dataType === "catalogo" || field.dataType === "scelta")
-    return field.options?.find((o) => o.code === field.value)?.label ?? field.value;
-  return field.value;
-}
+// § richiesta esplicita 05/09/2026: spostata in `lib/registro-format.ts`
+// (modulo non "use client") perché serve anche a codice server-only, ma
+// riesportata qui per non cambiare l'import già usato da sintesi-panel.tsx.
+import { formattaValore } from "@/lib/registro-format";
+export { formattaValore };
 
 /** Trova, nel testo del valore, la parola oltre la quale non si può più
  * stare sulla prima riga insieme all'indicatore di verifica — cosi' che
@@ -126,7 +117,7 @@ export function FieldRow({
   // sezione della piattaforma è coinvolto senza passarlo esplicitamente.
   multiline?: boolean;
 }) {
-  const { ruolo, toggleVisibility, state, clearHighlightField } = useWorkspace();
+  const { ruolo, toggleVisibility, state, clearHighlightField, isCampoPinned, togglePinCampo } = useWorkspace();
   const consulente = ruolo === "CONSULENTE";
   const nascosto = consulente && !field.visibleToCompany;
   // § richiesta esplicita 05/09/2026: link di "Ultime modifiche" — evidenzia
@@ -171,6 +162,10 @@ export function FieldRow({
       >
         <dt className="flex items-center gap-[7px]">
           <span className="text-[13px] font-medium text-[#536a9f]">{field.label}</span>
+          <PinToggleButton
+            pinned={isCampoPinned(sectionKey, field.key)}
+            onToggle={() => togglePinCampo(sectionKey, field.key, field.label)}
+          />
           {consulente && <VisibilityToggle label={field.label} visible={field.visibleToCompany} onToggle={() => toggleVisibility(sectionKey, field.key, !field.visibleToCompany)} />}
         </dt>
         <dd ref={contenitoreRef} className="mt-[9px] min-h-5 text-sm font-bold break-words text-[var(--az-ink)]">
@@ -218,16 +213,18 @@ export function FieldRow({
         <Label htmlFor={`campo-${sectionKey}-${field.key}`} className="text-xs font-semibold text-[#43588e]">
           {field.label}
         </Label>
-        {(consulente || field.verificationStatus) && (
-          <span className="ml-auto inline-flex items-center gap-[5px]">
-            {consulente && (
-              <VisibilityToggle label={field.label} visible={field.visibleToCompany} onToggle={() => toggleVisibility(sectionKey, field.key, !field.visibleToCompany)} />
-            )}
-            {field.verificationStatus && (
+        <span className="ml-auto inline-flex items-center gap-[5px]">
+          <PinToggleButton
+            pinned={isCampoPinned(sectionKey, field.key)}
+            onToggle={() => togglePinCampo(sectionKey, field.key, field.label)}
+          />
+          {consulente && (
+            <VisibilityToggle label={field.label} visible={field.visibleToCompany} onToggle={() => toggleVisibility(sectionKey, field.key, !field.visibleToCompany)} />
+          )}
+          {field.verificationStatus && (
             <FieldVerificationPopover sectionKey={sectionKey} field={field} disabled={mode === "EDIT"} />
           )}
-          </span>
-        )}
+        </span>
       </div>
       {field.dataType === "boolean" ? (
         <Select

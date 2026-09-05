@@ -7,6 +7,7 @@ import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/dat
 import { Button } from "@/components/ui/button";
 import { CARICHE_COLLEGIO_SINDACALE, IncaricoFormDialog } from "@/components/registro/incarico-form-dialog";
 import { IncaricoVerificationPopover } from "@/components/registro/incarico-verification-popover";
+import { PinToggleButton } from "@/components/pin-toggle-button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useWorkspace } from "@/components/registro/workspace-provider";
 import { eliminaIncarico, getIncarichi, getRuoli } from "@/lib/actions/personale";
@@ -240,7 +241,7 @@ export function IncaricoTable({
   // presente.
   capienzaSoci?: { target: number };
 }) {
-  const { ruolo, state, reload } = useWorkspace();
+  const { ruolo, state, reload, isRecordPinned, togglePinRecord } = useWorkspace();
   const consulente = ruolo === "CONSULENTE";
   const editingScheda = sectionKey ? (state.sections[sectionKey]?.editing ?? false) : undefined;
   const [ruoli, setRuoli] = useState<RuoloSummary[] | null>(null);
@@ -490,7 +491,7 @@ export function IncaricoTable({
                   <TableHead className="text-center">Versamento</TableHead>
                   <TableHead className="text-center">Stato di carica</TableHead>
                   <TableHead className="text-center">Verifica</TableHead>
-                  {editingScheda && <TableHead className="w-24" />}
+                  <TableHead className="w-24" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -519,23 +520,31 @@ export function IncaricoTable({
                           />
                         </div>
                       </TableCell>
-                      {editingScheda && (
-                        <TableCell className="flex justify-end gap-1">
-                          <IncaricoFormDialog
-                            ruoli={ruoli}
-                            incarico={incarico}
-                            onSaved={carica}
-                            trigger={
-                              <Button variant="ghost" size="icon" aria-label="Modifica">
-                                <PencilIcon className="size-4" />
-                              </Button>
-                            }
+                      <TableCell className="flex justify-end gap-1">
+                        {sectionKey && (
+                          <PinToggleButton
+                            pinned={isRecordPinned(sectionKey, incarico.id)}
+                            onToggle={() => togglePinRecord(sectionKey, incarico.id, nomeIncarico)}
                           />
-                          <Button variant="ghost" size="icon" aria-label="Elimina" onClick={() => onElimina(incarico)}>
-                            <Trash2Icon className="size-4" />
-                          </Button>
-                        </TableCell>
-                      )}
+                        )}
+                        {editingScheda && (
+                          <>
+                            <IncaricoFormDialog
+                              ruoli={ruoli}
+                              incarico={incarico}
+                              onSaved={carica}
+                              trigger={
+                                <Button variant="ghost" size="icon" aria-label="Modifica">
+                                  <PencilIcon className="size-4" />
+                                </Button>
+                              }
+                            />
+                            <Button variant="ghost" size="icon" aria-label="Elimina" onClick={() => onElimina(incarico)}>
+                              <Trash2Icon className="size-4" />
+                            </Button>
+                          </>
+                        )}
+                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -556,8 +565,8 @@ export function IncaricoTable({
                     <TableCell className="text-center">—</TableCell>
                     <TableCell className="text-center">—</TableCell>
                     <TableCell className="text-center">—</TableCell>
-                    {editingScheda && (
-                      <TableCell className="flex justify-end gap-1">
+                    <TableCell className="flex justify-end gap-1">
+                      {editingScheda && (
                         <IncaricoFormDialog
                           ruoli={ruoli}
                           onSaved={ricaricaDopoModifica}
@@ -567,8 +576,8 @@ export function IncaricoTable({
                             </Button>
                           }
                         />
-                      </TableCell>
-                    )}
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -620,6 +629,12 @@ export function IncaricoTable({
                         </div>
                       </TableCell>
                       <TableCell className="flex justify-end gap-1">
+                        {sectionKey && (
+                          <PinToggleButton
+                            pinned={isRecordPinned(sectionKey, incarico.id)}
+                            onToggle={() => togglePinRecord(sectionKey, incarico.id, nomeIncarico)}
+                          />
+                        )}
                         {/* § uniformazione (03/09/2026): Modifica/Elimina di
                          * una riga reale compaiono solo col banner
                          * "Modifica dati" attivo, per entrambe le card che

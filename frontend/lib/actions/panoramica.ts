@@ -12,8 +12,8 @@ export async function pinVocePanoramica(
   sezioneSlug: string,
   campo: string,
   etichetta: string,
-): Promise<void> {
-  await apiFetch<PanoramicaVoce>("/api/panoramica", {
+): Promise<PanoramicaVoce> {
+  return apiFetch<PanoramicaVoce>("/api/panoramica", {
     method: "POST",
     body: JSON.stringify({ modulo, sezione_slug: sezioneSlug, campo, etichetta }),
   });
@@ -32,8 +32,8 @@ export async function pinRecordPanoramica(
   sezioneSlug: string,
   recordId: string,
   etichetta: string,
-): Promise<void> {
-  await apiFetch<PanoramicaVoce>("/api/panoramica", {
+): Promise<PanoramicaVoce> {
+  return apiFetch<PanoramicaVoce>("/api/panoramica", {
     method: "POST",
     body: JSON.stringify({ modulo, sezione_slug: sezioneSlug, record_id: recordId, etichetta }),
   });

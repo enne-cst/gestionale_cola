@@ -27,6 +27,14 @@ import { cn } from "@/lib/utils";
  * e usano il vecchio toggle locale "Modifica"/"Fine modifica" — stato
  * transitorio, da rimuovere quando anche quelle saranno agganciate a una
  * scheda con banner.
+ *
+ * `children` può essere una funzione `(inModifica) => ReactNode`: serve
+ * alle tabelle che devono nascondere la colonna pennino/cestino fuori
+ * dalla modalità modifica (§ richiesta esplicita 05/09/2026, "solo quando
+ * si è in modalità modifica deve apparire la colonna col pennino e il
+ * cestino"), senza duplicare in ognuna un proprio stato locale — quello
+ * resta qui, unica fonte, sia per le tabelle a toggle locale sia per
+ * quelle agganciate al banner di una scheda (`editing` esplicito).
  */
 export function DataTableCard({
   title,
@@ -44,7 +52,7 @@ export function DataTableCard({
    * comportamento a toggle locale (solo pagine standalone non ancora
    * migrate). */
   editing?: boolean;
-  children: ReactNode;
+  children: ReactNode | ((inModifica: boolean) => ReactNode);
   className?: string;
 }) {
   const controllata = editing !== undefined;
@@ -81,7 +89,7 @@ export function DataTableCard({
           </div>
         )}
       </div>
-      {children}
+      {typeof children === "function" ? children(inModifica) : children}
     </div>
   );
 }

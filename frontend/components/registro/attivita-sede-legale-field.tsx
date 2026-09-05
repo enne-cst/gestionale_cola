@@ -1,6 +1,7 @@
 "use client";
 
 import { FieldVerificationPopover } from "@/components/registro/field-verification-popover";
+import { PinToggleButton } from "@/components/pin-toggle-button";
 import { VisibilityToggle } from "@/components/registro/visibility-toggle";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -62,27 +63,29 @@ export function AttivitaSedeLegaleField({
   onChangeDescrizione?: (value: string) => void;
   onChangeData?: (value: string) => void;
 }) {
-  const { ruolo, toggleVisibility } = useWorkspace();
+  const { ruolo, toggleVisibility, isCampoPinned, togglePinCampo } = useWorkspace();
   const consulente = ruolo === "CONSULENTE";
   const nascosto = consulente && !fieldDescrizione.visibleToCompany;
 
   const titolo = (
     <div className="flex items-center gap-2">
       <span className="text-xs font-semibold text-[#43588e]">{fieldDescrizione.label}</span>
-      {(consulente || fieldDescrizione.verificationStatus) && (
-        <span className="ml-auto inline-flex items-center gap-[5px]">
-          {consulente && (
-            <VisibilityToggle
-              label={fieldDescrizione.label}
-              visible={fieldDescrizione.visibleToCompany}
-              onToggle={() => toggleVisibility(sectionKey, fieldDescrizione.key, !fieldDescrizione.visibleToCompany)}
-            />
-          )}
-          {fieldDescrizione.verificationStatus && (
-            <FieldVerificationPopover sectionKey={sectionKey} field={fieldDescrizione} disabled={mode === "EDIT"} />
-          )}
-        </span>
-      )}
+      <span className="ml-auto inline-flex items-center gap-[5px]">
+        <PinToggleButton
+          pinned={isCampoPinned(sectionKey, fieldDescrizione.key)}
+          onToggle={() => togglePinCampo(sectionKey, fieldDescrizione.key, fieldDescrizione.label)}
+        />
+        {consulente && (
+          <VisibilityToggle
+            label={fieldDescrizione.label}
+            visible={fieldDescrizione.visibleToCompany}
+            onToggle={() => toggleVisibility(sectionKey, fieldDescrizione.key, !fieldDescrizione.visibleToCompany)}
+          />
+        )}
+        {fieldDescrizione.verificationStatus && (
+          <FieldVerificationPopover sectionKey={sectionKey} field={fieldDescrizione} disabled={mode === "EDIT"} />
+        )}
+      </span>
     </div>
   );
 

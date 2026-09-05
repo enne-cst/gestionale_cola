@@ -30,53 +30,59 @@ export function CodiciAtecoTable({
       count={codici.length}
       addTrigger={<CodiceAtecoDialog sedi={sedi} trigger={<AddRowButton icon={BadgeCheckIcon} />} />}
     >
-      {codici.length === 0 ? (
-        <EmptyTableMessage>Nessun codice ATECO registrato.</EmptyTableMessage>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Codice</TableHead>
-              <TableHead>Descrizione</TableHead>
-              <TableHead>Ruolo</TableHead>
-              <TableHead>Classificazione</TableHead>
-              <TableHead className="w-24" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {codici.map((codice) => (
-              <TableRow key={codice.id}>
-                <TableCell className="font-medium">{codice.codice}</TableCell>
-                <TableCell>{codice.descrizione ?? "—"}</TableCell>
-                <TableCell>{codice.ruolo_codice ?? "—"}</TableCell>
-                <TableCell>{codice.classificazione ?? "—"}</TableCell>
-                <TableCell className="flex justify-end gap-1">
-                  <PinRecordButton
-                    modulo={MODULO_ANAGRAFICA}
-                    sezioneSlug={SEZIONE_SLUG}
-                    recordId={codice.id}
-                    etichetta={`Codice ATECO ${codice.codice}`}
-                    pinnedInitially={recordIdsInPanoramica.includes(codice.id)}
-                  />
-                  <CodiceAtecoDialog
-                    dati={codice}
-                    sedi={sedi}
-                    trigger={
-                      <Button variant="ghost" size="icon" aria-label="Modifica">
-                        <PencilIcon className="size-4" />
-                      </Button>
-                    }
-                  />
-                  <DeleteButton
-                    action={deleteCodiceAteco.bind(null, codice.id)}
-                    confirmMessage={`Eliminare il codice ATECO "${codice.codice}"?`}
-                  />
-                </TableCell>
+      {(inModifica) =>
+        codici.length === 0 ? (
+          <EmptyTableMessage>Nessun codice ATECO registrato.</EmptyTableMessage>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Codice</TableHead>
+                <TableHead>Descrizione</TableHead>
+                <TableHead>Ruolo</TableHead>
+                <TableHead>Classificazione</TableHead>
+                <TableHead className="w-24" />
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+            </TableHeader>
+            <TableBody>
+              {codici.map((codice) => (
+                <TableRow key={codice.id}>
+                  <TableCell className="font-medium">{codice.codice}</TableCell>
+                  <TableCell>{codice.descrizione ?? "—"}</TableCell>
+                  <TableCell>{codice.ruolo_codice ?? "—"}</TableCell>
+                  <TableCell>{codice.classificazione ?? "—"}</TableCell>
+                  <TableCell className="flex justify-end gap-1">
+                    <PinRecordButton
+                      modulo={MODULO_ANAGRAFICA}
+                      sezioneSlug={SEZIONE_SLUG}
+                      recordId={codice.id}
+                      etichetta={`Codice ATECO ${codice.codice}`}
+                      pinnedInitially={recordIdsInPanoramica.includes(codice.id)}
+                    />
+                    {inModifica && (
+                      <>
+                        <CodiceAtecoDialog
+                          dati={codice}
+                          sedi={sedi}
+                          trigger={
+                            <Button variant="ghost" size="icon" aria-label="Modifica">
+                              <PencilIcon className="size-4" />
+                            </Button>
+                          }
+                        />
+                        <DeleteButton
+                          action={deleteCodiceAteco.bind(null, codice.id)}
+                          confirmMessage={`Eliminare il codice ATECO "${codice.codice}"?`}
+                        />
+                      </>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )
+      }
     </DataTableCard>
   );
 }

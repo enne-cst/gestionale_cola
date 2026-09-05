@@ -28,52 +28,58 @@ export function CertificazioniTable({
       count={certificazioni.length}
       addTrigger={<CertificazioneDialog trigger={<AddRowButton icon={ShieldCheckIcon} />} />}
     >
-      {certificazioni.length === 0 ? (
-        <EmptyTableMessage>Nessuna certificazione registrata.</EmptyTableMessage>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Tipologia</TableHead>
-              <TableHead>Norma</TableHead>
-              <TableHead>Organismo</TableHead>
-              <TableHead>Settori IAF</TableHead>
-              <TableHead className="w-24" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {certificazioni.map((cert) => (
-              <TableRow key={cert.id}>
-                <TableCell className="font-medium">{cert.tipologia_certificazione ?? cert.sigla ?? "—"}</TableCell>
-                <TableCell>{cert.norma_riferimento ?? "—"}</TableCell>
-                <TableCell>{cert.organismo_certificatore ?? "—"}</TableCell>
-                <TableCell>{cert.settori_iaf.map((s) => s.codice_iaf).filter(Boolean).join(", ") || "—"}</TableCell>
-                <TableCell className="flex justify-end gap-1">
-                  <PinRecordButton
-                    modulo={MODULO_ANAGRAFICA}
-                    sezioneSlug={SEZIONE_SLUG}
-                    recordId={cert.id}
-                    etichetta={cert.tipologia_certificazione ?? cert.sigla ?? "Certificazione"}
-                    pinnedInitially={recordIdsInPanoramica.includes(cert.id)}
-                  />
-                  <CertificazioneDialog
-                    dati={cert}
-                    trigger={
-                      <Button variant="ghost" size="icon" aria-label="Modifica">
-                        <PencilIcon className="size-4" />
-                      </Button>
-                    }
-                  />
-                  <DeleteButton
-                    action={deleteCertificazione.bind(null, cert.id)}
-                    confirmMessage={`Eliminare la certificazione "${cert.tipologia_certificazione ?? cert.sigla ?? ""}"?`}
-                  />
-                </TableCell>
+      {(inModifica) =>
+        certificazioni.length === 0 ? (
+          <EmptyTableMessage>Nessuna certificazione registrata.</EmptyTableMessage>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tipologia</TableHead>
+                <TableHead>Norma</TableHead>
+                <TableHead>Organismo</TableHead>
+                <TableHead>Settori IAF</TableHead>
+                <TableHead className="w-24" />
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+            </TableHeader>
+            <TableBody>
+              {certificazioni.map((cert) => (
+                <TableRow key={cert.id}>
+                  <TableCell className="font-medium">{cert.tipologia_certificazione ?? cert.sigla ?? "—"}</TableCell>
+                  <TableCell>{cert.norma_riferimento ?? "—"}</TableCell>
+                  <TableCell>{cert.organismo_certificatore ?? "—"}</TableCell>
+                  <TableCell>{cert.settori_iaf.map((s) => s.codice_iaf).filter(Boolean).join(", ") || "—"}</TableCell>
+                  <TableCell className="flex justify-end gap-1">
+                    <PinRecordButton
+                      modulo={MODULO_ANAGRAFICA}
+                      sezioneSlug={SEZIONE_SLUG}
+                      recordId={cert.id}
+                      etichetta={cert.tipologia_certificazione ?? cert.sigla ?? "Certificazione"}
+                      pinnedInitially={recordIdsInPanoramica.includes(cert.id)}
+                    />
+                    {inModifica && (
+                      <>
+                        <CertificazioneDialog
+                          dati={cert}
+                          trigger={
+                            <Button variant="ghost" size="icon" aria-label="Modifica">
+                              <PencilIcon className="size-4" />
+                            </Button>
+                          }
+                        />
+                        <DeleteButton
+                          action={deleteCertificazione.bind(null, cert.id)}
+                          confirmMessage={`Eliminare la certificazione "${cert.tipologia_certificazione ?? cert.sigla ?? ""}"?`}
+                        />
+                      </>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )
+      }
     </DataTableCard>
   );
 }

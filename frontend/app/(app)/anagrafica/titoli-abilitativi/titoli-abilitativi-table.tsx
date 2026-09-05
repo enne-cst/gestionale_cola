@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { DeleteButton } from "@/components/delete-button";
+import { PinToggleButton } from "@/components/pin-toggle-button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { TitoloAbilitativoVerificationPopover } from "@/components/registro/titolo-abilitativo-verification-popover";
@@ -40,7 +41,7 @@ type DialogoAperto =
  * ha un pulsante "Aggiorna" proprio: si ricarica da sola dopo ogni
  * salvataggio o eliminazione riuscita. */
 export function TitoliAbilitativiTable({ sectionKey }: { sectionKey: string }) {
-  const { ruolo, state } = useWorkspace();
+  const { ruolo, state, isRecordPinned, togglePinRecord } = useWorkspace();
   const consulente = ruolo === "CONSULENTE";
   const editing = state.sections[sectionKey]?.editing ?? false;
 
@@ -119,7 +120,7 @@ export function TitoliAbilitativiTable({ sectionKey }: { sectionKey: string }) {
                   <TableHead>Data di scadenza</TableHead>
                   <TableHead>Stato</TableHead>
                   <TableHead>Verifica</TableHead>
-                  {editing && <TableHead className="w-10" />}
+                  <TableHead className="w-16" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -145,14 +146,18 @@ export function TitoliAbilitativiTable({ sectionKey }: { sectionKey: string }) {
                         disabled={editing}
                       />
                     </TableCell>
-                    {editing && (
-                      <TableCell onClick={(e) => e.stopPropagation()}>
+                    <TableCell onClick={(e) => e.stopPropagation()} className="flex justify-end gap-1">
+                      <PinToggleButton
+                        pinned={isRecordPinned(sectionKey, t.id)}
+                        onToggle={() => togglePinRecord(sectionKey, t.id, t.tipologia_label)}
+                      />
+                      {editing && (
                         <DeleteButton
                           action={elimina.bind(null, t.id)}
                           confirmMessage={`Eliminare "${t.tipologia_label}"?`}
                         />
-                      </TableCell>
-                    )}
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

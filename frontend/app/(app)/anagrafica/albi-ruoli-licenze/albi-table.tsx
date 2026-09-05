@@ -31,53 +31,59 @@ export function AlbiTable({
       count={albi.length}
       addTrigger={<AlboDialog sedi={sedi} trigger={<AddRowButton icon={AwardIcon} />} />}
     >
-      {albi.length === 0 ? (
-        <EmptyTableMessage>Nessuna iscrizione registrata.</EmptyTableMessage>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Tipologia</TableHead>
-              <TableHead>Numero</TableHead>
-              <TableHead>Stato</TableHead>
-              <TableHead>Scadenza</TableHead>
-              <TableHead className="w-24" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {albi.map((albo) => (
-              <TableRow key={albo.id}>
-                <TableCell className="font-medium">{albo.tipologia}</TableCell>
-                <TableCell>{albo.numero_iscrizione ?? "—"}</TableCell>
-                <TableCell>{albo.stato ?? "—"}</TableCell>
-                <TableCell>{formatDate(albo.data_scadenza)}</TableCell>
-                <TableCell className="flex justify-end gap-1">
-                  <PinRecordButton
-                    modulo={MODULO_ANAGRAFICA}
-                    sezioneSlug={SEZIONE_SLUG}
-                    recordId={albo.id}
-                    etichetta={albo.tipologia}
-                    pinnedInitially={recordIdsInPanoramica.includes(albo.id)}
-                  />
-                  <AlboDialog
-                    dati={albo}
-                    sedi={sedi}
-                    trigger={
-                      <Button variant="ghost" size="icon" aria-label="Modifica">
-                        <PencilIcon className="size-4" />
-                      </Button>
-                    }
-                  />
-                  <DeleteButton
-                    action={deleteAlbo.bind(null, albo.id)}
-                    confirmMessage={`Eliminare l'iscrizione "${albo.tipologia}"?`}
-                  />
-                </TableCell>
+      {(inModifica) =>
+        albi.length === 0 ? (
+          <EmptyTableMessage>Nessuna iscrizione registrata.</EmptyTableMessage>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tipologia</TableHead>
+                <TableHead>Numero</TableHead>
+                <TableHead>Stato</TableHead>
+                <TableHead>Scadenza</TableHead>
+                <TableHead className="w-24" />
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+            </TableHeader>
+            <TableBody>
+              {albi.map((albo) => (
+                <TableRow key={albo.id}>
+                  <TableCell className="font-medium">{albo.tipologia}</TableCell>
+                  <TableCell>{albo.numero_iscrizione ?? "—"}</TableCell>
+                  <TableCell>{albo.stato ?? "—"}</TableCell>
+                  <TableCell>{formatDate(albo.data_scadenza)}</TableCell>
+                  <TableCell className="flex justify-end gap-1">
+                    <PinRecordButton
+                      modulo={MODULO_ANAGRAFICA}
+                      sezioneSlug={SEZIONE_SLUG}
+                      recordId={albo.id}
+                      etichetta={albo.tipologia}
+                      pinnedInitially={recordIdsInPanoramica.includes(albo.id)}
+                    />
+                    {inModifica && (
+                      <>
+                        <AlboDialog
+                          dati={albo}
+                          sedi={sedi}
+                          trigger={
+                            <Button variant="ghost" size="icon" aria-label="Modifica">
+                              <PencilIcon className="size-4" />
+                            </Button>
+                          }
+                        />
+                        <DeleteButton
+                          action={deleteAlbo.bind(null, albo.id)}
+                          confirmMessage={`Eliminare l'iscrizione "${albo.tipologia}"?`}
+                        />
+                      </>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )
+      }
     </DataTableCard>
   );
 }

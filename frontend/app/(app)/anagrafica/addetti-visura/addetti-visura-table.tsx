@@ -29,52 +29,58 @@ export function AddettiVisuraTable({
       count={rilevazioni.length}
       addTrigger={<AddettiVisuraDialog trigger={<AddRowButton icon={UsersIcon} />} />}
     >
-      {rilevazioni.length === 0 ? (
-        <EmptyTableMessage>Nessuna rilevazione registrata.</EmptyTableMessage>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Anno</TableHead>
-              <TableHead>Fonte</TableHead>
-              <TableHead>Data rilevazione</TableHead>
-              <TableHead>Periodi</TableHead>
-              <TableHead className="w-24" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rilevazioni.map((rilevazione) => (
-              <TableRow key={rilevazione.id}>
-                <TableCell className="font-medium">{rilevazione.anno_riferimento ?? "—"}</TableCell>
-                <TableCell>{rilevazione.fonte ?? "—"}</TableCell>
-                <TableCell>{formatDate(rilevazione.data_rilevazione)}</TableCell>
-                <TableCell>{rilevazione.periodi.length}</TableCell>
-                <TableCell className="flex justify-end gap-1">
-                  <PinRecordButton
-                    modulo={MODULO_ANAGRAFICA}
-                    sezioneSlug={SEZIONE_SLUG}
-                    recordId={rilevazione.id}
-                    etichetta={`Addetti da visura ${rilevazione.anno_riferimento ?? ""}`.trim()}
-                    pinnedInitially={recordIdsInPanoramica.includes(rilevazione.id)}
-                  />
-                  <AddettiVisuraDialog
-                    dati={rilevazione}
-                    trigger={
-                      <Button variant="ghost" size="icon" aria-label="Modifica">
-                        <PencilIcon className="size-4" />
-                      </Button>
-                    }
-                  />
-                  <DeleteButton
-                    action={deleteAddettiVisura.bind(null, rilevazione.id)}
-                    confirmMessage={`Eliminare la rilevazione dell'anno "${rilevazione.anno_riferimento ?? ""}"?`}
-                  />
-                </TableCell>
+      {(inModifica) =>
+        rilevazioni.length === 0 ? (
+          <EmptyTableMessage>Nessuna rilevazione registrata.</EmptyTableMessage>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Anno</TableHead>
+                <TableHead>Fonte</TableHead>
+                <TableHead>Data rilevazione</TableHead>
+                <TableHead>Periodi</TableHead>
+                <TableHead className="w-24" />
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+            </TableHeader>
+            <TableBody>
+              {rilevazioni.map((rilevazione) => (
+                <TableRow key={rilevazione.id}>
+                  <TableCell className="font-medium">{rilevazione.anno_riferimento ?? "—"}</TableCell>
+                  <TableCell>{rilevazione.fonte ?? "—"}</TableCell>
+                  <TableCell>{formatDate(rilevazione.data_rilevazione)}</TableCell>
+                  <TableCell>{rilevazione.periodi.length}</TableCell>
+                  <TableCell className="flex justify-end gap-1">
+                    <PinRecordButton
+                      modulo={MODULO_ANAGRAFICA}
+                      sezioneSlug={SEZIONE_SLUG}
+                      recordId={rilevazione.id}
+                      etichetta={`Addetti da visura ${rilevazione.anno_riferimento ?? ""}`.trim()}
+                      pinnedInitially={recordIdsInPanoramica.includes(rilevazione.id)}
+                    />
+                    {inModifica && (
+                      <>
+                        <AddettiVisuraDialog
+                          dati={rilevazione}
+                          trigger={
+                            <Button variant="ghost" size="icon" aria-label="Modifica">
+                              <PencilIcon className="size-4" />
+                            </Button>
+                          }
+                        />
+                        <DeleteButton
+                          action={deleteAddettiVisura.bind(null, rilevazione.id)}
+                          confirmMessage={`Eliminare la rilevazione dell'anno "${rilevazione.anno_riferimento ?? ""}"?`}
+                        />
+                      </>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )
+      }
     </DataTableCard>
   );
 }

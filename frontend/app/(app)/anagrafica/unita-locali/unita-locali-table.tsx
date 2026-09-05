@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { AddRowButton, DataTableCard, EmptyTableMessage } from "@/components/data-table-card";
 import { DeleteButton } from "@/components/delete-button";
+import { PinToggleButton } from "@/components/pin-toggle-button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { UnitaLocaleVerificationPopover } from "@/components/registro/unita-locale-verification-popover";
 import { useWorkspace } from "@/components/registro/workspace-provider";
@@ -23,7 +24,7 @@ import { UnitaLocaleDialog } from "./unita-locale-dialog";
  * `TitoliAbilitativiTable`. Nessun pulsante "Aggiorna" proprio: si ricarica
  * da sola dopo ogni salvataggio o eliminazione riuscita. */
 export function UnitaLocaliTable({ sectionKey }: { sectionKey: string }) {
-  const { ruolo, state } = useWorkspace();
+  const { ruolo, state, isRecordPinned, togglePinRecord } = useWorkspace();
   const consulente = ruolo === "CONSULENTE";
   const editing = state.sections[sectionKey]?.editing ?? false;
 
@@ -90,7 +91,7 @@ export function UnitaLocaliTable({ sectionKey }: { sectionKey: string }) {
                   <TableHead>Attività</TableHead>
                   <TableHead>ATECO</TableHead>
                   <TableHead>Stato</TableHead>
-                  {editing && <TableHead className="w-10" />}
+                  <TableHead className="w-16" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -115,14 +116,20 @@ export function UnitaLocaliTable({ sectionKey }: { sectionKey: string }) {
                         disabled={editing}
                       />
                     </TableCell>
-                    {editing && (
-                      <TableCell onClick={(e) => e.stopPropagation()}>
+                    <TableCell onClick={(e) => e.stopPropagation()} className="flex justify-end gap-1">
+                      <PinToggleButton
+                        pinned={isRecordPinned(sectionKey, u.id)}
+                        onToggle={() =>
+                          togglePinRecord(sectionKey, u.id, u.riferimento_cciaa ?? u.indirizzo_label ?? "Unità locale")
+                        }
+                      />
+                      {editing && (
                         <DeleteButton
                           action={elimina.bind(null, u.id)}
                           confirmMessage={`Eliminare l'unità locale "${u.riferimento_cciaa ?? u.indirizzo_label ?? ""}"?`}
                         />
-                      </TableCell>
-                    )}
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
