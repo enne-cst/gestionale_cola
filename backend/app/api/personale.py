@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import AziendaContext, get_current_azienda
 from app.core.incarichi import (
+    SEZIONE_CODICE_VERIFICA_INCARICHI,
     applica_decisione_verifica_incarico,
     configurazione_ruolo,
     leggi_stato_verifica_incarico,
@@ -39,6 +40,7 @@ from app.core.incarichi import (
     verifica_sindaco_unico_disponibile,
     verifica_societa_revisione_disponibile,
 )
+from app.core.verifica_riga import elimina_stato_verifica_riga
 from app.core.moduli import require_modulo
 from app.core.registro_campi import require_consulente_ctx
 from app.crud.generic import register_list_crud
@@ -383,6 +385,7 @@ def delete_incarico(
     incarico = _incarico_owned_or_404(db, incarico_id, ctx.azienda_id)
     ruolo = db.get(CatRuolo, incarico.ruolo_id)
     db.delete(incarico)  # i valori seguono via ON DELETE CASCADE
+    elimina_stato_verifica_riga(db, ctx.azienda_id, SEZIONE_CODICE_VERIFICA_INCARICHI, incarico_id)
     db.flush()
     # § richiesta esplicita (31/08/2026): tiene "Numero componenti"
     # dell'organo amministrativo allineato alla tabella — vedi

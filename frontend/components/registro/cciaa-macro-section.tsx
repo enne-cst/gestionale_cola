@@ -17,6 +17,7 @@ export function CciaaMacroSection({
   icon,
   title,
   badge,
+  tuttoConfermato = false,
   actions,
   children,
 }: {
@@ -24,6 +25,12 @@ export function CciaaMacroSection({
   icon: ReactNode;
   title: string;
   badge?: ReactNode;
+  // § richiesta esplicita 05/09/2026: bollino verde quando ogni campo di
+  // ogni sottosezione è compilato E confermato — mai quando la macro
+  // sezione è semplicemente vuota (nessun campo da confermare non è lo
+  // stesso di "tutti confermati"). Calcolato dal chiamante sulle stesse
+  // card renderizzate sotto, non ricalcolato qui.
+  tuttoConfermato?: boolean;
   // § Correzione 25: pulsanti di funzione del banner (es. "Visualizza
   // sintesi") — a destra del badge, prima del comando di apertura/chiusura
   // qui sotto, sempre visibili sia a elenco aperto sia compresso. Slot
@@ -58,10 +65,20 @@ export function CciaaMacroSection({
           </span>
           <div className="flex items-center gap-2.5">
             <h2 className="text-base font-extrabold tracking-tight text-[var(--az-ink)]">{title}</h2>
-            {badge && (
-              <span className="inline-flex min-h-6 items-center rounded-full bg-[var(--az-blue-soft)] px-3 text-xs font-semibold text-[var(--az-blue)]">
-                {badge}
+            {tuttoConfermato && (
+              <span
+                className="grid size-5 shrink-0 place-items-center rounded-full bg-[#2cbc82] text-white"
+                role="img"
+                aria-label="Tutti i campi confermati"
+                title="Tutti i campi confermati"
+              >
+                <svg viewBox="0 0 24 24" className="size-3" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m5 12 4 4L19 6" />
+                </svg>
               </span>
+            )}
+            {badge && (
+              <span className="inline-flex min-h-6 items-center rounded-full bg-[#f1f4fa] px-3">{badge}</span>
             )}
           </div>
         </div>

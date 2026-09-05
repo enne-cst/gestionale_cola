@@ -28,12 +28,13 @@ from decimal import Decimal, InvalidOperation
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.core.deps import AziendaContext, get_current_azienda
 from app.core.sezioni import get_sezioni_abilitate
 from app.models.anagrafica import (
+    AnaAddettiVisura,
     AnaAmministrazioneControllo,
     AnaAttivitaEsercitata,
     AnaCapitaleSociale,
@@ -45,6 +46,7 @@ from app.models.anagrafica import (
     AnaSede,
     AnaSedeRev2,
     AnaStatutoRev2,
+    AnaTitoloAbilitativo,
     AnaUnitaLocaliRiepilogo,
     CatAffidatarioRevisioneLegale,
     CatAssettoControllo,
@@ -917,6 +919,160 @@ def applica_modifiche_sezione(
     return cambiate
 
 
+# Tutti i `sezione_codice` di questo modulo iniziano con questo prefisso
+# (registro campo-per-campo qui sopra e sezioni "a riga" di
+# `_TITOLI_SEZIONI_A_RIGA` più sotto): `sys_registro_stato_campi`/
+# `sys_registro_audit` sono condivise con altri moduli che riusano lo stesso
+# motore (es. Personale, `PERSONALE.COMPETENZE.TITOLI_STUDIO`), quindi i KPI
+# dell'Anagrafica Aziendale (`valuta_qualita`/`ultime_modifiche`) devono
+# filtrare per prefisso invece di sommare l'intera tabella per l'azienda.
+PREFISSO_SEZIONE_CODICE = "ANAGRAFICA_AZIENDALE."
+
+# "informazioni-societarie" e "durata-societa-esercizi" restano registrate in
+# `SEZIONI` (l'API del registro le serve ancora) ma dal riordino CCIAA rev2
+# non hanno più nessun punto d'accesso in UI: "sede" e "statuto" le hanno
+# sostituite (vedi i commenti su `SEZIONE_SEDE`/`SEZIONE_STATUTO` sopra), e
+# nessuna card/drawer della pagina apre più queste due chiavi (verificato in
+# `frontend/components/registro/cciaa-section-panel.tsx` e
+# `sintesi-panel.tsx`). Eventuali stati di verifica storici restano nel DB ma
+# vanno esclusi dai KPI: altrimenti "Qualità dei dati"/"Ultime modifiche"
+# conterebbero verifiche che nessuna card della pagina può più mostrare,
+# rendendo impossibile far tornare il totale con la somma dei pallini delle
+# card (§ richiesta esplicita 05/09/2026).
+_SEZIONI_ORFANE = {"informazioni-societarie", "durata-societa-esercizi"}
+# Valori letterali (non `{SEZIONI[k].sezione_codice for k in _SEZIONI_ORFANE}`):
+# `SEZIONI` è definito più sotto in questo stesso modulo, dopo le funzioni
+# che usano questa costante — a livello di modulo verrebbe letto prima di
+# esistere.
+_SEZIONI_CODICE_ORFANI = {
+    "ANAGRAFICA_AZIENDALE.INFORMAZIONI_SOCIETARIE",
+    "ANAGRAFICA_AZIENDALE.DURATA_SOCIETA_ESERCIZI",
+}
+
+# Codici ruolo che alimentano le card "Soci"/"Amministratori"/"Sindaci" della
+# griglia CCIAA, con la card di ciascuno — stesso raggruppamento di
+# `RUOLI_AMMINISTRATORI`/`RUOLI_SINDACI`/"SOCIO" in
+# frontend/app/(app)/anagrafica/page.tsx (tenuto sincronizzato a mano,
+# nessun catalogo condiviso tra i due stack). Esclude deliberatamente gli
+# altri ruoli che condividono la stessa tabella `per_incarichi` (es. i ruoli
+# "a mansionario" del modulo Personale, "Ruoli e responsabilità" — §
+# fonte='AZIENDA' in quella tabella): quei ruoli non hanno una card in questa
+# pagina, non devono contribuire alla sua "Qualità dei dati" né apparire
+# come link cliccabili in "Ultime modifiche".
+_RUOLO_INCARICO_A_VISTA = {
+    "SOCIO": "soci",
+    "AMMINISTRATORE": "amministratori",
+    "AMMINISTRATORE_DELEGATO": "amministratori",
+    "COMPONENTE_CDA": "amministratori",
+    "SINDACO": "sindaci",
+    "REVISORE_LEGALE": "sindaci",
+}
+
+# `sezione_codice` -> "vistaKey" della griglia CCIAA da aprire cliccando una
+# voce di "Ultime modifiche" (§ richiesta esplicita 05/09/2026) — specchio
+# inverso di `VISTA_FOOTER_SECTION_KEY` in
+# frontend/components/registro/cciaa-section-panel.tsx, dove più sezioni a
+# registro sono montate dentro una card composita con un nome diverso (es. i
+# campi di "amministrazione-controllo" vivono nella card "Amministratori").
+# Le sezioni non elencate qui (es. quelle in `_SEZIONI_CODICE_ORFANI`) non
+# hanno più nessuna card da aprire: quelle voci restano testo semplice, mai
+# un link inventato verso una destinazione che non esiste più (§18).
+_SEZIONE_CODICE_A_VISTA = {
+    "ANAGRAFICA_AZIENDALE.SEDE": "sede",
+    "ANAGRAFICA_AZIENDALE.STATUTO": "statuto",
+    "ANAGRAFICA_AZIENDALE.CAPITALE_SOCIALE": "capitale-sociale",
+    "ANAGRAFICA_AZIENDALE.ELENCO_SOCI_ESTREMI": "soci",
+    "ANAGRAFICA_AZIENDALE.AMMINISTRAZIONE_CONTROLLO": "amministratori",
+    "ANAGRAFICA_AZIENDALE.ORGANI_CONTROLLO": "sindaci",
+    "ANAGRAFICA_AZIENDALE.ATTIVITA_ECONOMICA": "attivita-albi",
+    "ANAGRAFICA_AZIENDALE.TITOLI_ABILITATIVI": "attivita-albi",
+    "ANAGRAFICA_AZIENDALE.PERSONALE_OCCUPAZIONE": "personale-occupazione",
+    "ANAGRAFICA_AZIENDALE.UNITA_LOCALI": "sedi-secondarie",
+    "ANAGRAFICA_AZIENDALE.UNITA_LOCALI_RIGHE": "sedi-secondarie",
+    "ANAGRAFICA_AZIENDALE.CRONOLOGIA_AGGIORNAMENTI": "aggiornamento-impresa",
+    "ANAGRAFICA_AZIENDALE.ORGANIZZAZIONE.CONTRATTO_LAVORO": "contratto-lavoro",
+    "ANAGRAFICA_AZIENDALE.ORGANIZZAZIONE.POSIZIONI_ASSICURATIVE_PREVIDENZIALI": "posizioni-assicurative-previdenziali",
+    "ANAGRAFICA_AZIENDALE.ORGANIZZAZIONE.TURNI_LAVORO": "turni-lavoro",
+    "ANAGRAFICA_AZIENDALE.ORGANIZZAZIONE.FONDO_INTERPROFESSIONALE": "fondi-interprofessionali",
+    "ANAGRAFICA_AZIENDALE.ORGANIZZAZIONE.DATI_GENERALI": "dati-generali",
+    "ANAGRAFICA_AZIENDALE.ORGANIZZAZIONE.OUTSOURCING": "outsourcing",
+    "ANAGRAFICA_AZIENDALE.ORGANIZZAZIONE.SUBAPPALTATORI": "subappaltatori",
+    "ANAGRAFICA_AZIENDALE.ORGANIZZAZIONE.FORNITORI_MATERIALI": "fornitori-materiali",
+    "ANAGRAFICA_AZIENDALE.ORGANIZZAZIONE.LAVORATORI_AUTONOMI": "lavoratori-autonomi",
+    "ANAGRAFICA_AZIENDALE.TREND.RIPARTIZIONE_ORGANICO": "ripartizione-organico",
+    "ANAGRAFICA_AZIENDALE.TREND.INDICATORI_ECONOMICI": "indicatori-economici",
+    "ANAGRAFICA_AZIENDALE.TREND.VARIAZIONI_ORGANICO": "variazioni-organico",
+    "ANAGRAFICA_AZIENDALE.ASSICURAZIONI.POLIZZE": "assicurazioni",
+    "ANAGRAFICA_AZIENDALE.ALTRE_INFORMAZIONI.CONTRATTI_RETE.CONTRATTI": "contratti-rete",
+    "ANAGRAFICA_AZIENDALE.ALTRE_INFORMAZIONI.COMPLIANCE_TRASPARENZA.DOCUMENTAZIONE": "compliance-trasparenza",
+    "ANAGRAFICA_AZIENDALE.ALTRE_INFORMAZIONI.REGISTRO_ATTIVITA_LEGALI.PROCEDIMENTI_LEGALI": "procedimenti-legali",
+    "ANAGRAFICA_AZIENDALE.ALTRE_INFORMAZIONI.REGISTRO_ATTIVITA_LEGALI.VISITE_ENTI_CONTROLLO": "visite-enti-controllo",
+}
+
+_VISTA_CRONOLOGIA_AGGIORNAMENTI = "vw_ana_cronologia_aggiornamenti_impresa"
+
+
+def _conteggio_record_a_riga(db: Session, azienda_id: UUID) -> dict[str, int]:
+    """Numero totale di record esistenti per ciascuna sezione "a riga" (§
+    `app.core.verifica_riga`: "un record esistente non è mai vuoto", quindi
+    ogni record senza una decisione esplicita conta comunque come "da
+    verificare" implicito) — usato da `valuta_qualita` per non perdere questi
+    record dal totale: senza una riga di stato esplicita non compaiono
+    affatto in `sys_registro_stato_campi`, a differenza di un campo (dove
+    "mai toccato" significa legittimamente "niente da verificare").
+
+    Le 13 sezioni ISO 9001 "a elenco" (fondi interprofessionali, dati
+    generali, outsourcing, ...) vengono da `REGISTRO_SEZIONI_A_RIGA`,
+    popolato da ogni `register_list_crud(..., verifica_sezione_codice=...)` —
+    mai un secondo elenco delle stesse 13 sezioni riscritto qui. Import
+    locale (non in cima al modulo): `app.crud.generic` importa già
+    `require_consulente_ctx` da questo stesso modulo, un import in cima
+    creerebbe un ciclo — a runtime, quando questa funzione viene chiamata,
+    entrambi i moduli sono già completamente caricati."""
+    from app.crud.generic import REGISTRO_SEZIONI_A_RIGA
+
+    conteggi: dict[str, int] = {
+        "ANAGRAFICA_AZIENDALE.INCARICHI": db.scalar(
+            select(func.count())
+            .select_from(PerIncarico)
+            .join(CatRuolo, CatRuolo.id == PerIncarico.ruolo_id)
+            .where(PerIncarico.azienda_id == azienda_id, CatRuolo.codice.in_(_RUOLO_INCARICO_A_VISTA.keys()))
+        )
+        or 0,
+        "ANAGRAFICA_AZIENDALE.TITOLI_ABILITATIVI": db.scalar(
+            select(func.count()).select_from(AnaTitoloAbilitativo).where(AnaTitoloAbilitativo.azienda_id == azienda_id)
+        )
+        or 0,
+        # § app/core/unita_locali.py `elenco_unita_locali`: stesso identico
+        # filtro (ana_sedi meno la sede legale), mai una tabella diversa.
+        "ANAGRAFICA_AZIENDALE.UNITA_LOCALI_RIGHE": db.scalar(
+            select(func.count())
+            .select_from(AnaSede)
+            .where(AnaSede.azienda_id == azienda_id, ~AnaSede.tipo_sede.ilike("%legale%"))
+        )
+        or 0,
+    }
+    # § Correzione 22: solo la rilevazione più recente porta una verifica —
+    # "totale" per la qualità è quindi 0 o 1, mai il numero di rilevazioni
+    # storiche.
+    ha_rilevazione = db.scalar(
+        select(func.count()).select_from(AnaAddettiVisura).where(AnaAddettiVisura.azienda_id == azienda_id)
+    )
+    conteggi["ANAGRAFICA_AZIENDALE.PERSONALE_OCCUPAZIONE"] = 1 if ha_rilevazione else 0
+    conteggi["ANAGRAFICA_AZIENDALE.CRONOLOGIA_AGGIORNAMENTI"] = (
+        db.execute(
+            text(f"SELECT COUNT(*) FROM {_VISTA_CRONOLOGIA_AGGIORNAMENTI} WHERE azienda_id = :azienda_id"),
+            {"azienda_id": str(azienda_id)},
+        ).scalar()
+        or 0
+    )
+    for sezione_codice, model in REGISTRO_SEZIONI_A_RIGA.items():
+        conteggi[sezione_codice] = (
+            db.scalar(select(func.count()).select_from(model).where(model.azienda_id == azienda_id)) or 0
+        )
+    return conteggi
+
+
 def valuta_qualita(db: Session, azienda_id: UUID) -> QualitySummaryRead:
     """Qualità dei *dati già inseriti e visibili all'azienda* (decisione
     esplicita dell'utente): l'indicatore "Qualità dei dati" misura quanto è
@@ -929,35 +1085,71 @@ def valuta_qualita(db: Session, azienda_id: UUID) -> QualitySummaryRead:
     misura cosa l'azienda vede, non il lavoro interno del Consulente su dati
     che ha scelto di non mostrare ancora.
 
-    Le query sotto non filtrano per `sezione_codice`: sommano già tutte le
-    sezioni registrate per l'azienda, qualunque esse siano — `totalApplicable`
-    e' l'unico numero che va sommato esplicitamente sui cataloghi di tutte le
-    sezioni in `SEZIONI` (prima del pilota coincideva solo con quello di
-    "informazioni-societarie").
+    Le query sotto non filtrano per un singolo `sezione_codice`: sommano già
+    tutte le sezioni di QUESTO modulo registrate per l'azienda, qualunque
+    esse siano — `totalApplicable` e' l'unico numero che va sommato
+    esplicitamente sui cataloghi di tutte le sezioni in `SEZIONI` (prima del
+    pilota coincideva solo con quello di "informazioni-societarie"). Filtrano
+    però per `PREFISSO_SEZIONE_CODICE`: `sys_registro_stato_campi` è
+    condivisa con altri moduli che riusano lo stesso motore (es. Personale,
+    `PERSONALE.COMPETENZE.TITOLI_STUDIO` via `app.core.verifica_riga`) — senza
+    questo filtro "Qualità dei dati" dell'Anagrafica Aziendale conteggerebbe
+    anche verifiche fatte altrove.
 
     `hidden` (campi con `visibile_azienda=false`, indipendentemente dal fatto
     che siano compilati) è restituito a parte perché lo stato di
     completamento di una sezione (card della Home) deve ignorare i campi che
     il Consulente ha scelto di non mostrare ancora: un campo nascosto e
-    non compilato non deve impedire alla sezione di risultare "completa"."""
-    righe = db.scalars(
-        select(SysRegistroStatoCampi.stato_verifica_codice).where(
+    non compilato non deve impedire alla sezione di risultare "completa".
+
+    § richiesta esplicita 05/09/2026: i record "a riga" (Soci/Amministratori/
+    Sindaci, titoli abilitativi, unità locali, personale e occupazione,
+    aggiornamento impresa, elenchi ISO 9001) seguono una filosofia diversa
+    dai campi — "un record esistente non è mai vuoto" (§ verifica_riga.py),
+    quindi un record mai toccato dal consulente conta comunque come "da
+    verificare" implicito, non come "niente da verificare". Senza sommare
+    anche questi (vedi `_conteggio_record_a_riga` sotto) il totale non
+    tornerebbe mai con la somma dei pallini delle card, che questa stessa
+    regola già applicano."""
+    righe = db.execute(
+        select(SysRegistroStatoCampi.sezione_codice, SysRegistroStatoCampi.stato_verifica_codice).where(
             SysRegistroStatoCampi.azienda_id == azienda_id,
             SysRegistroStatoCampi.stato_verifica_codice.is_not(None),
             SysRegistroStatoCampi.visibile_azienda.is_(True),
+            SysRegistroStatoCampi.sezione_codice.like(f"{PREFISSO_SEZIONE_CODICE}%"),
+            SysRegistroStatoCampi.sezione_codice.not_in(_SEZIONI_CODICE_ORFANI),
         )
     ).all()
-    verified = sum(1 for s in righe if s == "APPROVATO")
-    pending = sum(1 for s in righe if s == "DA_VERIFICARE")
-    revision = sum(1 for s in righe if s == "IN_REVISIONE")
+    verified = sum(1 for _, s in righe if s == "APPROVATO")
+    pending = sum(1 for _, s in righe if s == "DA_VERIFICARE")
+    revision = sum(1 for _, s in righe if s == "IN_REVISIONE")
+
+    verificati_per_sezione: dict[str, int] = {}
+    revisionati_per_sezione: dict[str, int] = {}
+    for sezione_codice, stato in righe:
+        if stato == "APPROVATO":
+            verificati_per_sezione[sezione_codice] = verificati_per_sezione.get(sezione_codice, 0) + 1
+        elif stato == "IN_REVISIONE":
+            revisionati_per_sezione[sezione_codice] = revisionati_per_sezione.get(sezione_codice, 0) + 1
+
+    totale_riga = 0
+    for sezione_codice, totale in _conteggio_record_a_riga(db, azienda_id).items():
+        totale_riga += totale
+        toccati = verificati_per_sezione.get(sezione_codice, 0) + revisionati_per_sezione.get(sezione_codice, 0)
+        pending += max(0, totale - toccati)
+
     filled = verified + pending + revision
     percentage = round(verified / filled * 100) if filled > 0 else 0
-    total_applicable = sum(len(_indice(s).chiavi) for s in SEZIONI.values())
+    total_applicable = (
+        sum(len(_indice(s).chiavi) for chiave, s in SEZIONI.items() if chiave not in _SEZIONI_ORFANE) + totale_riga
+    )
     hidden = len(
         db.scalars(
             select(SysRegistroStatoCampi.campo_codice).where(
                 SysRegistroStatoCampi.azienda_id == azienda_id,
                 SysRegistroStatoCampi.visibile_azienda.is_(False),
+                SysRegistroStatoCampi.sezione_codice.like(f"{PREFISSO_SEZIONE_CODICE}%"),
+                SysRegistroStatoCampi.sezione_codice.not_in(_SEZIONI_CODICE_ORFANI),
             )
         ).all()
     )
@@ -1004,11 +1196,56 @@ def _campo_label_globale() -> dict[str, str]:
     return label
 
 
+# `app.core.verifica_riga` (usato da Soci/Amministratori/Sindaci, titoli
+# abilitativi, unità locali, personale e occupazione, aggiornamento impresa e
+# dagli elenchi ISO 9001 via `register_list_crud(..., verifica_sezione_codice=...)`)
+# registra la verifica di un intero record in `SysRegistroAudit` usando l'id
+# del record come `campo_codice` (§ commento in verifica_riga.py) — un valore
+# che non compare mai in `_campo_label_globale()` (che conosce solo i campi
+# del registro campo-per-campo). Senza questa mappa "Ultime modifiche"
+# mostrerebbe l'id grezzo del record invece di un'etichetta leggibile.
+# Stringhe duplicate apposta (stesso principio già in uso per i codici
+# sezione ISO 9001 tra frontend e backend, es. `SEZ_FONDO_INTERPROFESSIONALE`
+# in app/api/anagrafica.py): questi codici sono identificatori di catalogo
+# stabili, non logica che rischia di divergere.
+_TITOLI_SEZIONI_A_RIGA: dict[str, str] = {
+    "ANAGRAFICA_AZIENDALE.INCARICHI": "Soci, amministratori e sindaci",
+    "ANAGRAFICA_AZIENDALE.TITOLI_ABILITATIVI": "Titoli abilitativi",
+    "ANAGRAFICA_AZIENDALE.UNITA_LOCALI_RIGHE": "Sedi secondarie e unità locali",
+    "ANAGRAFICA_AZIENDALE.PERSONALE_OCCUPAZIONE": "Personale e occupazione",
+    "ANAGRAFICA_AZIENDALE.CRONOLOGIA_AGGIORNAMENTI": "Aggiornamento impresa",
+    "ANAGRAFICA_AZIENDALE.ORGANIZZAZIONE.FONDO_INTERPROFESSIONALE": "Fondi interprofessionali",
+    "ANAGRAFICA_AZIENDALE.ORGANIZZAZIONE.DATI_GENERALI": "Dati generali del personale",
+    "ANAGRAFICA_AZIENDALE.ORGANIZZAZIONE.OUTSOURCING": "Outsourcing",
+    "ANAGRAFICA_AZIENDALE.ORGANIZZAZIONE.SUBAPPALTATORI": "Subappaltatori",
+    "ANAGRAFICA_AZIENDALE.ORGANIZZAZIONE.FORNITORI_MATERIALI": "Fornitori di materiali",
+    "ANAGRAFICA_AZIENDALE.ORGANIZZAZIONE.LAVORATORI_AUTONOMI": "Lavoratori autonomi",
+    "ANAGRAFICA_AZIENDALE.TREND.RIPARTIZIONE_ORGANICO": "Ripartizione organico",
+    "ANAGRAFICA_AZIENDALE.TREND.INDICATORI_ECONOMICI": "Indicatori economici",
+    "ANAGRAFICA_AZIENDALE.TREND.VARIAZIONI_ORGANICO": "Variazioni organico",
+    "ANAGRAFICA_AZIENDALE.ASSICURAZIONI.POLIZZE": "Polizze assicurative",
+    "ANAGRAFICA_AZIENDALE.ALTRE_INFORMAZIONI.CONTRATTI_RETE.CONTRATTI": "Contratti di rete",
+    "ANAGRAFICA_AZIENDALE.ALTRE_INFORMAZIONI.COMPLIANCE_TRASPARENZA.DOCUMENTAZIONE": "Compliance e trasparenza",
+    "ANAGRAFICA_AZIENDALE.ALTRE_INFORMAZIONI.REGISTRO_ATTIVITA_LEGALI.PROCEDIMENTI_LEGALI": "Procedimenti legali",
+    "ANAGRAFICA_AZIENDALE.ALTRE_INFORMAZIONI.REGISTRO_ATTIVITA_LEGALI.VISITE_ENTI_CONTROLLO": "Visite enti di controllo",
+}
+
+
+def _sezione_titolo_globale() -> dict[str, str]:
+    titoli = {sezione.sezione_codice: sezione.title for sezione in SEZIONI.values()}
+    titoli.update(_TITOLI_SEZIONI_A_RIGA)
+    return titoli
+
+
 def ultime_modifiche(db: Session, azienda_id: UUID, *, limite: int = 5) -> list[RecentChangeRead]:
     righe = db.execute(
         select(SysRegistroAudit, SysUtente)
         .join(SysUtente, SysUtente.id == SysRegistroAudit.utente_id, isouter=True)
-        .where(SysRegistroAudit.azienda_id == azienda_id)
+        .where(
+            SysRegistroAudit.azienda_id == azienda_id,
+            SysRegistroAudit.sezione_codice.like(f"{PREFISSO_SEZIONE_CODICE}%"),
+            SysRegistroAudit.sezione_codice.not_in(_SEZIONI_CODICE_ORFANI),
+        )
         .order_by(SysRegistroAudit.created_at.desc())
         .limit(limite)
     ).all()
@@ -1021,17 +1258,49 @@ def ultime_modifiche(db: Session, azienda_id: UUID, *, limite: int = 5) -> list[
     }
 
     campo_label = _campo_label_globale()
+    sezione_titolo = _sezione_titolo_globale()
+
+    # § richiesta esplicita 05/09/2026: Soci/Amministratori/Sindaci
+    # condividono lo stesso `sezione_codice` "a riga" (ANAGRAFICA_AZIENDALE.
+    # INCARICHI) — solo il ruolo del titolare decide quale delle tre card
+    # aprire cliccando la voce. Un solo giro sugli id coinvolti in questa
+    # pagina di risultati, non una query per riga.
+    id_incarichi = {
+        audit.campo_codice for audit, _ in righe if audit.sezione_codice == "ANAGRAFICA_AZIENDALE.INCARICHI"
+    }
+    vista_per_incarico: dict[str, str] = {}
+    if id_incarichi:
+        for incarico_id, ruolo_codice in db.execute(
+            select(PerIncarico.id, CatRuolo.codice)
+            .join(CatRuolo, CatRuolo.id == PerIncarico.ruolo_id)
+            .where(PerIncarico.id.in_(id_incarichi))
+        ).all():
+            vista = _RUOLO_INCARICO_A_VISTA.get(ruolo_codice)
+            if vista:
+                vista_per_incarico[str(incarico_id)] = vista
+
     esiti: list[RecentChangeRead] = []
     for audit, utente in righe:
-        etichetta_campo = campo_label.get(audit.campo_codice, audit.campo_codice)
+        # Un campo del registro campo-per-campo ha un'etichetta in
+        # `campo_label`; un record "a riga" (id come campo_codice) no —
+        # `fieldKey` resta None in quel caso, non c'è un campo singolo da
+        # evidenziare (§18, mai un link a un dettaglio che non esiste).
+        etichetta_campo = campo_label.get(audit.campo_codice)
+        etichetta = etichetta_campo or sezione_titolo.get(audit.sezione_codice, audit.campo_codice)
         azione = _ETICHETTE_AZIONE.get(audit.azione, audit.azione)
         attore = f"{utente.nome} {utente.cognome[:1]}." if utente is not None else None
+        if audit.sezione_codice == "ANAGRAFICA_AZIENDALE.INCARICHI":
+            section_key = vista_per_incarico.get(audit.campo_codice)
+        else:
+            section_key = _SEZIONE_CODICE_A_VISTA.get(audit.sezione_codice)
         esiti.append(
             RecentChangeRead(
                 id=str(audit.id),
-                label=f"{etichetta_campo} {azione}",
+                label=f"{etichetta} {azione}",
                 timestamp=audit.created_at.isoformat(),
                 actor=attore,
+                sectionKey=section_key,
+                fieldKey=audit.campo_codice if etichetta_campo is not None else None,
             )
         )
     return esiti

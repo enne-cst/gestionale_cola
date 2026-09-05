@@ -33,9 +33,18 @@ from app.core.deps import AziendaContext, get_current_azienda
 from app.core.moduli import require_modulo
 from app.core.registro_campi import require_consulente_ctx
 from app.core.sezioni import require_sezione
-from app.core.verifica_riga import applica_decisione_verifica_riga, leggi_stato_verifica_riga
+from app.core.verifica_riga import applica_decisione_verifica_riga, elimina_stato_verifica_riga, leggi_stato_verifica_riga
 from app.database import Base, get_db
 from app.schemas.registro_campi import ReviewDecisionRequest
+
+
+# Popolato da ogni `register_list_crud(..., verifica_sezione_codice=...)`
+# qui sotto: usato da `app.core.registro_campi.valuta_qualita` per contare
+# anche i record "a riga" mai toccati dal consulente (§ verifica_riga.py, "un
+# record esistente non è mai vuoto" — quindi conta comunque come "da
+# verificare" implicito anche senza una riga in sys_registro_stato_campi),
+# senza dover riscrivere lì l'elenco delle sezioni ISO 9001 "a elenco".
+REGISTRO_SEZIONI_A_RIGA: dict[str, type[Base]] = {}
 
 
 def _noop_dependency() -> None:
@@ -91,6 +100,8 @@ def register_list_crud(
     modulo_dep = require_modulo(modulo)
     sezione_dep = _sezione_dependency(sezione)
     query_model = read_model or model
+    if verifica_sezione_codice is not None:
+        REGISTRO_SEZIONI_A_RIGA[verifica_sezione_codice] = query_model
 
     def _con_verifica(db: Session, azienda_id: UUID, row: Any) -> Any:
         if verifica_sezione_codice is None:
@@ -190,6 +201,8 @@ def register_list_crud(
     ):
         obj = _get_owned_or_404(db, model, item_id, ctx.azienda_id)
         db.delete(obj)
+        if verifica_sezione_codice is not None:
+            elimina_stato_verifica_riga(db, ctx.azienda_id, verifica_sezione_codice, item_id)
         db.commit()
 
 

@@ -34,7 +34,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.deps import AziendaContext
-from app.core.verifica_riga import applica_decisione_verifica_riga, leggi_stato_verifica_riga
+from app.core.verifica_riga import applica_decisione_verifica_riga, elimina_stato_verifica_riga, leggi_stato_verifica_riga
 from app.models.anagrafica import (
     AnaContatto,
     AnaSede,
@@ -358,4 +358,5 @@ def aggiorna_unita_locale(
 def elimina_unita_locale(db: Session, azienda_id: UUID, unita_id: UUID) -> None:
     unita = _unita_owned_or_404(db, unita_id, azienda_id)
     db.delete(unita)  # tipologie/attività/codici ATECO/contatti seguono via ON DELETE CASCADE
+    elimina_stato_verifica_riga(db, azienda_id, SEZIONE_CODICE_VERIFICA_UNITA_LOCALI, unita_id)
     db.commit()

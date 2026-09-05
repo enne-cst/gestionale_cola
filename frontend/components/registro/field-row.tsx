@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -126,9 +126,21 @@ export function FieldRow({
   // sezione della piattaforma è coinvolto senza passarlo esplicitamente.
   multiline?: boolean;
 }) {
-  const { ruolo, toggleVisibility } = useWorkspace();
+  const { ruolo, toggleVisibility, state, clearHighlightField } = useWorkspace();
   const consulente = ruolo === "CONSULENTE";
   const nascosto = consulente && !field.visibleToCompany;
+  // § richiesta esplicita 05/09/2026: link di "Ultime modifiche" — evidenzia
+  // e scorre fino al campo appena aperta la sezione, poi consuma
+  // l'evidenziazione (mai riattivarla scorrendo via e tornando indietro).
+  const evidenziato = state.highlightField === field.key;
+  const rigaRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!evidenziato) return;
+    rigaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const timer = setTimeout(clearHighlightField, 2200);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [evidenziato]);
   // Chiamato sempre (mai dentro il ramo "sola lettura" qui sotto): le regole
   // degli Hook non permettono chiamate condizionali, e questo componente
   // cambia `mode`/`field.editable` da un render all'altro (Annulla/Salva).
@@ -148,10 +160,13 @@ export function FieldRow({
     );
     return (
       <div
+        ref={rigaRef}
+        id={`campo-${sectionKey}-${field.key}`}
         className={cn(
-          "relative -m-2 min-h-[62px] rounded-[7px] p-2",
+          "relative -m-2 min-h-[62px] rounded-[7px] p-2 transition-colors duration-1000",
           nascosto && "bg-[#f0f2f5]",
           derivatoInModifica && "opacity-60",
+          evidenziato && "bg-[#fff2cf] ring-2 ring-[var(--az-blue)]",
         )}
       >
         <dt className="flex items-center gap-[7px]">

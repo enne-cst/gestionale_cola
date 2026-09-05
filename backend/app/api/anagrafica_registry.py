@@ -39,6 +39,7 @@ from app.database import get_db
 from app.schemas.registro_campi import (
     NumeroComponentiUpdateRequest,
     OverviewRead,
+    RecentChangeRead,
     ReviewDecisionRequest,
     SectionRead,
     SectionSummaryRead,
@@ -73,6 +74,18 @@ def leggi_overview(
     # l'affidabilità dei dati già inseriti, non un dettaglio riservato.
     quality = valuta_qualita(db, ctx.azienda_id)
     return OverviewRead(quality=quality, recentChanges=ultime_modifiche(db, ctx.azienda_id))
+
+
+@router.get("/cronologia", response_model=list[RecentChangeRead])
+def leggi_cronologia(
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    """Elenco più ampio di "Ultime modifiche" (§ richiesta esplicita
+    05/09/2026, pulsante "Vedi cronologia" della Panoramica): stessa funzione
+    della card, solo un limite più alto — nessuna logica duplicata."""
+    return ultime_modifiche(db, ctx.azienda_id, limite=50)
 
 
 @router.get("/sections/summary", response_model=list[SectionSummaryRead])

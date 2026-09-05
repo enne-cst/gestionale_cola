@@ -28,7 +28,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.deps import AziendaContext
-from app.core.verifica_riga import applica_decisione_verifica_riga, leggi_stato_verifica_riga
+from app.core.verifica_riga import applica_decisione_verifica_riga, elimina_stato_verifica_riga, leggi_stato_verifica_riga
 from app.models.anagrafica import (
     AnaSede,
     AnaTitoloAbilitativo,
@@ -427,6 +427,7 @@ def dettaglio_titolo(db: Session, azienda_id: UUID, titolo_id: UUID) -> TitoloAb
 def elimina_titolo(db: Session, azienda_id: UUID, titolo_id: UUID) -> None:
     titolo = _titolo_owned_or_404(db, titolo_id, azienda_id)
     db.delete(titolo)  # il dettaglio segue via ON DELETE CASCADE lato database
+    elimina_stato_verifica_riga(db, azienda_id, SEZIONE_CODICE_VERIFICA_TITOLI_ABILITATIVI, titolo_id)
     db.commit()
 
 

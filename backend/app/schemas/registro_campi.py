@@ -153,6 +153,14 @@ class RecentChangeRead(BaseModel):
     label: str
     timestamp: str
     actor: str | None
+    # Chiave della card/drawer da aprire cliccando la voce (§ richiesta
+    # esplicita 05/09/2026): None quando non è stato possibile risalire a
+    # una card (es. il record a riga è stato nel frattempo eliminato).
+    sectionKey: str | None = None
+    # Presente solo per le modifiche a un campo del registro campo-per-campo
+    # (None per le voci "a riga", es. una riga di Soci verificata): usata dal
+    # frontend per evidenziare il campo esatto dopo l'apertura della card.
+    fieldKey: str | None = None
 
 
 class OverviewRead(BaseModel):

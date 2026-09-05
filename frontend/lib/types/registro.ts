@@ -95,6 +95,12 @@ export type RecentChange = {
   label: string;
   timestamp: string;
   actor: string | null;
+  // Card/drawer da aprire cliccando la voce; null quando non è stato
+  // possibile risalirci (es. il record è stato nel frattempo eliminato).
+  sectionKey: string | null;
+  // Presente solo per le modifiche a un campo del registro campo-per-campo:
+  // usato per evidenziare il campo esatto dopo l'apertura della sezione.
+  fieldKey: string | null;
 };
 
 export type RegistryOverview = {

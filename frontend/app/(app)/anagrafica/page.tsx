@@ -1,10 +1,10 @@
-import { ArrowRightIcon, Building2, CheckCircle2Icon } from "lucide-react";
-import Link from "next/link";
+import { Building2 } from "lucide-react";
 
-import { CompletenessRing } from "@/components/completeness-ring";
 import { ExpandAllButton } from "@/components/expand-all-button";
 import { CciaaMacroSection } from "@/components/registro/cciaa-macro-section";
 import { CciaaSectionCard, type CciaaSectionCardStato } from "@/components/registro/cciaa-section-card";
+import { CompletionCard, type ProssimaSezioneDaCompletare } from "@/components/registro/completion-card";
+import { MacroStatoBadge } from "@/components/registro/macro-stato-badge";
 import { QualityCard } from "@/components/registro/quality-card";
 import { RecentChangesCard } from "@/components/registro/recent-changes-card";
 import { VisualizzaSintesiButton } from "@/components/registro/visualizza-sintesi-button";
@@ -21,17 +21,10 @@ import type { MeResponse } from "@/lib/types/auth";
 import type {
   AddettiComune,
   AddettiVisura,
-  AlboRuoloLicenza,
-  AttivitaEsercitata,
-  CapitaleSociale,
-  Certificazione,
-  CodiceAteco,
-  Contatto,
-  DurataSocietaEsercizi,
-  IdentificazioneCamerale,
-  IscrizioneRegistroImprese,
-  Sede,
-  Soa,
+  CronologiaEvento,
+  PersonaleOccupazioneRiepilogo,
+  TitoloAbilitativoSummary,
+  UnitaLocaleSummary,
 } from "@/lib/types/anagrafica";
 import type {
   Assicurazione,
@@ -61,88 +54,41 @@ export default async function AnagraficaOverviewPage() {
 
   const [
     sezioniAbilitate,
-    identificazione,
-    durata,
-    attivita,
-    capitale,
-    sedi,
-    contatti,
-    iscrizioni,
-    codiciAteco,
-    albi,
-    soa,
-    certificazioni,
     addettiVisura,
     addettiComune,
+    titoliAbilitativi,
+    unitaLocali,
+    personaleOccupazioneRiepilogo,
+    cronologiaAggiornamenti,
     riepilogoSezioni,
     incarichi,
   ] = await Promise.all([
     apiFetch<string[]>("/api/sezioni"),
-    apiFetch<IdentificazioneCamerale | null>("/api/anagrafica/identificazione-camerale"),
-    apiFetch<DurataSocietaEsercizi | null>("/api/anagrafica/durata-societa-esercizi"),
-    apiFetch<AttivitaEsercitata | null>("/api/anagrafica/attivita-esercitata"),
-    apiFetch<CapitaleSociale | null>("/api/anagrafica/capitale-sociale"),
-    apiFetch<Sede[]>("/api/anagrafica/sedi"),
-    apiFetch<Contatto[]>("/api/anagrafica/contatti"),
-    apiFetch<IscrizioneRegistroImprese[]>("/api/anagrafica/iscrizioni-registro-imprese"),
-    apiFetch<CodiceAteco[]>("/api/anagrafica/codici-ateco"),
-    apiFetch<AlboRuoloLicenza[]>("/api/anagrafica/albi-ruoli-licenze"),
-    apiFetch<Soa[]>("/api/anagrafica/soa"),
-    apiFetch<Certificazione[]>("/api/anagrafica/certificazioni"),
     apiFetch<AddettiVisura[]>("/api/anagrafica/addetti-visura"),
     apiFetch<AddettiComune[]>("/api/anagrafica/addetti-comune"),
+    apiFetch<TitoloAbilitativoSummary[]>("/api/anagrafica/titoli-abilitativi"),
+    apiFetch<UnitaLocaleSummary[]>("/api/anagrafica/unita-locali"),
+    apiFetch<PersonaleOccupazioneRiepilogo>("/api/anagrafica/personale-occupazione/riepilogo"),
+    apiFetch<CronologiaEvento[]>("/api/anagrafica/aggiornamento-impresa/cronologia"),
     getRiepilogoSezioni(),
     getIncarichi(),
   ]);
 
-  // Costruita qui (non più sotto, § commento originale) perché serve già
-  // per calcolare la completezza di "amministrazione-controllo": quel
-  // campo vive solo nel registro campo-per-campo (Correzione 04), non più
-  // in una fetch dedicata.
   const riepilogoPerSezione = new Map(riepilogoSezioni.map((r) => [r.sectionKey, r]));
-  const riepilogoAmministrazioneControllo = riepilogoPerSezione.get("amministrazione-controllo");
 
+  // Presenza reale della card "Personale e occupazione" (§18, mai pallini/
+  // percentuali inventati): quella card somma due tabelle, non ha un'unica
+  // sezione a registro da interrogare per "informazioni presenti".
   const stato: Record<string, boolean> = {
-    "identificazione-camerale": Boolean(identificazione?.ragione_sociale),
-    "durata-societa-esercizi": Boolean(
-      durata?.data_termine_societa || durata?.scadenza_primo_esercizio || durata?.scadenza_esercizi_successivi,
-    ),
-    "attivita-esercitata": Boolean(attivita?.descrizione_attivita_esercitata),
-    "capitale-sociale": Boolean(
-      capitale?.capitale_deliberato || capitale?.capitale_sottoscritto || capitale?.capitale_versato,
-    ),
-    sedi: sedi.length > 0,
-    contatti: contatti.length > 0,
-    "iscrizioni-registro-imprese": iscrizioni.length > 0,
-    "codici-ateco": codiciAteco.length > 0,
-    "amministrazione-controllo": Boolean(
-      riepilogoAmministrazioneControllo &&
-        riepilogoAmministrazioneControllo.verified +
-          riepilogoAmministrazioneControllo.pending +
-          riepilogoAmministrazioneControllo.revisionRequired >
-          0,
-    ),
-    "albi-ruoli-licenze": albi.length > 0,
-    soa: soa.length > 0,
-    certificazioni: certificazioni.length > 0,
     "addetti-visura": addettiVisura.length > 0,
     "addetti-comune": addettiComune.length > 0,
   };
-  // La completezza del riquadro "Completamento scheda" traccia solo le
-  // sezioni base (sempre visibili, § comune a tutte le aziende): le sezioni
-  // ISO 9001 hanno il proprio conteggio "N di N sezioni completate" per
-  // macro sezione più sotto (`altreCategorieCards`), calcolato a parte.
-  const sezioniBase = SEZIONI_ANAGRAFICA.filter((s) => s.codice === undefined);
-  const sezioniCompilate = Object.values(stato).filter(Boolean).length;
-  const percentuale = Math.round((sezioniCompilate / sezioniBase.length) * 100);
-  const sezioniDaCompletare = sezioniBase.filter((s) => !stato[s.slug]);
   const sezioniAbilitateSet = new Set(sezioniAbilitate);
 
   // --- Conteggi delle 10 card "Dati CCIAA" (§6.3/§6.4 del protocollo) ---
-  // Solo le sezioni realmente a registro (identificazione-camerale,
-  // capitale-sociale, durata-societa-esercizi, amministrazione-controllo)
-  // hanno uno stato di verifica per campo: le altre card mostrano presenza
-  // reale ("N di N informazioni presenti"), mai pallini inventati (§18).
+  // Solo le sezioni realmente a registro hanno uno stato di verifica per
+  // campo: le altre card mostrano presenza reale ("N di N informazioni
+  // presenti"), mai pallini inventati (§18).
   function sommaRegistro(sectionKeys: string[]) {
     let verified = 0;
     let pending = 0;
@@ -161,17 +107,18 @@ export default async function AnagraficaOverviewPage() {
   function statoDaRegistro(agg: ReturnType<typeof sommaRegistro>): CciaaSectionCardStato {
     return { confermate: agg.verified, daVerificare: agg.pending, daRevisionare: agg.revisionRequired };
   }
-  // Soci/Amministratori/Sindaci non hanno un registro campo-per-campo, ma
-  // ogni incarico porta comunque una verifica reale del consulente sulla
-  // riga (vedi `app/core/incarichi.py`, non più la caratteristica A32 nel
-  // form): i pallini qui sotto aggregano quel dato esistente, non ne
-  // inventano uno nuovo (§18). Restituisce sempre l'oggetto (mai `null`,
-  // anche a tabella vuota): stessa convenzione delle sezioni a registro
-  // campo-per-campo, dove una sezione mai compilata mostra comunque "0
-  // confermate/0 da verificare/0 da revisionare" invece di nascondere la
-  // riga dei pallini — coerenza tra i due meccanismi di verifica, § richiesta
-  // esplicita.
-  function statoDaIncarichi(righe: typeof incarichi): CciaaSectionCardStato {
+  // Soci/Amministratori/Sindaci, titoli abilitativi, unità locali,
+  // personale e occupazione, aggiornamento impresa e le sezioni "a elenco"
+  // ISO 9001 non hanno un registro campo-per-campo, ma ogni record porta
+  // comunque una verifica reale del consulente sulla riga
+  // (`app.core.verifica_riga`, non più la caratteristica A32 nel form): i
+  // pallini qui sotto aggregano quel dato esistente, non ne inventano uno
+  // nuovo (§18). Restituisce sempre l'oggetto (mai `null`, anche a tabella
+  // vuota): stessa convenzione delle sezioni a registro campo-per-campo,
+  // dove una sezione mai compilata mostra comunque "0 confermate/0 da
+  // verificare/0 da revisionare" invece di nascondere la riga dei pallini —
+  // coerenza tra i due meccanismi di verifica, § richiesta esplicita.
+  function statoDaRighe(righe: { verificationStatus: string | null }[]): CciaaSectionCardStato {
     let confermate = 0;
     let daVerificare = 0;
     let daRevisionare = 0;
@@ -182,6 +129,23 @@ export default async function AnagraficaOverviewPage() {
     }
     return { confermate, daVerificare, daRevisionare };
   }
+  // Alcune card compongono più fonti di verifica indipendenti (es.
+  // "Amministratori" = tabella incarichi + campi della sezione a registro
+  // "amministrazione-controllo", montati insieme nello stesso drawer — vedi
+  // `VISTA_FOOTER_SECTION_KEY` in cciaa-section-panel.tsx): i pallini della
+  // card devono sommarle entrambe, altrimenti "Qualità dei dati" (che le
+  // conta entrambe) non torna mai con la somma dei pallini visibili in
+  // pagina (§ richiesta esplicita 05/09/2026).
+  function sommaStati(...stati: CciaaSectionCardStato[]): CciaaSectionCardStato {
+    return stati.reduce(
+      (tot, s) => ({
+        confermate: tot.confermate + s.confermate,
+        daVerificare: tot.daVerificare + s.daVerificare,
+        daRevisionare: tot.daRevisionare + s.daRevisionare,
+      }),
+      { confermate: 0, daVerificare: 0, daRevisionare: 0 },
+    );
+  }
 
   const righeSoci = incarichi.filter((i) => i.ruolo.codice === "SOCIO");
   const righeAmministratori = incarichi.filter((i) => RUOLI_AMMINISTRATORI.has(i.ruolo.codice));
@@ -191,6 +155,10 @@ export default async function AnagraficaOverviewPage() {
   const aggCapitale = sommaRegistro(["capitale-sociale"]);
   const aggSede = sommaRegistro(["sede"]);
   const aggUnitaLocali = sommaRegistro(["unita-locali"]);
+  const aggAttivitaEconomica = sommaRegistro(["attivita-economica"]);
+  const aggAmministrazioneControllo = sommaRegistro(["amministrazione-controllo"]);
+  const aggElencoSociEstremi = sommaRegistro(["elenco-soci-estremi"]);
+  const aggOrganiControllo = sommaRegistro(["organi-controllo"]);
 
   const cciaaCards: {
     key: string;
@@ -230,7 +198,10 @@ export default async function AnagraficaOverviewPage() {
       titolo: "Soci e titolari di diritti su azioni e quote",
       presenti: Number(righeSoci.length > 0),
       totale: 1,
-      stato: statoDaIncarichi(righeSoci),
+      // La tabella incarichi e i campi di "elenco-soci-estremi" (numero
+      // soci) sono montati nello stesso drawer (§ VISTA_FOOTER_SECTION_KEY):
+      // i pallini sommano entrambe le fonti di verifica.
+      stato: sommaStati(statoDaRighe(righeSoci), statoDaRegistro(aggElencoSociEstremi)),
     },
     {
       key: "amministratori",
@@ -238,7 +209,7 @@ export default async function AnagraficaOverviewPage() {
       titolo: "Amministratori",
       presenti: Number(righeAmministratori.length > 0),
       totale: 1,
-      stato: statoDaIncarichi(righeAmministratori),
+      stato: sommaStati(statoDaRighe(righeAmministratori), statoDaRegistro(aggAmministrazioneControllo)),
     },
     {
       key: "sindaci",
@@ -246,20 +217,21 @@ export default async function AnagraficaOverviewPage() {
       titolo: "Sindaci e membri degli organi di controllo",
       presenti: Number(righeSindaci.length > 0),
       totale: 1,
-      stato: statoDaIncarichi(righeSindaci),
+      stato: sommaStati(statoDaRighe(righeSindaci), statoDaRegistro(aggOrganiControllo)),
     },
     {
+      // § Correzione 19/20: la card usa oggi la sezione a registro
+      // "attivita-economica" più la tabella unificata "titoli abilitativi"
+      // (Codici ATECO/Albi/SOA/Certificazioni non sono più mostrati qui,
+      // vedi cciaa-section-panel.tsx) — "informazioni presenti" segue quindi
+      // i campi di "attivita-economica" come le altre card a registro, i
+      // pallini sommano anche la verifica per riga dei titoli abilitativi.
       key: "attivita-albi",
       sectionKey: "attivita-albi",
       titolo: "Attività, albi, ruoli e licenze",
-      presenti:
-        Number(stato["attivita-esercitata"]) +
-        Number(stato["codici-ateco"]) +
-        Number(stato["albi-ruoli-licenze"]) +
-        Number(stato.soa) +
-        Number(stato.certificazioni),
-      totale: 5,
-      stato: null,
+      presenti: aggAttivitaEconomica.verified + aggAttivitaEconomica.pending + aggAttivitaEconomica.revisionRequired,
+      totale: aggAttivitaEconomica.totalApplicable,
+      stato: sommaStati(statoDaRegistro(aggAttivitaEconomica), statoDaRighe(titoliAbilitativi)),
     },
     {
       key: "personale-occupazione",
@@ -267,7 +239,11 @@ export default async function AnagraficaOverviewPage() {
       titolo: "Personale e occupazione",
       presenti: Number(stato["addetti-visura"]) + Number(stato["addetti-comune"]),
       totale: 2,
-      stato: null,
+      // § Correzione 22: la rilevazione più recente porta una propria
+      // verifica (riepilogo calcolato su ana_addetti_visura*/comune*, non
+      // una tabella nuova) — nessuna riga finché non esiste ancora nessuna
+      // rilevazione.
+      stato: statoDaRighe(personaleOccupazioneRiepilogo.rilevazione_id ? [personaleOccupazioneRiepilogo] : []),
     },
     {
       key: "sedi-secondarie",
@@ -275,23 +251,38 @@ export default async function AnagraficaOverviewPage() {
       titolo: "Sedi secondarie e unità locali",
       presenti: aggUnitaLocali.verified + aggUnitaLocali.pending + aggUnitaLocali.revisionRequired,
       totale: aggUnitaLocali.totalApplicable,
-      stato: statoDaRegistro(aggUnitaLocali),
+      // Il campo "Numero unità locali dichiarato in visura" (registro) e la
+      // verifica per riga di ogni unità locale sono due fonti distinte
+      // (§ app/core/unita_locali.py) montate nello stesso drawer.
+      stato: sommaStati(statoDaRegistro(aggUnitaLocali), statoDaRighe(unitaLocali)),
     },
     {
       // § Correzione 24: card ricostruita come cronologia automatica, 4
       // indicatori derivati e nessun campo compilabile — il conteggio
       // "informazioni presenti" di questa griglia non si applica più
-      // (totale 0, mai nel denominatore di `cardCciaaCompletate`).
+      // (totale 0, mai nel denominatore di `cardCciaaCompletate`). Ogni
+      // evento della cronologia porta comunque una propria verifica per
+      // riga, riflessa nei pallini.
       key: "aggiornamento-impresa",
       sectionKey: "aggiornamento-impresa",
       titolo: "Aggiornamento impresa",
       presenti: 0,
       totale: 0,
-      stato: null,
+      stato: statoDaRighe(cronologiaAggiornamenti),
     },
   ];
   const cardCciaaCompletate = cciaaCards.filter((c) => c.totale > 0 && c.presenti >= c.totale).length;
   const DatiCciaaIcon = CATEGORIA_ICONE["Dati CCIAA"];
+  // § richiesta esplicita 05/09/2026: contatore della macro sezione, stessa
+  // aggregazione mostrata dalle card sottostanti — sostituisce "N di N
+  // sezioni completate" nell'intestazione. Il bollino verde richiede che
+  // OGNI card sia sia compilata per intero (presenti >= totale) sia senza
+  // nulla in sospeso (0 da verificare/da revisionare): una macro sezione
+  // vuota non lo mostra mai, "niente da verificare" non è "tutto confermato".
+  const statoDatiCciaa = sommaStati(...cciaaCards.map((c) => c.stato ?? { confermate: 0, daVerificare: 0, daRevisionare: 0 }));
+  const tuttoConfermatoDatiCciaa = cciaaCards.every(
+    (c) => c.presenti >= c.totale && (c.stato?.daVerificare ?? 0) === 0 && (c.stato?.daRevisionare ?? 0) === 0,
+  );
 
   // --- Griglia delle macro sezioni Organizzazione/Trend/Assicurazioni/
   // Altre informazioni: stessa visualizzazione di "Dati CCIAA" sopra
@@ -304,11 +295,11 @@ export default async function AnagraficaOverviewPage() {
   // riusano `riepilogoSezioni` come le card CCIAA. Le altre 14 sezioni sono
   // "a elenco" (più record per azienda): la verifica è per riga
   // (`app.core.verifica_riga`, stesso motore di Soci/Amministratori/
-  // Sindaci) — qui aggregata esattamente come `statoDaIncarichi` sopra,
-  // sempre un oggetto (mai `null`, anche a tabella vuota: § richiesta
-  // esplicita di coerenza con le sezioni a registro campo-per-campo, dove
-  // "tutto vuoto" mostra comunque "0 confermate/0 da verificare/0 da
-  // revisionare" invece di nascondere la riga dei pallini).
+  // Sindaci) — qui aggregata esattamente come `statoDaRighe` sopra, sempre
+  // un oggetto (mai `null`, anche a tabella vuota: § richiesta esplicita di
+  // coerenza con le sezioni a registro campo-per-campo, dove "tutto vuoto"
+  // mostra comunque "0 confermate/0 da verificare/0 da revisionare" invece
+  // di nascondere la riga dei pallini).
   const aggContrattoLavoro = sommaRegistro(["contratto-lavoro"]);
   const aggPosizioniAssicurative = sommaRegistro(["posizioni-assicurative-previdenziali"]);
   const aggTurniLavoro = sommaRegistro(["turni-lavoro"]);
@@ -317,18 +308,6 @@ export default async function AnagraficaOverviewPage() {
     "posizioni-assicurative-previdenziali": aggPosizioniAssicurative,
     "turni-lavoro": aggTurniLavoro,
   };
-
-  function statoDaRighe(righe: { verificationStatus: string | null }[]): CciaaSectionCardStato {
-    let confermate = 0;
-    let daVerificare = 0;
-    let daRevisionare = 0;
-    for (const r of righe) {
-      if (r.verificationStatus === "VERIFIED") confermate += 1;
-      else if (r.verificationStatus === "REVISION_REQUIRED") daRevisionare += 1;
-      else daVerificare += 1;
-    }
-    return { confermate, daVerificare, daRevisionare };
-  }
 
   const elencoIso9001Fetchers: Record<ElencoIso9001Key, () => Promise<ConVerificaRiga[]>> = {
     "fondi-interprofessionali": () => apiFetch<FondoInterprofessionale[]>("/api/anagrafica/fondi-interprofessionali"),
@@ -394,8 +373,41 @@ export default async function AnagraficaOverviewPage() {
       }
       return { key: sezione.slug, titolo: sezione.titolo, presenti: 0, totale: 1, drawer: null };
     });
-    return { categoria, cards, completate: cards.filter((c) => c.totale > 0 && c.presenti >= c.totale).length };
+    return {
+      categoria,
+      cards,
+      completate: cards.filter((c) => c.totale > 0 && c.presenti >= c.totale).length,
+      // Stesso principio di `statoDatiCciaa`/`tuttoConfermatoDatiCciaa` sopra.
+      stato: sommaStati(...cards.map((c) => c.drawer?.stato ?? { confermate: 0, daVerificare: 0, daRevisionare: 0 })),
+      tuttoConfermato: cards.every(
+        (c) => c.presenti >= c.totale && (c.drawer?.stato.daVerificare ?? 0) === 0 && (c.drawer?.stato.daRevisionare ?? 0) === 0,
+      ),
+    };
   });
+
+  // "Completamento scheda" (§8.2): stesso ambito esatto delle card
+  // renderizzate sotto (Dati CCIAA + categorie ISO 9001 abilitate), non un
+  // conteggio parallelo — così il numero coincide sempre con quello che
+  // l'azienda/il consulente vede scorrendo la pagina.
+  const sezioniPaginaTotali =
+    cciaaCards.filter((c) => c.totale > 0).length + altreCategorieCards.reduce((s, { cards }) => s + cards.length, 0);
+  const sezioniPaginaCompletate =
+    cardCciaaCompletate + altreCategorieCards.reduce((s, { completate }) => s + completate, 0);
+
+  let prossimaSezioneDaCompletare: ProssimaSezioneDaCompletare = null;
+  const cciaaIncompleta = cciaaCards.find((c) => c.totale > 0 && c.presenti < c.totale);
+  if (cciaaIncompleta) {
+    prossimaSezioneDaCompletare = { tipo: "drawer", sectionKey: cciaaIncompleta.sectionKey };
+  } else {
+    for (const { cards } of altreCategorieCards) {
+      const incompleta = cards.find((c) => c.totale > 0 && c.presenti < c.totale);
+      if (!incompleta) continue;
+      prossimaSezioneDaCompletare = incompleta.drawer
+        ? { tipo: "drawer", sectionKey: incompleta.drawer.sectionKey }
+        : { tipo: "link", href: `/anagrafica/${incompleta.key}` };
+      break;
+    }
+  }
 
   const contenuto = (
     <div className="flex flex-col gap-6">
@@ -419,30 +431,11 @@ export default async function AnagraficaOverviewPage() {
        * pagina anche su schermi ampi. */}
       <div className="@container">
       <div className="grid grid-cols-1 gap-[22px] @2xl:grid-cols-2 @5xl:grid-cols-[1fr_1fr_1.06fr]">
-        <article className="az-dashboard-card relative flex min-h-[276px] flex-col overflow-hidden pb-[50px]">
-          <div className="flex min-h-14 items-center gap-2.5 px-[26px] pt-[18px] pb-2.5">
-            <CheckCircle2Icon className="size-4 text-[var(--az-muted)]" />
-            <h2 className="text-base font-extrabold tracking-tight text-[var(--az-ink)]">Completamento scheda</h2>
-          </div>
-          <div className="flex items-center gap-[34px] px-[30px] py-[10px]">
-            <CompletenessRing percentuale={percentuale} />
-            <div className="flex flex-col gap-1.5">
-              <strong className="text-[22px] leading-none text-[var(--az-ink)]">
-                {sezioniCompilate} di {sezioniBase.length}
-              </strong>
-              <span className="text-sm text-[var(--az-muted)]">sezioni completate</span>
-            </div>
-          </div>
-          {sezioniDaCompletare[0] && (
-            <Link
-              href={`/anagrafica/${sezioniDaCompletare[0].slug}`}
-              className="absolute inset-x-0 bottom-0 flex min-h-[50px] items-center gap-3.5 border-t border-[var(--az-border)] bg-[#fbfdfff5] px-[26px] text-sm font-bold text-[var(--az-blue)] transition-colors hover:bg-[#f3f7ff] hover:text-[var(--az-blue-dark)]"
-            >
-              <span className="mr-auto">Completa la prossima sezione</span>
-              <ArrowRightIcon className="size-[18px] shrink-0" />
-            </Link>
-          )}
-        </article>
+        <CompletionCard
+          completate={sezioniPaginaCompletate}
+          totale={sezioniPaginaTotali}
+          prossima={prossimaSezioneDaCompletare}
+        />
 
         <QualityCard />
 
@@ -460,7 +453,8 @@ export default async function AnagraficaOverviewPage() {
         id="dati-cciaa"
         icon={<DatiCciaaIcon className="size-[22px]" />}
         title="Dati CCIAA"
-        badge={`${cardCciaaCompletate} di ${cciaaCards.length} sezioni completate`}
+        badge={<MacroStatoBadge stato={statoDatiCciaa} />}
+        tuttoConfermato={tuttoConfermatoDatiCciaa}
         actions={<VisualizzaSintesiButton />}
       >
         {cciaaCards.map((card) => {
@@ -479,7 +473,7 @@ export default async function AnagraficaOverviewPage() {
         })}
       </CciaaMacroSection>
 
-      {altreCategorieCards.map(({ categoria, cards, completate }) => {
+      {altreCategorieCards.map(({ categoria, cards, stato, tuttoConfermato }) => {
         const CategoriaIcon = CATEGORIA_ICONE[categoria.nome];
         return (
           <CciaaMacroSection
@@ -487,7 +481,8 @@ export default async function AnagraficaOverviewPage() {
             id={categoriaSlug(categoria.nome)}
             icon={<CategoriaIcon className="size-[22px]" />}
             title={categoria.nome}
-            badge={`${completate} di ${cards.length} sezioni completate`}
+            badge={<MacroStatoBadge stato={stato} />}
+            tuttoConfermato={tuttoConfermato}
           >
             {cards.map((card) => {
               const Icon = SEZIONE_ICONE[card.key];

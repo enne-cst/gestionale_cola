@@ -23,6 +23,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.deps import AziendaContext
+from app.core.personale_occupazione import SEZIONE_CODICE_VERIFICA_PERSONALE_OCCUPAZIONE
+from app.core.verifica_riga import elimina_stato_verifica_riga
 from app.models.anagrafica import AnaAddettiComune, AnaAddettiComunePeriodo, AnaAddettiVisura, AnaAddettiVisuraPeriodo
 from app.schemas.anagrafica import (
     AddettiComunePeriodoRead,
@@ -171,4 +173,5 @@ def aggiorna_rilevazione(
 def elimina_rilevazione(db: Session, azienda_id: UUID, rilevazione_id: UUID) -> None:
     rilevazione = _rilevazione_owned_or_404(db, rilevazione_id, azienda_id)
     db.delete(rilevazione)  # periodi + comune collegato + suoi periodi seguono via ON DELETE CASCADE
+    elimina_stato_verifica_riga(db, azienda_id, SEZIONE_CODICE_VERIFICA_PERSONALE_OCCUPAZIONE, rilevazione_id)
     db.commit()

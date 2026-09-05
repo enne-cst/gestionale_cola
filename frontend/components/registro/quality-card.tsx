@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRightIcon, ShieldCheckIcon } from "lucide-react";
+import { ShieldCheckIcon } from "lucide-react";
 
 import { CompletenessRing } from "@/components/completeness-ring";
 import { useWorkspace } from "@/components/registro/workspace-provider";
@@ -15,7 +15,7 @@ export function QualityCard() {
   if (!quality) return null;
 
   return (
-    <article className="az-dashboard-card relative flex min-h-[276px] flex-col overflow-hidden pb-[50px]">
+    <article className="az-dashboard-card relative flex min-h-[276px] flex-col overflow-hidden">
       <div className="flex min-h-14 items-center gap-2.5 px-[26px] pt-[18px] pb-2.5">
         <span className="grid place-items-center text-[var(--az-green)]">
           <ShieldCheckIcon className="size-[25px]" />
@@ -51,14 +51,6 @@ export function QualityCard() {
           </div>
         </div>
       </div>
-      <button
-        type="button"
-        className="absolute inset-x-0 bottom-0 flex min-h-[50px] items-center gap-3.5 border-t border-[var(--az-border)] bg-gradient-to-r from-[#f0fbf7f2] to-[#e8f8f1eb] px-[26px] text-sm font-bold text-[var(--az-green-dark)] transition-colors hover:bg-[#e5f7f0] hover:text-[#00765a]"
-      >
-        <ShieldCheckIcon className="size-[22px]" />
-        <span className="mr-auto">Visualizza verifiche</span>
-        <ArrowRightIcon className="size-[18px]" />
-      </button>
     </article>
   );
 }

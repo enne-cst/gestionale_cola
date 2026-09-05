@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useReducer, useRef, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
@@ -173,6 +174,17 @@ type State = {
   cancellazioneConfigurazione: CancellazioneConfigurazioneState;
   cambioAssettoAffidatario: CambioAssettoAffidatarioState;
   sintesi: SintesiState;
+  // § richiesta esplicita 05/09/2026: campo da evidenziare dopo l'apertura
+  // di una sezione da un link di "Ultime modifiche" — null quando non è
+  // stato aperto nessun link, o quando l'evidenziazione è già stata
+  // consumata (vedi `openDrawer`/`clearHighlightField`). Un solo campo alla
+  // volta, per chiave (non per coppia sezione/campo, § commento su
+  // `openDrawer` sotto): abbastanza per il caso reale (un solo drawer alla
+  // volta), evita di dover far viaggiare la sectionKey "vista" fino al
+  // `FieldRow` annidato nelle card composite, che usa invece la sectionKey
+  // "vera" del registro (es. "amministrazione-controllo" dentro la card
+  // "Amministratori").
+  highlightField: string | null;
   // § Correzione 26 §15: "Apri dati camerali completi", nel footer della
   // sintesi — pagina dedicata che impila tutte le sezioni CCIAA una sotto
   // l'altra (nessuna vista del genere esisteva prima). Booleano semplice,
@@ -207,8 +219,9 @@ function nuovaSectionEntry(): SectionEntry {
 }
 
 type Action =
-  | { type: "OPEN_DRAWER"; sectionKey: string }
+  | { type: "OPEN_DRAWER"; sectionKey: string; fieldKey?: string }
   | { type: "CLOSE_DRAWER" }
+  | { type: "CLEAR_HIGHLIGHT_FIELD" }
   | { type: "PROMOTE_FULL"; sectionKey: string }
   | { type: "PROMOTE_SPLIT"; sectionKey: string }
   | { type: "CLOSE_TAB"; sectionKey: string }
@@ -263,9 +276,16 @@ function withSection(state: State, sectionKey: string, patch: Partial<SectionEnt
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "OPEN_DRAWER":
-      return { ...state, mode: "DRAWER", openSectionKey: action.sectionKey };
+      return {
+        ...state,
+        mode: "DRAWER",
+        openSectionKey: action.sectionKey,
+        highlightField: action.fieldKey ?? null,
+      };
     case "CLOSE_DRAWER":
-      return { ...state, mode: "OVERVIEW", openSectionKey: null };
+      return { ...state, mode: "OVERVIEW", openSectionKey: null, highlightField: null };
+    case "CLEAR_HIGHLIGHT_FIELD":
+      return { ...state, highlightField: null };
     case "PROMOTE_FULL": {
       const tabs = state.tabs.includes(action.sectionKey) ? state.tabs : [...state.tabs, action.sectionKey];
       return { ...state, mode: "FULL", openSectionKey: action.sectionKey, activeSurface: action.sectionKey, tabs };
@@ -437,7 +457,10 @@ type WorkspaceApi = {
   ruolo: "AZIENDA" | "CONSULENTE";
   ensureLoaded: (sectionKey: string) => void;
   reload: (sectionKey: string) => void;
-  openDrawer: (sectionKey: string) => void;
+  // `fieldKey` (§ richiesta esplicita 05/09/2026, link di "Ultime
+  // modifiche"): evidenzia quel campo dopo l'apertura, vedi `highlightField`.
+  openDrawer: (sectionKey: string, fieldKey?: string) => void;
+  clearHighlightField: () => void;
   requestCloseDrawer: () => void;
   requestPromoteFull: (sectionKey: string) => void;
   requestPromoteSplit: (sectionKey: string) => void;
@@ -519,6 +542,7 @@ export function WorkspaceProvider({
     tabs: [],
     activeSurface: "overview",
     sections: {},
+    highlightField: null,
     overview: overviewIniziale,
     confirm: null,
     cessazioneOrganoControllo: null,
@@ -529,6 +553,8 @@ export function WorkspaceProvider({
     datiCompletiOpen: false,
   });
 
+  const router = useRouter();
+
   // Evita richieste duplicate quando piu' componenti montano nello stesso
   // tick (drawer + card di anteprima che richiedono la stessa sezione).
   const richiesteInCorso = useRef<Set<string>>(new Set());
@@ -538,6 +564,31 @@ export function WorkspaceProvider({
       .then((overview) => dispatch({ type: "SET_OVERVIEW", overview }))
       .catch(() => undefined);
   }, []);
+
+  // § richiesta esplicita 05/09/2026: "Completamento scheda", le card della
+  // griglia (presenti/totale/pallini) e le macro sezioni sono calcolate lato
+  // server in `page.tsx` (Server Component) e passate come `children` — un
+  // salvataggio/una riga aggiunta/una verifica dentro un drawer non tocca
+  // mai quell'albero React, quindi restavano visibilmente non aggiornate
+  // finché non si ricaricava tutta la pagina (anche per le mutazioni che non
+  // passano da questo provider, es. le tabelle di Soci/Titoli abilitativi/
+  // Unità locali/Personale e occupazione/Aggiornamento impresa, ciascuna con
+  // le proprie server action). `router.refresh()` a ogni ritorno alla
+  // panoramica (drawer/tab/"Dati camerali completi" chiusi) rilancia il
+  // Server Component con i dati freschi, qualunque sia stata la mutazione;
+  // `rinfrescaOverview()` allo stesso momento copre "Qualità dei dati"/
+  // "Ultime modifiche" (stato React di questo provider, che un
+  // `router.refresh()` da solo non aggiorna perché non fa ripartire da zero
+  // lo `useReducer` già inizializzato).
+  const eraApertoRef = useRef(false);
+  useEffect(() => {
+    const aperto = state.mode !== "OVERVIEW" || state.datiCompletiOpen;
+    if (eraApertoRef.current && !aperto) {
+      router.refresh();
+      rinfrescaOverview();
+    }
+    eraApertoRef.current = aperto;
+  }, [state.mode, state.datiCompletiOpen, router, rinfrescaOverview]);
 
   const caricaSezione = useCallback((sectionKey: string) => {
     if (richiesteInCorso.current.has(sectionKey)) return;
@@ -1059,7 +1110,8 @@ export function WorkspaceProvider({
       ruolo,
       ensureLoaded,
       reload,
-      openDrawer: (sectionKey) => dispatch({ type: "OPEN_DRAWER", sectionKey }),
+      openDrawer: (sectionKey, fieldKey) => dispatch({ type: "OPEN_DRAWER", sectionKey, fieldKey }),
+      clearHighlightField: () => dispatch({ type: "CLEAR_HIGHLIGHT_FIELD" }),
       requestCloseDrawer,
       requestPromoteFull: (sectionKey) => dispatch({ type: "PROMOTE_FULL", sectionKey }),
       requestPromoteSplit: (sectionKey) => dispatch({ type: "PROMOTE_SPLIT", sectionKey }),

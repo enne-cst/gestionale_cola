@@ -22,7 +22,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.core.deps import AziendaContext
@@ -39,6 +39,26 @@ def _stato_riga(db: Session, azienda_id: UUID, sezione_codice: str, campo_codice
             SysRegistroStatoCampi.campo_codice == campo_codice,
         )
     ).first()
+
+
+def elimina_stato_verifica_riga(db: Session, azienda_id: UUID, sezione_codice: str, riga_id: UUID) -> None:
+    """Da chiamare nella STESSA transazione (prima del commit) di ogni
+    cancellazione di un record verificabile per riga (§ richiesta esplicita
+    05/09/2026: "eliminando la riga il contatore di Qualità dei dati resta
+    invariato, dovrebbe scendere"). `campo_codice` è una colonna generica
+    condivisa da tutte le sezioni (non solo quelle "a riga"), quindi non può
+    avere una vera FK verso la tabella di dominio: senza questa pulizia
+    esplicita la riga di stato del record cancellato resterebbe per sempre,
+    contata come "verificata"/"da revisionare" fantasma sia nel totale
+    globale sia nei pallini della card (§ operazioni composite = transazione
+    unica, CLAUDE.md — mai una pulizia differita o un job a parte)."""
+    db.execute(
+        delete(SysRegistroStatoCampi).where(
+            SysRegistroStatoCampi.azienda_id == azienda_id,
+            SysRegistroStatoCampi.sezione_codice == sezione_codice,
+            SysRegistroStatoCampi.campo_codice == str(riga_id),
+        )
+    )
 
 
 def leggi_stato_verifica_riga(db: Session, azienda_id: UUID, sezione_codice: str, riga_id: UUID) -> dict[str, Any]:

@@ -1,10 +1,16 @@
 "use server";
 
 import { apiFetch, apiFetchResult, type ApiResult } from "@/lib/api";
-import type { RegistryOverview, Section, SectionSummary } from "@/lib/types/registro";
+import type { RecentChange, RegistryOverview, Section, SectionSummary } from "@/lib/types/registro";
 
 export async function getRegistroOverview(): Promise<RegistryOverview> {
   return apiFetch<RegistryOverview>("/api/anagrafica/registro/overview");
+}
+
+/** Elenco più ampio di "Ultime modifiche" (§ pulsante "Vedi cronologia"),
+ * stessa forma della card ma senza il limite di 3-5 voci. */
+export async function getCronologiaRegistro(): Promise<RecentChange[]> {
+  return apiFetch<RecentChange[]>("/api/anagrafica/registro/cronologia");
 }
 
 /** Conteggi confermato/da verificare/da revisionare per ciascuna sezione a
