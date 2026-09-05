@@ -14,6 +14,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from app.schemas.registro_campi import VerificationStatus
+
 
 class _OrmModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -605,3 +607,275 @@ class IdoneitaSanitariaRead(_OrmModel):
     # Sempre vuoto finché il modulo Sicurezza non esiste (§16): stato vuoto,
     # mai esposizioni dimostrative.
     esposizioni: list[EsposizioneAssociataRead] = []
+
+
+# ---------------------------------------------------------------------------
+# Competenze ("Costruzione completa della scheda 'Competenze'") — riusa le
+# tabelle nate con Conoscenza/Competenza/Consapevolezza (migrazione 013/
+# 0100, mai popolate) e Titoli di studio/Esperienze (migrazione 015/0102,
+# mai popolate): nessuna tabella nuova, solo una colonna additiva su
+# per_valutazioni_personale (livello_complessivo) autorizzata dall'utente.
+#
+# Tre concetti restano volutamente distinti (§14 della specifica):
+# - MacroIndicatoreRead: valutazione diretta del macro-indicatore, mai una
+#   media delle voci analitiche;
+# - ConoscenzaRead/CompetenzaRead: voci analitiche (personali per
+#   Conoscenza, ereditate dai mansionari dei ruoli attivi per Competenza),
+#   con una propria valutazione indipendente dal macro-indicatore;
+# - TitoloStudioRead/EsperienzaRead: record multipli indipendenti, non
+#   collegati alle valutazioni.
+# ---------------------------------------------------------------------------
+
+MacroareaCompetenze = Literal["KNOWLEDGE", "COMPETENCE", "AWARENESS"]
+LivelloValutazione = Literal["BASE", "INTERMEDIO", "AVANZATO"]
+
+
+class MacroIndicatoreRead(_OrmModel):
+    macroarea: MacroareaCompetenze
+    livello: LivelloValutazione | None = None
+    data_valutazione: date | None = None
+    valutatore: str | None = None
+    nota: str | None = None
+    # Solo per Conoscenza/Competenza (§4): il conteggio non concorre al
+    # livello complessivo, è solo informativo.
+    voci_attive: int | None = None
+    voci_nascoste: int | None = None
+
+
+class MacroIndicatoreValutaRequest(_OrmModel):
+    livello: LivelloValutazione
+    data_valutazione: date
+    nota: str | None = None
+
+    @model_validator(mode="after")
+    def _data_non_futura(self) -> "MacroIndicatoreValutaRequest":
+        if self.data_valutazione > date.today():
+            raise ValueError("La data della valutazione non può essere futura.")
+        return self
+
+
+# ---------------------------------------------------------------------------
+# Conoscenza — voci personali (per_voci_valutazione_personali, macroarea
+# KNOWLEDGE): niente ereditarietà da mansione/ruoli/profilo generale (§8.1).
+# ---------------------------------------------------------------------------
+
+
+class ConoscenzaRead(_OrmModel):
+    id: uuid.UUID
+    nome: str
+    descrizione: str | None = None
+    livello: LivelloValutazione | None = None
+    data_valutazione: date | None = None
+    valutatore: str | None = None
+
+
+class ConoscenzaCreate(_OrmModel):
+    nome: str
+    descrizione: str | None = None
+
+    @model_validator(mode="after")
+    def _nome_non_vuoto(self) -> "ConoscenzaCreate":
+        if not self.nome.strip():
+            raise ValueError("Il nome della conoscenza è obbligatorio.")
+        return self
+
+
+class ConoscenzaUpdate(ConoscenzaCreate):
+    pass
+
+
+class ValutazioneVoceRequest(_OrmModel):
+    """`voce_id` è l'id della riga da valutare: una conoscenza personale
+    (per_voci_valutazione_personali) o una voce di competenza di catalogo
+    (cat_voci_valutazione_personale), a seconda dell'endpoint."""
+
+    voce_id: uuid.UUID
+    livello: LivelloValutazione
+    evidenza_nota: str | None = None
+
+
+class ValutaVociRequest(_OrmModel):
+    """Sessione di valutazione analitica (§8.5/§9.4 'Valuta conoscenze'/
+    'Valuta competenze'): una singola voce valutata usa la stessa forma con
+    un solo elemento in `voci`, nessun endpoint duplicato."""
+
+    data_valutazione: date
+    nota_generale: str | None = None
+    voci: list[ValutazioneVoceRequest]
+
+    @model_validator(mode="after")
+    def _validazioni(self) -> "ValutaVociRequest":
+        if self.data_valutazione > date.today():
+            raise ValueError("La data della valutazione non può essere futura.")
+        if not self.voci:
+            raise ValueError("Seleziona almeno una voce da valutare.")
+        return self
+
+
+# ---------------------------------------------------------------------------
+# Competenza — esclusivamente dai mansionari dei ruoli attivi assegnati
+# alla persona (§9.1): stesso motore ruolo+mansionario già usato da
+# `mansionario_ruolo`, qui aggregato per persona invece che per ruolo.
+# ---------------------------------------------------------------------------
+
+
+class CompetenzaRead(_OrmModel):
+    voce_id: uuid.UUID
+    nome: str
+    descrizione: str | None = None
+    ruoli_origine: list[str]
+    livello: LivelloValutazione | None = None
+    data_valutazione: date | None = None
+    valutatore: str | None = None
+
+
+class CompetenzaNascostaRead(_OrmModel):
+    voce_id: uuid.UUID
+    nome: str
+    descrizione: str | None = None
+    ruoli_origine: list[str]
+    livello: LivelloValutazione | None = None
+    data_valutazione: date | None = None
+
+
+class CompetenzePersonaRead(_OrmModel):
+    attive: list[CompetenzaRead]
+    nascoste: list[CompetenzaNascostaRead]
+
+
+class NascondiCompetenzaRequest(_OrmModel):
+    motivo: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Titoli di studio (per_titoli_studio_persona + catalogo condiviso
+# cat_tipologie_titoli_studio, già popolato). Stato dichiarato/verificato:
+# stesso motore verifica_riga già usato da Titoli abilitativi/Soci/
+# Amministratori/Sindaci, mai un secondo sistema di conferma.
+# ---------------------------------------------------------------------------
+
+
+class TitoloStudioRead(_OrmModel):
+    id: uuid.UUID
+    tipologia: CatalogoRead
+    indirizzo_specializzazione: str | None = None
+    istituto: str | None = None
+    anno: int | None = None
+    votazione: str | None = None
+    documento_presente: bool
+    verificationStatus: VerificationStatus | None = None
+    verificationVersion: int | None = None
+    revisionNote: str | None = None
+    verifiedAt: str | None = None
+    verifiedBy: str | None = None
+
+
+class TitoloStudioCreate(_OrmModel):
+    tipologia_titolo_id: uuid.UUID
+    indirizzo_specializzazione: str | None = None
+    istituto: str | None = None
+    anno: int | None = None
+    votazione: str | None = None
+
+    @model_validator(mode="after")
+    def _anno_valido(self) -> "TitoloStudioCreate":
+        if self.anno is not None and not (1930 <= self.anno <= date.today().year):
+            raise ValueError("L'anno di conseguimento non è valido.")
+        return self
+
+
+class TitoloStudioUpdate(TitoloStudioCreate):
+    pass
+
+
+# ---------------------------------------------------------------------------
+# Esperienze rilevanti (per_esperienze). "rilevanza" riusa il CHECK
+# esistente della tabella (§13.3, già esattamente Professionale/Tecnica/
+# Organizzativa): nessun catalogo duplicato. "verificata" è una colonna
+# booleana propria, distinta dal motore verifica_riga usato dai Titoli
+# (decisione già presa dalla migrazione 015 che l'ha creata).
+# ---------------------------------------------------------------------------
+
+RilevanzaEsperienza = Literal["PROFESSIONALE", "TECNICA", "ORGANIZZATIVA"]
+
+
+class EsperienzaRead(_OrmModel):
+    id: uuid.UUID
+    attivita_ruolo: str
+    organizzazione: str | None = None
+    data_inizio: date | None = None
+    data_fine: date | None = None
+    rilevanza: RilevanzaEsperienza
+    descrizione: str | None = None
+    verificata: bool
+    documento_presente: bool
+
+
+class EsperienzaCreate(_OrmModel):
+    attivita_ruolo: str
+    organizzazione: str | None = None
+    data_inizio: date | None = None
+    data_fine: date | None = None
+    rilevanza: RilevanzaEsperienza
+    descrizione: str | None = None
+
+    @model_validator(mode="after")
+    def _validazioni(self) -> "EsperienzaCreate":
+        if not self.attivita_ruolo.strip():
+            raise ValueError("Il ruolo o l'attività è obbligatorio.")
+        if self.data_fine is not None and self.data_inizio is not None and self.data_fine < self.data_inizio:
+            raise ValueError("La data di fine non può precedere la data di inizio.")
+        return self
+
+
+class EsperienzaUpdate(EsperienzaCreate):
+    pass
+
+
+class EsperienzaVerificaRequest(_OrmModel):
+    verificata: bool
+
+
+# ---------------------------------------------------------------------------
+# Note (specificazione "Costruzione della scheda 'Note'") — riusa per_note
+# (migrazione 015/0102, mai popolata): nessuna tabella nuova. "categoria" è
+# un CHECK a valori fissi, non una FK a catalogo (nessun catalogo esiste
+# per questo campo, decisione già presa dalla migrazione), esposta comunque
+# tramite un piccolo endpoint di sola lettura per non duplicare il
+# vocabolario nel frontend. "visibilita" è sempre SOLO_CONSULENTI per le
+# note create da questa scheda (§3: nessun campo Visibilità nel form);
+# "titolo"/"in_evidenza" restano sempre NULL/False, mai esposti. Nessun
+# secondo campo di audit per "ultima modifica": non esiste già, la
+# specifica vieta di aggiungerne uno.
+# ---------------------------------------------------------------------------
+
+NotaCategoria = Literal["GENERALE", "FORMAZIONE", "RUOLO", "SORVEGLIANZA_SANITARIA", "COMPETENZE"]
+
+
+class NotaCategoriaRead(BaseModel):
+    codice: NotaCategoria
+    denominazione: str
+
+
+class NotaRead(_OrmModel):
+    id: uuid.UUID
+    categoria: NotaCategoria
+    testo: str
+    autore: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class NotaCreate(_OrmModel):
+    categoria: NotaCategoria
+    testo: str
+
+    @model_validator(mode="after")
+    def _testo_non_vuoto(self) -> "NotaCreate":
+        if not self.testo.strip():
+            raise ValueError("Il testo della nota è obbligatorio.")
+        return self
+
+
+class NotaUpdate(NotaCreate):
+    pass

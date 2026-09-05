@@ -8,14 +8,15 @@ Service, mai usate altrove nel repository.
 import calendar
 import re
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.incarichi import configurazione_ruolo, leggi_valori
 from app.core.pagination import Page, PageParams, paginate
+from app.core.verifica_riga import leggi_stato_verifica_riga
 from app.models.personale import (
     AnaPersone,
     CatAbilitazione,
@@ -24,6 +25,7 @@ from app.models.personale import (
     CatReparto,
     CatRuolo,
     CatTipoDocumentoIdentita,
+    CatTipologiaTitoloStudio,
     CatTipoRapporto,
     CatTipoVisita,
     CatVoceValutazionePersonale,
@@ -31,12 +33,20 @@ from app.models.personale import (
     PerAbilitazione,
     PerAttivita,
     PerDocumentoPersonale,
+    PerEsperienza,
     PerFormazione,
     PerGiudizioIdoneita,
     PerIncarico,
+    PerNota,
     PerRapportoAzienda,
+    PerTitoloStudio,
+    PerValutazionePersonale,
+    PerValutazionePersonaleDettaglio,
+    PerVoceValutazionePersonale,
+    RelPersonaVoceNascosta,
     RelRuoloVoceValutazione,
 )
+from app.models.sistema import SysUtente
 from app.schemas.personale_hr import (
     AppuntamentoVisitaCreate,
     AppuntamentoVisitaRead,
@@ -46,17 +56,32 @@ from app.schemas.personale_hr import (
     CatalogoCorsoRead,
     CatalogoCreate,
     CatalogoRead,
+    CompetenzaNascostaRead,
+    CompetenzaRead,
     CompetenzaRuoloCreate,
     CompetenzaRuoloRead,
     CompetenzaRuoloUpdate,
+    CompetenzePersonaRead,
+    ConoscenzaCreate,
+    ConoscenzaRead,
+    ConoscenzaUpdate,
     DocumentoPersonaleCreate,
     DocumentoPersonaleRead,
     DocumentoPersonaleUpdate,
+    EsperienzaCreate,
+    EsperienzaRead,
+    EsperienzaUpdate,
     GiudizioIdoneitaCreate,
+    NotaCategoriaRead,
+    NotaCreate,
+    NotaRead,
+    NotaUpdate,
     GiudizioIdoneitaRead,
     GiudizioIdoneitaUpdate,
     IdoneitaSanitariaRead,
     IndicatoriIdoneitaRead,
+    MacroIndicatoreRead,
+    MacroIndicatoreValutaRequest,
     NuovaPersonaRequest,
     PersonaDossierRead,
     PersonaDossierUpdate,
@@ -74,7 +99,16 @@ from app.schemas.personale_hr import (
     RegistrazioneFormativaRead,
     RegistrazioneFormativaUpdate,
     TipoVisitaRead,
+    TitoloStudioCreate,
+    TitoloStudioRead,
+    TitoloStudioUpdate,
+    ValutaVociRequest,
 )
+
+SEZIONE_VERIFICA_TITOLI_STUDIO = "PERSONALE.COMPETENZE.TITOLI_STUDIO"
+"""Sezione per verifica_riga.py: un solo sezione_codice per l'intera
+famiglia di record "titoli di studio" (§ commento generale del motore),
+mai un catalogo di campi statico."""
 
 _DOSSIER_CAMPI_DIRETTI = (
     "matricola_interna",
@@ -1227,3 +1261,766 @@ def crea_promemoria_visita(
         ora=promemoria.ora,
         nota=promemoria.note,
     )
+
+
+# ---------------------------------------------------------------------------
+# Competenze (Conoscenza, Competenza, Consapevolezza) — riusa cat_voci_
+# valutazione_personale/per_voci_valutazione_personali/rel_persone_voci_
+# nascoste/per_valutazioni_personale(_dettagli), tutte esistenti dalla
+# migrazione 013/0100 e mai popolate. "Valutatore" è sempre l'utente
+# autenticato (nessun selettore di utenti azienda esiste ancora in
+# piattaforma): stesso principio già in uso per verificato_da/hidden_by/
+# created_by in questo stesso modulo.
+# ---------------------------------------------------------------------------
+
+_MACROAREE = ("KNOWLEDGE", "COMPETENCE", "AWARENESS")
+
+
+def _nome_valutatore(db: Session, utente_id: uuid.UUID | None) -> str | None:
+    if utente_id is None:
+        return None
+    utente = db.get(SysUtente, utente_id)
+    return f"{utente.nome} {utente.cognome}" if utente is not None else None
+
+
+def _ultima_valutazione_macro(
+    db: Session, azienda_id: uuid.UUID, persona_id: uuid.UUID, macroarea: str
+) -> PerValutazionePersonale | None:
+    stmt = (
+        select(PerValutazionePersonale)
+        .where(
+            PerValutazionePersonale.azienda_id == azienda_id,
+            PerValutazionePersonale.persona_id == persona_id,
+            PerValutazionePersonale.macroarea == macroarea,
+            PerValutazionePersonale.livello_complessivo.is_not(None),
+        )
+        .order_by(PerValutazionePersonale.data_valutazione.desc(), PerValutazionePersonale.created_at.desc())
+        .limit(1)
+    )
+    return db.scalars(stmt).first()
+
+
+def _ultime_valutazioni_dettaglio(
+    db: Session,
+    persona_id: uuid.UUID,
+    *,
+    voce_ids: list[uuid.UUID] | None = None,
+    voce_personale_ids: list[uuid.UUID] | None = None,
+) -> dict[uuid.UUID, tuple[str, date, str | None]]:
+    """Ultima valutazione analitica per voce (§8.5/§9.4): righe già ordinate
+    dalla più recente, si tiene solo la prima incontrata per ciascuna voce
+    (mai la media o un aggregato)."""
+
+    if not voce_ids and not voce_personale_ids:
+        return {}
+    stmt = (
+        select(PerValutazionePersonaleDettaglio, PerValutazionePersonale)
+        .join(PerValutazionePersonale, PerValutazionePersonale.id == PerValutazionePersonaleDettaglio.valutazione_id)
+        .where(PerValutazionePersonale.persona_id == persona_id)
+        .order_by(PerValutazionePersonale.data_valutazione.desc(), PerValutazionePersonale.created_at.desc())
+    )
+    if voce_ids:
+        stmt = stmt.where(PerValutazionePersonaleDettaglio.voce_id.in_(voce_ids))
+    else:
+        stmt = stmt.where(PerValutazionePersonaleDettaglio.voce_personale_id.in_(voce_personale_ids or []))
+
+    risultato: dict[uuid.UUID, tuple[str, date, str | None]] = {}
+    for dettaglio, testata in db.execute(stmt).all():
+        chiave = dettaglio.voce_id or dettaglio.voce_personale_id
+        assert chiave is not None
+        if chiave not in risultato:
+            risultato[chiave] = (dettaglio.livello, testata.data_valutazione, _nome_valutatore(db, testata.valutatore_user_id))
+    return risultato
+
+
+def _competenze_ereditate_raw(
+    db: Session, azienda_id: uuid.UUID, persona_id: uuid.UUID
+) -> list[tuple[CatVoceValutazionePersonale, str]]:
+    """Competenze dei mansionari dei SOLI ruoli attivi assegnati alla
+    persona (§9.1): niente mansione, profilo generale o voci personali —
+    a differenza del profilo "aziendale" completo, qui la fonte è
+    esclusivamente il ruolo."""
+
+    stmt = (
+        select(CatVoceValutazionePersonale, CatRuolo.denominazione)
+        .select_from(PerIncarico)
+        .join(CatRuolo, CatRuolo.id == PerIncarico.ruolo_id)
+        .join(
+            CfgRuoloAzienda,
+            (CfgRuoloAzienda.azienda_id == PerIncarico.azienda_id) & (CfgRuoloAzienda.ruolo_id == PerIncarico.ruolo_id),
+        )
+        .join(
+            RelRuoloVoceValutazione,
+            (RelRuoloVoceValutazione.configurazione_ruolo_id == CfgRuoloAzienda.id)
+            & (RelRuoloVoceValutazione.attiva.is_(True)),
+        )
+        .join(CatVoceValutazionePersonale, CatVoceValutazionePersonale.id == RelRuoloVoceValutazione.voce_id)
+        .where(
+            PerIncarico.persona_id == persona_id,
+            PerIncarico.azienda_id == azienda_id,
+            PerIncarico.stato == "ATTIVO",
+            CatVoceValutazionePersonale.macroarea == "COMPETENCE",
+            CatVoceValutazionePersonale.attiva.is_(True),
+        )
+    )
+    return list(db.execute(stmt).all())
+
+
+def _competenze_persona(
+    db: Session, azienda_id: uuid.UUID, persona_id: uuid.UUID
+) -> tuple[list[CompetenzaRead], list[CompetenzaNascostaRead]]:
+    righe = _competenze_ereditate_raw(db, azienda_id, persona_id)
+
+    # Deduplica per identificativo stabile della voce (§9.3): due voci con
+    # lo stesso nome ma id diversi restano due righe distinte, mai fuse.
+    per_voce: dict[uuid.UUID, dict] = {}
+    for voce, ruolo_denominazione in righe:
+        entry = per_voce.setdefault(voce.id, {"voce": voce, "ruoli": set()})
+        entry["ruoli"].add(ruolo_denominazione)
+
+    if not per_voce:
+        return [], []
+
+    nascoste_ids = set(
+        db.scalars(
+            select(RelPersonaVoceNascosta.voce_id).where(
+                RelPersonaVoceNascosta.persona_id == persona_id,
+                RelPersonaVoceNascosta.voce_id.in_(per_voce.keys()),
+                RelPersonaVoceNascosta.attiva.is_(True),
+            )
+        )
+    )
+    ultime = _ultime_valutazioni_dettaglio(db, persona_id, voce_ids=list(per_voce.keys()))
+
+    attive: list[CompetenzaRead] = []
+    nascoste: list[CompetenzaNascostaRead] = []
+    for voce_id, entry in per_voce.items():
+        voce: CatVoceValutazionePersonale = entry["voce"]
+        ruoli = sorted(entry["ruoli"])
+        ultima = ultime.get(voce_id)
+        if voce_id in nascoste_ids:
+            nascoste.append(
+                CompetenzaNascostaRead(
+                    voce_id=voce_id,
+                    nome=voce.nome,
+                    descrizione=voce.descrizione,
+                    ruoli_origine=ruoli,
+                    livello=ultima[0] if ultima else None,
+                    data_valutazione=ultima[1] if ultima else None,
+                )
+            )
+        else:
+            attive.append(
+                CompetenzaRead(
+                    voce_id=voce_id,
+                    nome=voce.nome,
+                    descrizione=voce.descrizione,
+                    ruoli_origine=ruoli,
+                    livello=ultima[0] if ultima else None,
+                    data_valutazione=ultima[1] if ultima else None,
+                    valutatore=ultima[2] if ultima else None,
+                )
+            )
+    attive.sort(key=lambda r: r.nome)
+    nascoste.sort(key=lambda r: r.nome)
+    return attive, nascoste
+
+
+def macro_indicatori_persona(db: Session, azienda_id: uuid.UUID, persona_id: uuid.UUID) -> list[MacroIndicatoreRead]:
+    attive_competenza, nascoste_competenza = _competenze_persona(db, azienda_id, persona_id)
+    conteggio_conoscenze = db.scalar(
+        select(func.count())
+        .select_from(PerVoceValutazionePersonale)
+        .where(
+            PerVoceValutazionePersonale.azienda_id == azienda_id,
+            PerVoceValutazionePersonale.persona_id == persona_id,
+            PerVoceValutazionePersonale.macroarea == "KNOWLEDGE",
+            PerVoceValutazionePersonale.attiva.is_(True),
+        )
+    ) or 0
+
+    risultato: list[MacroIndicatoreRead] = []
+    for macroarea in _MACROAREE:
+        valutazione = _ultima_valutazione_macro(db, azienda_id, persona_id, macroarea)
+        voci_attive: int | None = None
+        voci_nascoste: int | None = None
+        if macroarea == "KNOWLEDGE":
+            voci_attive, voci_nascoste = conteggio_conoscenze, 0
+        elif macroarea == "COMPETENCE":
+            voci_attive, voci_nascoste = len(attive_competenza), len(nascoste_competenza)
+        risultato.append(
+            MacroIndicatoreRead(
+                macroarea=macroarea,
+                livello=valutazione.livello_complessivo if valutazione else None,
+                data_valutazione=valutazione.data_valutazione if valutazione else None,
+                valutatore=_nome_valutatore(db, valutazione.valutatore_user_id) if valutazione else None,
+                nota=valutazione.nota_generale if valutazione else None,
+                voci_attive=voci_attive,
+                voci_nascoste=voci_nascoste,
+            )
+        )
+    return risultato
+
+
+def valuta_macro_indicatore(
+    db: Session,
+    azienda_id: uuid.UUID,
+    utente_id: uuid.UUID,
+    persona_id: uuid.UUID,
+    macroarea: str,
+    payload: MacroIndicatoreValutaRequest,
+) -> MacroIndicatoreRead:
+    persona = _persona_owned_or_none(db, persona_id, azienda_id)
+    if persona is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Persona non trovata.")
+    if macroarea not in _MACROAREE:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Macro-indicatore non riconosciuto.")
+
+    # Riga di sola testata, nessun dettaglio collegato (§6): il salvataggio
+    # non tocca mai conoscenze, competenze o voci nascoste.
+    valutazione = PerValutazionePersonale(
+        azienda_id=azienda_id,
+        persona_id=persona_id,
+        macroarea=macroarea,
+        data_valutazione=payload.data_valutazione,
+        valutatore_user_id=utente_id,
+        nota_generale=payload.nota,
+        livello_complessivo=payload.livello,
+    )
+    db.add(valutazione)
+    db.commit()
+
+    risultato = macro_indicatori_persona(db, azienda_id, persona_id)
+    return next(m for m in risultato if m.macroarea == macroarea)
+
+
+# ---------------------------------------------------------------------------
+# Conoscenza — voci personali (§8): niente ereditarietà, appartengono solo
+# alla persona.
+# ---------------------------------------------------------------------------
+
+
+def _conoscenza_a_read(db: Session, riga: PerVoceValutazionePersonale) -> ConoscenzaRead:
+    ultima = _ultime_valutazioni_dettaglio(db, riga.persona_id, voce_personale_ids=[riga.id]).get(riga.id)
+    return ConoscenzaRead(
+        id=riga.id,
+        nome=riga.nome,
+        descrizione=riga.descrizione,
+        livello=ultima[0] if ultima else None,
+        data_valutazione=ultima[1] if ultima else None,
+        valutatore=ultima[2] if ultima else None,
+    )
+
+
+def conoscenze_persona(db: Session, azienda_id: uuid.UUID, persona_id: uuid.UUID) -> list[ConoscenzaRead]:
+    stmt = (
+        select(PerVoceValutazionePersonale)
+        .where(
+            PerVoceValutazionePersonale.azienda_id == azienda_id,
+            PerVoceValutazionePersonale.persona_id == persona_id,
+            PerVoceValutazionePersonale.macroarea == "KNOWLEDGE",
+            PerVoceValutazionePersonale.attiva.is_(True),
+        )
+        .order_by(PerVoceValutazionePersonale.nome)
+    )
+    righe = db.scalars(stmt).all()
+    if not righe:
+        return []
+    ultime = _ultime_valutazioni_dettaglio(db, persona_id, voce_personale_ids=[r.id for r in righe])
+    return [
+        ConoscenzaRead(
+            id=r.id,
+            nome=r.nome,
+            descrizione=r.descrizione,
+            livello=(ultime.get(r.id) or (None,))[0],
+            data_valutazione=(ultime.get(r.id) or (None, None))[1],
+            valutatore=(ultime.get(r.id) or (None, None, None))[2],
+        )
+        for r in righe
+    ]
+
+
+def crea_conoscenza(
+    db: Session, azienda_id: uuid.UUID, utente_id: uuid.UUID, persona_id: uuid.UUID, payload: ConoscenzaCreate
+) -> ConoscenzaRead:
+    persona = _persona_owned_or_none(db, persona_id, azienda_id)
+    if persona is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Persona non trovata.")
+    riga = PerVoceValutazionePersonale(
+        azienda_id=azienda_id,
+        persona_id=persona_id,
+        macroarea="KNOWLEDGE",
+        nome=payload.nome.strip(),
+        descrizione=payload.descrizione,
+        created_by=utente_id,
+    )
+    db.add(riga)
+    db.commit()
+    db.refresh(riga)
+    return _conoscenza_a_read(db, riga)
+
+
+def _conoscenza_owned_or_none(db: Session, azienda_id: uuid.UUID, conoscenza_id: uuid.UUID) -> PerVoceValutazionePersonale | None:
+    riga = db.get(PerVoceValutazionePersonale, conoscenza_id)
+    if riga is None or riga.azienda_id != azienda_id or riga.macroarea != "KNOWLEDGE":
+        return None
+    return riga
+
+
+def aggiorna_conoscenza(
+    db: Session, azienda_id: uuid.UUID, conoscenza_id: uuid.UUID, payload: ConoscenzaUpdate
+) -> ConoscenzaRead | None:
+    riga = _conoscenza_owned_or_none(db, azienda_id, conoscenza_id)
+    if riga is None:
+        return None
+    riga.nome = payload.nome.strip()
+    riga.descrizione = payload.descrizione
+    db.commit()
+    db.refresh(riga)
+    return _conoscenza_a_read(db, riga)
+
+
+def archivia_conoscenza(db: Session, azienda_id: uuid.UUID, conoscenza_id: uuid.UUID) -> bool:
+    riga = _conoscenza_owned_or_none(db, azienda_id, conoscenza_id)
+    if riga is None:
+        return False
+    # Archiviazione, non cancellazione fisica (§8.4 "rimozione o
+    # archiviazione"): la colonna archived_at esiste apposta, le
+    # valutazioni analitiche già registrate restano intatte nello storico.
+    riga.attiva = False
+    riga.archived_at = datetime.now(timezone.utc)
+    db.commit()
+    return True
+
+
+def valuta_conoscenze(
+    db: Session, azienda_id: uuid.UUID, utente_id: uuid.UUID, persona_id: uuid.UUID, payload: ValutaVociRequest
+) -> list[ConoscenzaRead]:
+    persona = _persona_owned_or_none(db, persona_id, azienda_id)
+    if persona is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Persona non trovata.")
+
+    valutazione = PerValutazionePersonale(
+        azienda_id=azienda_id,
+        persona_id=persona_id,
+        macroarea="KNOWLEDGE",
+        data_valutazione=payload.data_valutazione,
+        valutatore_user_id=utente_id,
+        nota_generale=payload.nota_generale,
+    )
+    db.add(valutazione)
+    db.flush()
+
+    for voce in payload.voci:
+        riga = _conoscenza_owned_or_none(db, azienda_id, voce.voce_id)
+        if riga is None or riga.persona_id != persona_id:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Conoscenza non trovata per questa persona.")
+        db.add(
+            PerValutazionePersonaleDettaglio(
+                valutazione_id=valutazione.id,
+                voce_personale_id=riga.id,
+                livello=voce.livello,
+                evidenza_nota=voce.evidenza_nota,
+                snapshot_nome=riga.nome,
+            )
+        )
+    db.commit()
+    return conoscenze_persona(db, azienda_id, persona_id)
+
+
+# ---------------------------------------------------------------------------
+# Competenza — esclusivamente ereditata dai mansionari dei ruoli attivi
+# (§9): nessun "Aggiungi voce personale" in questa categoria.
+# ---------------------------------------------------------------------------
+
+
+def competenze_persona(db: Session, azienda_id: uuid.UUID, persona_id: uuid.UUID) -> CompetenzePersonaRead:
+    attive, nascoste = _competenze_persona(db, azienda_id, persona_id)
+    return CompetenzePersonaRead(attive=attive, nascoste=nascoste)
+
+
+def valuta_competenze(
+    db: Session, azienda_id: uuid.UUID, utente_id: uuid.UUID, persona_id: uuid.UUID, payload: ValutaVociRequest
+) -> CompetenzePersonaRead:
+    persona = _persona_owned_or_none(db, persona_id, azienda_id)
+    if persona is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Persona non trovata.")
+
+    attive, _ = _competenze_persona(db, azienda_id, persona_id)
+    validi = {c.voce_id for c in attive}
+
+    valutazione = PerValutazionePersonale(
+        azienda_id=azienda_id,
+        persona_id=persona_id,
+        macroarea="COMPETENCE",
+        data_valutazione=payload.data_valutazione,
+        valutatore_user_id=utente_id,
+        nota_generale=payload.nota_generale,
+    )
+    db.add(valutazione)
+    db.flush()
+
+    for voce in payload.voci:
+        if voce.voce_id not in validi:
+            # Include il caso "voce nascosta" (§10.3, esclusa dall'elenco
+            # attivo da valutare): non è un errore generico, è la stessa
+            # regola applicata qui.
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Competenza non trovata o non attiva per questa persona.")
+        cat_voce = db.get(CatVoceValutazionePersonale, voce.voce_id)
+        assert cat_voce is not None
+        db.add(
+            PerValutazionePersonaleDettaglio(
+                valutazione_id=valutazione.id,
+                voce_id=voce.voce_id,
+                livello=voce.livello,
+                evidenza_nota=voce.evidenza_nota,
+                snapshot_nome=cat_voce.nome,
+            )
+        )
+    db.commit()
+    return competenze_persona(db, azienda_id, persona_id)
+
+
+def nascondi_competenza(
+    db: Session, azienda_id: uuid.UUID, utente_id: uuid.UUID, persona_id: uuid.UUID, voce_id: uuid.UUID, motivo: str | None
+) -> CompetenzePersonaRead:
+    attive, _ = _competenze_persona(db, azienda_id, persona_id)
+    if voce_id not in {c.voce_id for c in attive}:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Competenza non trovata o già nascosta per questa persona.")
+
+    riga = db.scalars(
+        select(RelPersonaVoceNascosta).where(
+            RelPersonaVoceNascosta.persona_id == persona_id, RelPersonaVoceNascosta.voce_id == voce_id
+        )
+    ).first()
+    if riga is None:
+        riga = RelPersonaVoceNascosta(azienda_id=azienda_id, persona_id=persona_id, voce_id=voce_id)
+        db.add(riga)
+    riga.attiva = True
+    riga.motivo = motivo
+    riga.hidden_by = utente_id
+    riga.hidden_at = datetime.now(timezone.utc)
+    riga.restored_by = None
+    riga.restored_at = None
+    db.commit()
+    return competenze_persona(db, azienda_id, persona_id)
+
+
+def ripristina_competenza(
+    db: Session, azienda_id: uuid.UUID, utente_id: uuid.UUID, persona_id: uuid.UUID, voce_id: uuid.UUID
+) -> CompetenzePersonaRead:
+    riga = db.scalars(
+        select(RelPersonaVoceNascosta).where(
+            RelPersonaVoceNascosta.persona_id == persona_id,
+            RelPersonaVoceNascosta.voce_id == voce_id,
+            RelPersonaVoceNascosta.attiva.is_(True),
+        )
+    ).first()
+    if riga is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "La competenza non risulta nascosta per questa persona.")
+    # La voce torna nell'elenco attivo conservando la valutazione
+    # precedente (§10.4): nessuna nuova copia, la riga di nascondimento
+    # resta per lo storico ma disattivata.
+    riga.attiva = False
+    riga.restored_by = utente_id
+    riga.restored_at = datetime.now(timezone.utc)
+    db.commit()
+    return competenze_persona(db, azienda_id, persona_id)
+
+
+# ---------------------------------------------------------------------------
+# Titoli di studio (§12) — catalogo condiviso già popolato, stato dichiarato
+# /verificato tramite verifica_riga.py (§ decisione già presa dalla
+# migrazione 015, nessuna colonna qui).
+# ---------------------------------------------------------------------------
+
+
+def lista_catalogo_titoli_studio(db: Session) -> list[CatTipologiaTitoloStudio]:
+    stmt = (
+        select(CatTipologiaTitoloStudio)
+        .where(CatTipologiaTitoloStudio.attivo.is_(True))
+        .order_by(CatTipologiaTitoloStudio.ordine_visualizzazione)
+    )
+    return list(db.scalars(stmt).all())
+
+
+def _titolo_studio_a_read(db: Session, azienda_id: uuid.UUID, titolo: PerTitoloStudio, tipologia: CatTipologiaTitoloStudio) -> TitoloStudioRead:
+    stato = leggi_stato_verifica_riga(db, azienda_id, SEZIONE_VERIFICA_TITOLI_STUDIO, titolo.id)
+    return TitoloStudioRead(
+        id=titolo.id,
+        tipologia=tipologia,
+        indirizzo_specializzazione=titolo.indirizzo_specializzazione,
+        istituto=titolo.istituto,
+        anno=titolo.anno,
+        votazione=titolo.votazione,
+        documento_presente=titolo.documento_id is not None,
+        verificationStatus=stato["status"],
+        verificationVersion=stato["version"],
+        revisionNote=stato["note"],
+        verifiedAt=stato["verified_at"],
+        verifiedBy=stato["verified_by"],
+    )
+
+
+def dettaglio_titolo_studio(db: Session, azienda_id: uuid.UUID, titolo_id: uuid.UUID) -> TitoloStudioRead | None:
+    titolo = _titolo_studio_owned_or_none(db, azienda_id, titolo_id)
+    if titolo is None:
+        return None
+    tipologia = db.get(CatTipologiaTitoloStudio, titolo.tipologia_titolo_id)
+    assert tipologia is not None
+    return _titolo_studio_a_read(db, azienda_id, titolo, tipologia)
+
+
+def lista_titoli_studio_persona(db: Session, azienda_id: uuid.UUID, persona_id: uuid.UUID) -> list[TitoloStudioRead]:
+    stmt = (
+        select(PerTitoloStudio, CatTipologiaTitoloStudio)
+        .join(CatTipologiaTitoloStudio, CatTipologiaTitoloStudio.id == PerTitoloStudio.tipologia_titolo_id)
+        .where(PerTitoloStudio.azienda_id == azienda_id, PerTitoloStudio.persona_id == persona_id)
+        .order_by(PerTitoloStudio.anno.desc().nulls_last(), PerTitoloStudio.created_at.desc())
+    )
+    return [_titolo_studio_a_read(db, azienda_id, t, tip) for t, tip in db.execute(stmt).all()]
+
+
+def crea_titolo_studio(
+    db: Session, azienda_id: uuid.UUID, persona_id: uuid.UUID, payload: TitoloStudioCreate
+) -> TitoloStudioRead:
+    persona = _persona_owned_or_none(db, persona_id, azienda_id)
+    if persona is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Persona non trovata.")
+    tipologia = db.get(CatTipologiaTitoloStudio, payload.tipologia_titolo_id)
+    if tipologia is None or not tipologia.attivo:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Tipologia di titolo di studio non trovata.")
+
+    titolo = PerTitoloStudio(
+        azienda_id=azienda_id,
+        persona_id=persona_id,
+        tipologia_titolo_id=tipologia.id,
+        indirizzo_specializzazione=payload.indirizzo_specializzazione,
+        istituto=payload.istituto,
+        anno=payload.anno,
+        votazione=payload.votazione,
+    )
+    db.add(titolo)
+    db.commit()
+    db.refresh(titolo)
+    return _titolo_studio_a_read(db, azienda_id, titolo, tipologia)
+
+
+def _titolo_studio_owned_or_none(db: Session, azienda_id: uuid.UUID, titolo_id: uuid.UUID) -> PerTitoloStudio | None:
+    titolo = db.get(PerTitoloStudio, titolo_id)
+    if titolo is None or titolo.azienda_id != azienda_id:
+        return None
+    return titolo
+
+
+def aggiorna_titolo_studio(
+    db: Session, azienda_id: uuid.UUID, titolo_id: uuid.UUID, payload: TitoloStudioUpdate
+) -> TitoloStudioRead | None:
+    titolo = _titolo_studio_owned_or_none(db, azienda_id, titolo_id)
+    if titolo is None:
+        return None
+    tipologia = db.get(CatTipologiaTitoloStudio, payload.tipologia_titolo_id)
+    if tipologia is None or not tipologia.attivo:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Tipologia di titolo di studio non trovata.")
+
+    titolo.tipologia_titolo_id = tipologia.id
+    titolo.indirizzo_specializzazione = payload.indirizzo_specializzazione
+    titolo.istituto = payload.istituto
+    titolo.anno = payload.anno
+    titolo.votazione = payload.votazione
+    db.commit()
+    db.refresh(titolo)
+    return _titolo_studio_a_read(db, azienda_id, titolo, tipologia)
+
+
+def elimina_titolo_studio(db: Session, azienda_id: uuid.UUID, titolo_id: uuid.UUID) -> bool:
+    titolo = _titolo_studio_owned_or_none(db, azienda_id, titolo_id)
+    if titolo is None:
+        return False
+    db.delete(titolo)
+    db.commit()
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Esperienze rilevanti (§13) — "verificata" è una colonna booleana propria
+# della tabella (decisione già presa dalla migrazione 015), non passa da
+# verifica_riga.py.
+# ---------------------------------------------------------------------------
+
+
+def _esperienza_a_read(r: PerEsperienza) -> EsperienzaRead:
+    return EsperienzaRead(
+        id=r.id,
+        attivita_ruolo=r.attivita_ruolo,
+        organizzazione=r.organizzazione,
+        data_inizio=r.data_inizio,
+        data_fine=r.data_fine,
+        rilevanza=r.rilevanza,
+        descrizione=r.descrizione,
+        verificata=r.verificata,
+        documento_presente=r.documento_id is not None,
+    )
+
+
+def lista_esperienze_persona(db: Session, azienda_id: uuid.UUID, persona_id: uuid.UUID) -> list[EsperienzaRead]:
+    stmt = (
+        select(PerEsperienza)
+        .where(PerEsperienza.azienda_id == azienda_id, PerEsperienza.persona_id == persona_id)
+        .order_by(PerEsperienza.data_inizio.desc().nulls_last(), PerEsperienza.created_at.desc())
+    )
+    return [_esperienza_a_read(r) for r in db.scalars(stmt).all()]
+
+
+def crea_esperienza(db: Session, azienda_id: uuid.UUID, persona_id: uuid.UUID, payload: EsperienzaCreate) -> EsperienzaRead:
+    persona = _persona_owned_or_none(db, persona_id, azienda_id)
+    if persona is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Persona non trovata.")
+    riga = PerEsperienza(
+        azienda_id=azienda_id,
+        persona_id=persona_id,
+        attivita_ruolo=payload.attivita_ruolo.strip(),
+        organizzazione=payload.organizzazione,
+        data_inizio=payload.data_inizio,
+        data_fine=payload.data_fine,
+        rilevanza=payload.rilevanza,
+        descrizione=payload.descrizione,
+    )
+    db.add(riga)
+    db.commit()
+    db.refresh(riga)
+    return _esperienza_a_read(riga)
+
+
+def _esperienza_owned_or_none(db: Session, azienda_id: uuid.UUID, esperienza_id: uuid.UUID) -> PerEsperienza | None:
+    riga = db.get(PerEsperienza, esperienza_id)
+    if riga is None or riga.azienda_id != azienda_id:
+        return None
+    return riga
+
+
+def aggiorna_esperienza(
+    db: Session, azienda_id: uuid.UUID, esperienza_id: uuid.UUID, payload: EsperienzaUpdate
+) -> EsperienzaRead | None:
+    riga = _esperienza_owned_or_none(db, azienda_id, esperienza_id)
+    if riga is None:
+        return None
+    riga.attivita_ruolo = payload.attivita_ruolo.strip()
+    riga.organizzazione = payload.organizzazione
+    riga.data_inizio = payload.data_inizio
+    riga.data_fine = payload.data_fine
+    riga.rilevanza = payload.rilevanza
+    riga.descrizione = payload.descrizione
+    db.commit()
+    db.refresh(riga)
+    return _esperienza_a_read(riga)
+
+
+def elimina_esperienza(db: Session, azienda_id: uuid.UUID, esperienza_id: uuid.UUID) -> bool:
+    riga = _esperienza_owned_or_none(db, azienda_id, esperienza_id)
+    if riga is None:
+        return False
+    db.delete(riga)
+    db.commit()
+    return True
+
+
+def verifica_esperienza(db: Session, azienda_id: uuid.UUID, esperienza_id: uuid.UUID, verificata: bool) -> EsperienzaRead | None:
+    riga = _esperienza_owned_or_none(db, azienda_id, esperienza_id)
+    if riga is None:
+        return None
+    riga.verificata = verificata
+    db.commit()
+    db.refresh(riga)
+    return _esperienza_a_read(riga)
+
+
+# ---------------------------------------------------------------------------
+# Note (§ specificazione "Costruzione della scheda 'Note'") — riusa per_note
+# (migrazione 015/0102, mai popolata). Nessun catalogo esiste per
+# "categoria" (CHECK a valori fissi): il vocabolario vive qui, unica fonte,
+# invece di essere duplicato nel frontend. "visibilita" è sempre
+# SOLO_CONSULENTI (§3, nessun campo nel form); "titolo"/"in_evidenza" non
+# vengono mai valorizzati da questa scheda.
+# ---------------------------------------------------------------------------
+
+NOTA_CATEGORIE: list[tuple[str, str]] = [
+    ("GENERALE", "Generale"),
+    ("FORMAZIONE", "Formazione"),
+    ("RUOLO", "Ruolo"),
+    ("SORVEGLIANZA_SANITARIA", "Sorveglianza sanitaria"),
+    ("COMPETENZE", "Competenza"),
+]
+
+
+def lista_categorie_nota() -> list[NotaCategoriaRead]:
+    return [NotaCategoriaRead(codice=codice, denominazione=denominazione) for codice, denominazione in NOTA_CATEGORIE]
+
+
+def _nota_a_read(db: Session, nota: PerNota) -> NotaRead:
+    return NotaRead(
+        id=nota.id,
+        categoria=nota.categoria,
+        testo=nota.testo,
+        autore=_nome_valutatore(db, nota.autore_user_id),
+        created_at=nota.created_at,
+        updated_at=nota.updated_at,
+    )
+
+
+def note_persona(db: Session, azienda_id: uuid.UUID, persona_id: uuid.UUID) -> list[NotaRead]:
+    stmt = (
+        select(PerNota)
+        .where(PerNota.azienda_id == azienda_id, PerNota.persona_id == persona_id, PerNota.archived_at.is_(None))
+        .order_by(PerNota.created_at.desc(), PerNota.id.desc())
+    )
+    return [_nota_a_read(db, r) for r in db.scalars(stmt).all()]
+
+
+def crea_nota(db: Session, azienda_id: uuid.UUID, utente_id: uuid.UUID, persona_id: uuid.UUID, payload: NotaCreate) -> NotaRead:
+    persona = _persona_owned_or_none(db, persona_id, azienda_id)
+    if persona is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Persona non trovata.")
+    nota = PerNota(
+        azienda_id=azienda_id,
+        persona_id=persona_id,
+        categoria=payload.categoria,
+        testo=payload.testo.strip(),
+        visibilita="SOLO_CONSULENTI",
+        autore_user_id=utente_id,
+    )
+    db.add(nota)
+    db.commit()
+    db.refresh(nota)
+    return _nota_a_read(db, nota)
+
+
+def _nota_owned_or_none(db: Session, azienda_id: uuid.UUID, nota_id: uuid.UUID) -> PerNota | None:
+    nota = db.get(PerNota, nota_id)
+    if nota is None or nota.azienda_id != azienda_id or nota.archived_at is not None:
+        return None
+    return nota
+
+
+def aggiorna_nota(db: Session, azienda_id: uuid.UUID, nota_id: uuid.UUID, payload: NotaUpdate) -> NotaRead | None:
+    # L'autore originale e created_at non vengono mai toccati (§11): solo
+    # categoria/testo cambiano, updated_at si aggiorna da solo (trigger).
+    nota = _nota_owned_or_none(db, azienda_id, nota_id)
+    if nota is None:
+        return None
+    nota.categoria = payload.categoria
+    nota.testo = payload.testo.strip()
+    db.commit()
+    db.refresh(nota)
+    return _nota_a_read(db, nota)
+
+
+def archivia_nota(db: Session, azienda_id: uuid.UUID, nota_id: uuid.UUID) -> bool:
+    # Cancellazione logica (§12): archived_at esiste già per questo, stesso
+    # principio già applicato a Conoscenza in questo modulo.
+    nota = _nota_owned_or_none(db, azienda_id, nota_id)
+    if nota is None:
+        return False
+    nota.archived_at = datetime.now(timezone.utc)
+    db.commit()
+    return True

@@ -597,6 +597,7 @@ class PerValutazionePersonale(Base):
     data_valutazione: Mapped[date]
     valutatore_user_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("sys_utenti.id"))
     nota_generale: Mapped[str | None] = mapped_column(Text)
+    livello_complessivo: Mapped[str | None] = mapped_column(String(20))
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -764,6 +765,27 @@ class PerGiudizioIdoneita(Base):
     medico_competente: Mapped[str | None] = mapped_column(String(300))
     prescrizioni_minime: Mapped[str | None] = mapped_column(Text)
     documento_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatTipologiaTitoloStudio(Base):
+    """Catalogo globale di sistema delle tipologie di titolo di studio
+    (Cataloghi/005, già esistente e popolato con 20 voci — nessun modello
+    ORM esisteva ancora, mappata qui per la prima volta)."""
+
+    __tablename__ = "cat_tipologie_titoli_studio"
+
+    id: Mapped[uuid.UUID] = _id_col()
+    codice: Mapped[str] = mapped_column(String(80))
+    denominazione: Mapped[str] = mapped_column(String(250))
+    categoria: Mapped[str] = mapped_column(String(50))
+    descrizione: Mapped[str | None] = mapped_column(Text)
+    ordine_visualizzazione: Mapped[int] = mapped_column(SmallInteger)
+    attivo: Mapped[bool] = mapped_column(Boolean, default=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

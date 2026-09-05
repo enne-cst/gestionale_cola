@@ -26,38 +26,68 @@ from app.core.pagination import Page, PageParams
 from app.core.personale_hr import (
     aggiorna_appuntamento_visita,
     aggiorna_competenza_ruolo,
+    aggiorna_conoscenza,
     aggiorna_documento_persona,
+    aggiorna_esperienza,
     aggiorna_giudizio_idoneita,
+    aggiorna_nota,
     aggiorna_profilo_persona,
     aggiorna_registrazione_formativa,
+    aggiorna_titolo_studio,
     aggiungi_competenza_ruolo,
+    archivia_conoscenza,
+    archivia_nota,
+    competenze_persona,
+    conoscenze_persona,
     crea_appuntamento_visita,
+    crea_conoscenza,
     crea_corso_formazione,
     crea_documento_persona,
+    crea_esperienza,
     crea_giudizio_idoneita,
     crea_mansione,
     crea_persona_con_rapporto,
     crea_promemoria_visita,
     crea_registrazione_formativa,
     crea_reparto,
+    crea_nota,
+    crea_titolo_studio,
+    dettaglio_titolo_studio,
     elimina_documento_persona,
+    elimina_esperienza,
+    elimina_titolo_studio,
     idoneita_sanitaria_persona,
     lista_abilitazioni_catalogo,
+    lista_catalogo_titoli_studio,
     lista_corsi_formazione,
     lista_documenti_persona,
+    lista_esperienze_persona,
     lista_mansioni,
     lista_persone,
     lista_reparti,
     lista_tipi_documento,
     lista_tipi_rapporto,
     lista_tipi_visita,
+    lista_categorie_nota,
+    lista_titoli_studio_persona,
+    macro_indicatori_persona,
     mansionario_ruolo,
+    nascondi_competenza,
+    note_persona,
     profilo_persona,
     rapporto_a_read,
     registrazioni_formative_persona,
     rimuovi_competenza_ruolo,
+    ripristina_competenza,
     ruoli_persona,
+    valuta_competenze,
+    valuta_conoscenze,
+    valuta_macro_indicatore,
+    verifica_esperienza,
+    SEZIONE_VERIFICA_TITOLI_STUDIO,
 )
+from app.core.registro_campi import require_consulente_ctx
+from app.core.verifica_riga import applica_decisione_verifica_riga
 from app.database import get_db
 from app.models.personale import CatRuolo, PerRapportoAzienda
 from app.schemas.personale_hr import (
@@ -72,13 +102,28 @@ from app.schemas.personale_hr import (
     CompetenzaRuoloCreate,
     CompetenzaRuoloRead,
     CompetenzaRuoloUpdate,
+    CompetenzePersonaRead,
+    ConoscenzaCreate,
+    ConoscenzaRead,
+    ConoscenzaUpdate,
     DocumentoPersonaleCreate,
     DocumentoPersonaleRead,
     DocumentoPersonaleUpdate,
+    EsperienzaCreate,
+    EsperienzaRead,
+    EsperienzaUpdate,
+    EsperienzaVerificaRequest,
     GiudizioIdoneitaCreate,
     GiudizioIdoneitaRead,
     GiudizioIdoneitaUpdate,
     IdoneitaSanitariaRead,
+    MacroIndicatoreRead,
+    MacroIndicatoreValutaRequest,
+    NascondiCompetenzaRequest,
+    NotaCategoriaRead,
+    NotaCreate,
+    NotaRead,
+    NotaUpdate,
     NuovaPersonaRequest,
     PersonaListRow,
     PersonaProfiloRead,
@@ -92,7 +137,12 @@ from app.schemas.personale_hr import (
     RegistrazioneFormativaUpdate,
     TipoRegistrazioneFormativa,
     TipoVisitaRead,
+    TitoloStudioCreate,
+    TitoloStudioRead,
+    TitoloStudioUpdate,
+    ValutaVociRequest,
 )
+from app.schemas.registro_campi import ReviewDecisionRequest
 
 MODULO = "Personale"
 TAGS = ["Personale — Anagrafica"]
@@ -568,3 +618,379 @@ def post_promemoria_visita(
     _modulo: None = Depends(_modulo_dep),
 ):
     return crea_promemoria_visita(db, ctx.azienda_id, persona_id, payload)
+
+
+# ---------------------------------------------------------------------------
+# Competenze (Conoscenza, Competenza, Consapevolezza) — stessa assenza di
+# controllo di profilo aggiuntivo del resto del router (nessun sistema di
+# permessi granulari in piattaforma). "Valutatore" è sempre ctx.utente_id,
+# mai un campo del payload: nessun selettore di utenti azienda esiste
+# ancora.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/persone/{persona_id}/competenze/macro-indicatori", response_model=list[MacroIndicatoreRead], tags=TAGS)
+def get_macro_indicatori(
+    persona_id: UUID,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    if profilo_persona(db, ctx.azienda_id, persona_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona non trovata")
+    return macro_indicatori_persona(db, ctx.azienda_id, persona_id)
+
+
+@router.post(
+    "/persone/{persona_id}/competenze/macro-indicatori/{macroarea}/valuta",
+    response_model=MacroIndicatoreRead,
+    tags=TAGS,
+)
+def post_valuta_macro_indicatore(
+    persona_id: UUID,
+    macroarea: str,
+    payload: MacroIndicatoreValutaRequest,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    return valuta_macro_indicatore(db, ctx.azienda_id, ctx.utente_id, persona_id, macroarea, payload)
+
+
+@router.get("/persone/{persona_id}/conoscenze", response_model=list[ConoscenzaRead], tags=TAGS)
+def get_conoscenze_persona(
+    persona_id: UUID,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    if profilo_persona(db, ctx.azienda_id, persona_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona non trovata")
+    return conoscenze_persona(db, ctx.azienda_id, persona_id)
+
+
+@router.post(
+    "/persone/{persona_id}/conoscenze", response_model=ConoscenzaRead, status_code=status.HTTP_201_CREATED, tags=TAGS
+)
+def post_conoscenza(
+    persona_id: UUID,
+    payload: ConoscenzaCreate,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    return crea_conoscenza(db, ctx.azienda_id, ctx.utente_id, persona_id, payload)
+
+
+@router.put("/conoscenze/{conoscenza_id}", response_model=ConoscenzaRead, tags=TAGS)
+def put_conoscenza(
+    conoscenza_id: UUID,
+    payload: ConoscenzaUpdate,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    conoscenza = aggiorna_conoscenza(db, ctx.azienda_id, conoscenza_id, payload)
+    if conoscenza is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conoscenza non trovata")
+    return conoscenza
+
+
+@router.delete("/conoscenze/{conoscenza_id}", status_code=status.HTTP_204_NO_CONTENT, tags=TAGS)
+def delete_conoscenza(
+    conoscenza_id: UUID,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    if not archivia_conoscenza(db, ctx.azienda_id, conoscenza_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conoscenza non trovata")
+
+
+@router.post("/persone/{persona_id}/conoscenze/valuta", response_model=list[ConoscenzaRead], tags=TAGS)
+def post_valuta_conoscenze(
+    persona_id: UUID,
+    payload: ValutaVociRequest,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    return valuta_conoscenze(db, ctx.azienda_id, ctx.utente_id, persona_id, payload)
+
+
+@router.get("/persone/{persona_id}/competenze", response_model=CompetenzePersonaRead, tags=TAGS)
+def get_competenze_persona(
+    persona_id: UUID,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    if profilo_persona(db, ctx.azienda_id, persona_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona non trovata")
+    return competenze_persona(db, ctx.azienda_id, persona_id)
+
+
+@router.post("/persone/{persona_id}/competenze/valuta", response_model=CompetenzePersonaRead, tags=TAGS)
+def post_valuta_competenze(
+    persona_id: UUID,
+    payload: ValutaVociRequest,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    return valuta_competenze(db, ctx.azienda_id, ctx.utente_id, persona_id, payload)
+
+
+@router.post("/persone/{persona_id}/competenze/{voce_id}/nascondi", response_model=CompetenzePersonaRead, tags=TAGS)
+def post_nascondi_competenza(
+    persona_id: UUID,
+    voce_id: UUID,
+    payload: NascondiCompetenzaRequest,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    return nascondi_competenza(db, ctx.azienda_id, ctx.utente_id, persona_id, voce_id, payload.motivo)
+
+
+@router.post("/persone/{persona_id}/competenze/{voce_id}/ripristina", response_model=CompetenzePersonaRead, tags=TAGS)
+def post_ripristina_competenza(
+    persona_id: UUID,
+    voce_id: UUID,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    return ripristina_competenza(db, ctx.azienda_id, ctx.utente_id, persona_id, voce_id)
+
+
+# ---------------------------------------------------------------------------
+# Titoli di studio — stato dichiarato/verificato tramite verifica_riga.py
+# (§ commento in app/core/verifica_riga.py), decisione di revisione
+# riservata al consulente come per Titoli abilitativi/Soci/Amministratori.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/catalogo-titoli-studio", response_model=list[CatalogoRead], tags=TAGS)
+def get_catalogo_titoli_studio(
+    db: Session = Depends(get_db),
+    _ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    return lista_catalogo_titoli_studio(db)
+
+
+@router.get("/persone/{persona_id}/titoli-studio", response_model=list[TitoloStudioRead], tags=TAGS)
+def get_titoli_studio_persona(
+    persona_id: UUID,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    if profilo_persona(db, ctx.azienda_id, persona_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona non trovata")
+    return lista_titoli_studio_persona(db, ctx.azienda_id, persona_id)
+
+
+@router.post(
+    "/persone/{persona_id}/titoli-studio",
+    response_model=TitoloStudioRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=TAGS,
+)
+def post_titolo_studio(
+    persona_id: UUID,
+    payload: TitoloStudioCreate,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    return crea_titolo_studio(db, ctx.azienda_id, persona_id, payload)
+
+
+@router.put("/titoli-studio/{titolo_id}", response_model=TitoloStudioRead, tags=TAGS)
+def put_titolo_studio(
+    titolo_id: UUID,
+    payload: TitoloStudioUpdate,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    titolo = aggiorna_titolo_studio(db, ctx.azienda_id, titolo_id, payload)
+    if titolo is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Titolo di studio non trovato")
+    return titolo
+
+
+@router.delete("/titoli-studio/{titolo_id}", status_code=status.HTTP_204_NO_CONTENT, tags=TAGS)
+def delete_titolo_studio(
+    titolo_id: UUID,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    if not elimina_titolo_studio(db, ctx.azienda_id, titolo_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Titolo di studio non trovato")
+
+
+@router.post("/titoli-studio/{titolo_id}/review", response_model=TitoloStudioRead, tags=TAGS)
+def review_titolo_studio(
+    titolo_id: UUID,
+    payload: ReviewDecisionRequest,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(require_consulente_ctx),
+    _modulo: None = Depends(_modulo_dep),
+):
+    """Decisione di verifica sulla riga (§ commento in
+    app/core/verifica_riga.py): stesso trattamento già in uso per Titoli
+    abilitativi/Soci/Amministratori/Sindaci."""
+    applica_decisione_verifica_riga(
+        db,
+        ctx,
+        SEZIONE_VERIFICA_TITOLI_STUDIO,
+        titolo_id,
+        decisione=payload.decision,
+        nota=payload.note,
+        expected_version=payload.expectedFieldVersion,
+    )
+    db.commit()
+    titolo = dettaglio_titolo_studio(db, ctx.azienda_id, titolo_id)
+    if titolo is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Titolo di studio non trovato")
+    return titolo
+
+
+# ---------------------------------------------------------------------------
+# Esperienze rilevanti — "verificata" è una decisione riservata al
+# consulente (stesso principio di "review" sopra), anche se non passa dal
+# motore verifica_riga.py: nessun campo booleano modificabile dall'azienda.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/persone/{persona_id}/esperienze", response_model=list[EsperienzaRead], tags=TAGS)
+def get_esperienze_persona(
+    persona_id: UUID,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    if profilo_persona(db, ctx.azienda_id, persona_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona non trovata")
+    return lista_esperienze_persona(db, ctx.azienda_id, persona_id)
+
+
+@router.post(
+    "/persone/{persona_id}/esperienze", response_model=EsperienzaRead, status_code=status.HTTP_201_CREATED, tags=TAGS
+)
+def post_esperienza(
+    persona_id: UUID,
+    payload: EsperienzaCreate,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    return crea_esperienza(db, ctx.azienda_id, persona_id, payload)
+
+
+@router.put("/esperienze/{esperienza_id}", response_model=EsperienzaRead, tags=TAGS)
+def put_esperienza(
+    esperienza_id: UUID,
+    payload: EsperienzaUpdate,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    esperienza = aggiorna_esperienza(db, ctx.azienda_id, esperienza_id, payload)
+    if esperienza is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Esperienza non trovata")
+    return esperienza
+
+
+@router.delete("/esperienze/{esperienza_id}", status_code=status.HTTP_204_NO_CONTENT, tags=TAGS)
+def delete_esperienza(
+    esperienza_id: UUID,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(get_current_azienda),
+    _modulo: None = Depends(_modulo_dep),
+):
+    if not elimina_esperienza(db, ctx.azienda_id, esperienza_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Esperienza non trovata")
+
+
+@router.post("/esperienze/{esperienza_id}/verifica", response_model=EsperienzaRead, tags=TAGS)
+def post_verifica_esperienza(
+    esperienza_id: UUID,
+    payload: EsperienzaVerificaRequest,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(require_consulente_ctx),
+    _modulo: None = Depends(_modulo_dep),
+):
+    esperienza = verifica_esperienza(db, ctx.azienda_id, esperienza_id, payload.verificata)
+    if esperienza is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Esperienza non trovata")
+    return esperienza
+
+
+# ---------------------------------------------------------------------------
+# Note — interne, riservate ai consulenti (§3): l'intero segmento usa
+# require_consulente_ctx invece di get_current_azienda, non solo sulle
+# operazioni di scrittura come sopra. Un utente aziendale (AZIENDA_ADMIN/
+# OPERATORE) riceve 403 anche sulla sola lettura, non solo un frontend che
+# nasconde la scheda.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/categorie-note", response_model=list[NotaCategoriaRead], tags=TAGS)
+def get_categorie_nota(
+    _ctx: AziendaContext = Depends(require_consulente_ctx),
+    _modulo: None = Depends(_modulo_dep),
+):
+    return lista_categorie_nota()
+
+
+@router.get("/persone/{persona_id}/note", response_model=list[NotaRead], tags=TAGS)
+def get_note_persona(
+    persona_id: UUID,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(require_consulente_ctx),
+    _modulo: None = Depends(_modulo_dep),
+):
+    if profilo_persona(db, ctx.azienda_id, persona_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona non trovata")
+    return note_persona(db, ctx.azienda_id, persona_id)
+
+
+@router.post("/persone/{persona_id}/note", response_model=NotaRead, status_code=status.HTTP_201_CREATED, tags=TAGS)
+def post_nota(
+    persona_id: UUID,
+    payload: NotaCreate,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(require_consulente_ctx),
+    _modulo: None = Depends(_modulo_dep),
+):
+    return crea_nota(db, ctx.azienda_id, ctx.utente_id, persona_id, payload)
+
+
+@router.put("/note/{nota_id}", response_model=NotaRead, tags=TAGS)
+def put_nota(
+    nota_id: UUID,
+    payload: NotaUpdate,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(require_consulente_ctx),
+    _modulo: None = Depends(_modulo_dep),
+):
+    nota = aggiorna_nota(db, ctx.azienda_id, nota_id, payload)
+    if nota is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nota non trovata")
+    return nota
+
+
+@router.delete("/note/{nota_id}", status_code=status.HTTP_204_NO_CONTENT, tags=TAGS)
+def delete_nota(
+    nota_id: UUID,
+    db: Session = Depends(get_db),
+    ctx: AziendaContext = Depends(require_consulente_ctx),
+    _modulo: None = Depends(_modulo_dep),
+):
+    if not archivia_nota(db, ctx.azienda_id, nota_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nota non trovata")

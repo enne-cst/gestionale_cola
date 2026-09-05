@@ -373,3 +373,158 @@ export interface IdoneitaSanitaria {
   prossimo_appuntamento: AppuntamentoVisita | null;
   esposizioni: EsposizioneAssociata[];
 }
+
+// ---------------------------------------------------------------------------
+// Competenze (Conoscenza, Competenza, Consapevolezza + Titoli di studio +
+// Esperienze rilevanti). Il livello complessivo del macro-indicatore è
+// sempre indipendente dalle valutazioni analitiche delle singole voci
+// (mai una media o un conteggio) — vedi backend/app/schemas/personale_hr.py.
+// ---------------------------------------------------------------------------
+
+export type MacroareaCompetenze = "KNOWLEDGE" | "COMPETENCE" | "AWARENESS";
+export type LivelloValutazione = "BASE" | "INTERMEDIO" | "AVANZATO";
+
+export interface MacroIndicatore {
+  macroarea: MacroareaCompetenze;
+  livello: LivelloValutazione | null;
+  data_valutazione: string | null;
+  valutatore: string | null;
+  nota: string | null;
+  voci_attive: number | null;
+  voci_nascoste: number | null;
+}
+
+export interface MacroIndicatoreValutaPayload {
+  livello: LivelloValutazione;
+  data_valutazione: string;
+  nota?: string | null;
+}
+
+export interface Conoscenza {
+  id: string;
+  nome: string;
+  descrizione: string | null;
+  livello: LivelloValutazione | null;
+  data_valutazione: string | null;
+  valutatore: string | null;
+}
+
+export interface ConoscenzaPayload {
+  nome: string;
+  descrizione?: string | null;
+}
+
+export interface ValutazioneVocePayload {
+  voce_id: string;
+  livello: LivelloValutazione;
+  evidenza_nota?: string | null;
+}
+
+export interface ValutaVociPayload {
+  data_valutazione: string;
+  nota_generale?: string | null;
+  voci: ValutazioneVocePayload[];
+}
+
+export interface Competenza {
+  voce_id: string;
+  nome: string;
+  descrizione: string | null;
+  ruoli_origine: string[];
+  livello: LivelloValutazione | null;
+  data_valutazione: string | null;
+  valutatore: string | null;
+}
+
+export interface CompetenzaNascosta {
+  voce_id: string;
+  nome: string;
+  descrizione: string | null;
+  ruoli_origine: string[];
+  livello: LivelloValutazione | null;
+  data_valutazione: string | null;
+}
+
+export interface CompetenzePersona {
+  attive: Competenza[];
+  nascoste: CompetenzaNascosta[];
+}
+
+// Titoli di studio
+
+export type StatoVerifica = "PENDING_VERIFICATION" | "VERIFIED" | "REVISION_REQUIRED";
+
+export interface TitoloStudio {
+  id: string;
+  tipologia: CatalogoVoce;
+  indirizzo_specializzazione: string | null;
+  istituto: string | null;
+  anno: number | null;
+  votazione: string | null;
+  documento_presente: boolean;
+  verificationStatus: StatoVerifica | null;
+  verificationVersion: number | null;
+  revisionNote: string | null;
+  verifiedAt: string | null;
+  verifiedBy: string | null;
+}
+
+export interface TitoloStudioPayload {
+  tipologia_titolo_id: string;
+  indirizzo_specializzazione?: string | null;
+  istituto?: string | null;
+  anno?: number | null;
+  votazione?: string | null;
+}
+
+// Esperienze rilevanti
+
+export type RilevanzaEsperienza = "PROFESSIONALE" | "TECNICA" | "ORGANIZZATIVA";
+
+export interface Esperienza {
+  id: string;
+  attivita_ruolo: string;
+  organizzazione: string | null;
+  data_inizio: string | null;
+  data_fine: string | null;
+  rilevanza: RilevanzaEsperienza;
+  descrizione: string | null;
+  verificata: boolean;
+  documento_presente: boolean;
+}
+
+export interface EsperienzaPayload {
+  attivita_ruolo: string;
+  organizzazione?: string | null;
+  data_inizio?: string | null;
+  data_fine?: string | null;
+  rilevanza: RilevanzaEsperienza;
+  descrizione?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Note — interne, riservate ai consulenti. Nessun campo Visibilità nel
+// form: ogni nota creata da questa scheda è sempre SOLO_CONSULENTI lato
+// backend. Nessun titolo separato, nessuna evidenza, nessun filtro.
+// ---------------------------------------------------------------------------
+
+export type NotaCategoria = "GENERALE" | "FORMAZIONE" | "RUOLO" | "SORVEGLIANZA_SANITARIA" | "COMPETENZE";
+
+export interface NotaCategoriaVoce {
+  codice: NotaCategoria;
+  denominazione: string;
+}
+
+export interface Nota {
+  id: string;
+  categoria: NotaCategoria;
+  testo: string;
+  autore: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotaPayload {
+  categoria: NotaCategoria;
+  testo: string;
+}

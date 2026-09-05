@@ -11,12 +11,24 @@ import type {
   CatalogoCorsoPayload,
   CatalogoCreatePayload,
   CatalogoVoce,
+  Competenza,
+  CompetenzaNascosta,
   CompetenzaRuolo,
   CompetenzaRuoloPayload,
+  CompetenzePersona,
+  Conoscenza,
+  ConoscenzaPayload,
   DocumentoPersonale,
   DocumentoPersonalePayload,
+  Esperienza,
+  EsperienzaPayload,
   GiudizioIdoneita,
   GiudizioIdoneitaPayload,
+  MacroIndicatore,
+  MacroIndicatoreValutaPayload,
+  MacroareaCompetenze,
+  Nota,
+  NotaPayload,
   NuovaPersonaPayload,
   PersonaProfilo,
   PersonaProfiloUpdatePayload,
@@ -24,6 +36,9 @@ import type {
   PromemoriaVisitaPayload,
   RegistrazioneFormativa,
   RegistrazioneFormativaPayload,
+  TitoloStudio,
+  TitoloStudioPayload,
+  ValutaVociPayload,
 } from "@/lib/types/personale-hr";
 
 export async function creaPersona(payload: NuovaPersonaPayload) {
@@ -116,4 +131,98 @@ export async function aggiornaAppuntamentoVisita(appuntamentoId: string, payload
 
 export async function creaPromemoriaVisita(personaId: string, payload: PromemoriaVisitaPayload) {
   return postApiResource<PromemoriaVisita>(`/api/personale/persone/${personaId}/promemoria-visita`, payload);
+}
+
+export async function valutaMacroIndicatore(
+  personaId: string,
+  macroarea: MacroareaCompetenze,
+  payload: MacroIndicatoreValutaPayload,
+) {
+  return postApiResource<MacroIndicatore>(
+    `/api/personale/persone/${personaId}/competenze/macro-indicatori/${macroarea}/valuta`,
+    payload,
+  );
+}
+
+export async function creaConoscenza(personaId: string, payload: ConoscenzaPayload) {
+  return postApiResource<Conoscenza>(`/api/personale/persone/${personaId}/conoscenze`, payload);
+}
+
+export async function aggiornaConoscenza(conoscenzaId: string, payload: ConoscenzaPayload) {
+  return putApiResourceResult<Conoscenza>(`/api/personale/conoscenze/${conoscenzaId}`, payload);
+}
+
+export async function archiviaConoscenza(conoscenzaId: string) {
+  return deleteApiResource(`/api/personale/conoscenze/${conoscenzaId}`);
+}
+
+export async function valutaConoscenze(personaId: string, payload: ValutaVociPayload) {
+  return postApiResource<Conoscenza[]>(`/api/personale/persone/${personaId}/conoscenze/valuta`, payload);
+}
+
+export async function valutaCompetenze(personaId: string, payload: ValutaVociPayload) {
+  return postApiResource<CompetenzePersona>(`/api/personale/persone/${personaId}/competenze/valuta`, payload);
+}
+
+export async function nascondiCompetenza(personaId: string, voceId: string, motivo: string | null) {
+  return postApiResource<CompetenzePersona>(`/api/personale/persone/${personaId}/competenze/${voceId}/nascondi`, {
+    motivo,
+  });
+}
+
+export async function ripristinaCompetenza(personaId: string, voceId: string) {
+  return postApiResource<CompetenzePersona>(`/api/personale/persone/${personaId}/competenze/${voceId}/ripristina`, {});
+}
+
+export async function creaTitoloStudio(personaId: string, payload: TitoloStudioPayload) {
+  return postApiResource<TitoloStudio>(`/api/personale/persone/${personaId}/titoli-studio`, payload);
+}
+
+export async function aggiornaTitoloStudio(titoloId: string, payload: TitoloStudioPayload) {
+  return putApiResourceResult<TitoloStudio>(`/api/personale/titoli-studio/${titoloId}`, payload);
+}
+
+export async function eliminaTitoloStudio(titoloId: string) {
+  return deleteApiResource(`/api/personale/titoli-studio/${titoloId}`);
+}
+
+export async function verificaTitoloStudio(
+  titoloId: string,
+  decision: "VERIFIED" | "REVISION_REQUIRED",
+  note: string | null,
+  expectedFieldVersion: number | null,
+) {
+  return postApiResource<TitoloStudio>(`/api/personale/titoli-studio/${titoloId}/review`, {
+    decision,
+    note,
+    expectedFieldVersion,
+  });
+}
+
+export async function creaEsperienza(personaId: string, payload: EsperienzaPayload) {
+  return postApiResource<Esperienza>(`/api/personale/persone/${personaId}/esperienze`, payload);
+}
+
+export async function aggiornaEsperienza(esperienzaId: string, payload: EsperienzaPayload) {
+  return putApiResourceResult<Esperienza>(`/api/personale/esperienze/${esperienzaId}`, payload);
+}
+
+export async function eliminaEsperienza(esperienzaId: string) {
+  return deleteApiResource(`/api/personale/esperienze/${esperienzaId}`);
+}
+
+export async function verificaEsperienza(esperienzaId: string, verificata: boolean) {
+  return postApiResource<Esperienza>(`/api/personale/esperienze/${esperienzaId}/verifica`, { verificata });
+}
+
+export async function creaNota(personaId: string, payload: NotaPayload) {
+  return postApiResource<Nota>(`/api/personale/persone/${personaId}/note`, payload);
+}
+
+export async function aggiornaNota(notaId: string, payload: NotaPayload) {
+  return putApiResourceResult<Nota>(`/api/personale/note/${notaId}`, payload);
+}
+
+export async function eliminaNota(notaId: string) {
+  return deleteApiResource(`/api/personale/note/${notaId}`);
 }
